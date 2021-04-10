@@ -55,6 +55,7 @@ object TransferProximityToExtremes {
         ).convert(toDays = 1)
       } yield transferDay -> estimatedRate
 
+    import Ordering.Double.TotalOrdering
     val (bestDay, _) = estimatedRatesByTransferDay.minBy { case (_, rate) =>
       math.abs(rate.value - intervalAvgDailyRate.value)
     }

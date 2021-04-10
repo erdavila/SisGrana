@@ -56,6 +56,7 @@ object NumberOfTransfers {
         ).convert(toDays = 1)
       } yield transfersCount -> estimatedRate
 
+    import Ordering.Double.TotalOrdering
     val (bestCount, _) = estimatedRatesByTransfersCount.minBy { case (_, rate) =>
       math.abs(rate.value - intervalAvgDailyRate.value)
     }
