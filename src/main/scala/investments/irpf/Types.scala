@@ -48,14 +48,11 @@ class Types(typesByAssetCode: Map[String, Type]) {
 
 object Types {
   def fromFile(file: File): Types = {
-    val typesByAssetCode = TSV.fromFile(file) { lines =>
-      (
-        for {
-          List(assetCode, typeCode) <- lines
-          tp = Type.ByCode(typeCode)
-        } yield assetCode -> tp
-      ).toMap
+    val entries = SSV.readFile(file).map { lineValues =>
+      SSV.matchValues(lineValues) { case Seq(asset, typeCode) =>
+        asset -> Type.ByCode(typeCode)
+      }
     }
-    new Types(typesByAssetCode)
+    new Types(entries.toMap)
   }
 }

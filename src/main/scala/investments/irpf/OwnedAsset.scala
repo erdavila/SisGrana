@@ -1,7 +1,6 @@
 package sisgrana
 package investments.irpf
 
-import investments.irpf.TSV.Elements
 import monocle.syntax.all._
 
 case class Amount(quantity: Int, averagePrice: Double) {
@@ -37,8 +36,8 @@ case class OwnedAsset(stockbrokerAsset: StockbrokerAsset, amount: Amount) {
 }
 
 object OwnedAsset {
-  def parseTsvElements(elements: Elements): OwnedAsset = {
-    Elements.matching(elements) { case List(asset, quantityString, averagePriceString, stockbroker) =>
+  def fromLineValues(values: Seq[String]): OwnedAsset = {
+    SSV.matchValues(values) { case Seq(asset, quantityString, averagePriceString, stockbroker) =>
       val stockbrokerAsset = StockbrokerAsset(stockbroker, asset)
       val quantity = quantityString.toInt
       val averagePrice = BrNumber.parse(averagePriceString)
@@ -46,11 +45,11 @@ object OwnedAsset {
     }
   }
 
-  def toTsvElements(ownedAsset: OwnedAsset): Elements =
-    Elements(
+  def toLineValues(ownedAsset: OwnedAsset): Seq[String] =
+    Vector(
       ownedAsset.stockbrokerAsset.asset,
       ownedAsset.amount.quantity,
       BrNumber.format(ownedAsset.amount.averagePrice),
       ownedAsset.stockbrokerAsset.stockbroker,
-    )
+    ).map(_.toString)
 }

@@ -8,9 +8,9 @@ import monocle.syntax.all._
 object VariableIncome {
 
   private val DataPath = "data"
-  private val EndAssetsFileName = "END - assets.tsv"
-  private val NamesFileName = "names.tsv"
-  private val TypesFileName = "types.tsv"
+  private val EndAssetsFileName = "END - assets.ssv"
+  private val NamesFileName = "names.ssv"
+  private val TypesFileName = "types.ssv"
 
   private val SwingTradeExemptableLimit = 20_000.00
   private val SwingTradeTaxRate = 0.15
@@ -20,7 +20,7 @@ object VariableIncome {
   def main(args: Array[String]): Unit = {
     val (year, showDebugInfo) = parseOptions(args.toList)
 
-    val names = Names.fromFile(new File(DataPath, NamesFileName))
+    val nameNormalizer = NameNormalizer.fromFile(new File(DataPath, NamesFileName))
     val types = Types.fromFile(new File(DataPath, TypesFileName))
 
     val previousYearDir = new File(DataPath, (year - 1).toString)
@@ -34,7 +34,7 @@ object VariableIncome {
       .listFiles()
       .collect {
         case file@InputNote.FileMatcher(date, Some(stockbroker)) =>
-          BrokerageNote.fromFile(date, stockbroker, names)(file)
+          BrokerageNote.fromFile(date, stockbroker, nameNormalizer)(file)
         case file@InputNote.FileMatcher(date, None) =>
           EventsNote.fromFile(date)(file)
       }

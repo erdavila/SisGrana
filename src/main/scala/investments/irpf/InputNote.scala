@@ -1,7 +1,6 @@
 package sisgrana
 package investments.irpf
 
-import investments.irpf.TSV.Elements
 import java.io.File
 import java.time.LocalDate
 import monocle.syntax.all._
@@ -37,8 +36,8 @@ case class Cost(name: String, value: Double) {
 }
 
 object Cost {
-  def parseTsvElements(elements: Elements): Cost =
-    Elements.matching(elements) { case List(name, valueString) =>
+  def parseLineValues(lineValues: Seq[String]): Cost =
+    SSV.matchValues(lineValues) { case Seq(name, valueString) =>
       val value = BrNumber.parse(valueString)
       Cost(name, value)
     }
@@ -52,8 +51,8 @@ case class Negotiation(operation: Operation, asset: String, quantity: Int, price
 }
 
 object Negotiation {
-  def parseElements(names: Names)(elements: Elements): Negotiation =
-    Elements.matching(elements) { case List(operationString, asset, qtyString, priceString) =>
+  def parseLineValues(nameNormalizer: NameNormalizer)(lineValues: Seq[String]): Negotiation =
+    SSV.matchValues(lineValues) { case Seq(operationString, asset, qtyString, priceString) =>
       val operation = operationString match {
         case "C" => Operation.Purchase
         case "V" => Operation.Sale
@@ -61,7 +60,7 @@ object Negotiation {
       val qty = qtyString.toInt
       val price = BrNumber.parse(priceString)
 
-      Negotiation(operation, names.normalize(asset), qty, price)
+      Negotiation(operation, nameNormalizer.normalize(asset), qty, price)
     }
 }
 
@@ -97,21 +96,33 @@ case class BrokerageNote(
 }
 
 object BrokerageNote {
-  def fromFile(date: LocalDate, stockbroker: String, names: Names)(file: File): BrokerageNote =
-    TSV.fromFile(file) { content =>
-      val (negotiationsLines, remaining1) = content.span(_.nonEmpty)
-      val (costsLines, remaining2) = remaining1.drop(1).span(_.nonEmpty)
-      remaining2.drop(1)
-      val irrfString = Elements.matching(remaining2.next()) { case List(irrfString) => irrfString }
-      val totalString = Elements.matching(remaining2.next()) { case List(totalString) => totalString }
+  def fromFile(date: LocalDate, stockbroker: String, nameNormalizer: NameNormalizer)(file: File): BrokerageNote = {
+    val linesValues = SSV.readFile(file)
 
-      val negotiations = negotiationsLines.map(Negotiation.parseElements(names)).toList
-      val costs = costsLines.map(Cost.parseTsvElements).toList
-      val irrf = BrNumber.parse(irrfString)
-      val total = BrNumber.parse(totalString)
+    val (negotiationsLinesValues, remaining1) = linesValues.span(_.nonEmpty)
+    val (costsLinesValues, remaining2) = remaining1.drop(1).span(_.nonEmpty)
+    val (irrfString, totalString) = remaining2.drop(1) match {
+      case Seq(irrfLineValues, totalLineValues, remaining3@_*) =>
+        def singleValue(lineValues: Seq[String], name: String): String =
+          lineValues match {
+            case Seq(value) => value
+            case _ => throw new Exception(s"Invalid values for $name: $lineValues")
+          }
+        val irrfString = singleValue(irrfLineValues, "IRRF")
+        val totalString = singleValue(totalLineValues, "total")
 
-      BrokerageNote(stockbroker, date, negotiations, costs, irrf, total)
+        if (remaining3.isEmpty) (irrfString, totalString)
+        else throw new Exception(s"Exceeding data: $remaining3")
+      case _ => throw new Exception("Missing data")
     }
+
+    val negotiations = negotiationsLinesValues.map(Negotiation.parseLineValues(nameNormalizer))
+    val costs = costsLinesValues.map(Cost.parseLineValues)
+    val irrf = BrNumber.parse(irrfString)
+    val total = BrNumber.parse(totalString)
+
+    BrokerageNote(stockbroker, date, negotiations.toList, costs.toList, irrf, total)
+  }
 
   implicit private class DoubleOps(private val x: Double) extends AnyVal {
     def =~=(y: Double): Boolean =
@@ -130,7 +141,7 @@ object Event {
 
   object AveragePriceDefinition {
     case class Constant(value: Double) extends AveragePriceDefinition {
-      override def apply(averagePrice: Double): Double = ???
+      override def apply(averagePrice: Double): Double = value
     }
 
     case class Multiplier(multiplier: Double) extends AveragePriceDefinition {
@@ -148,7 +159,7 @@ object Event {
 
   case class To(quantity: Int, asset: String, averagePriceDefinition: AveragePriceDefinition)
 
-  def parseTsvElements(elements: Elements): Event = {
+  def parseLineValues(lineValues: Seq[String]): Event = {
     def makeTo(toQty: String, toAsset: String, toAvgPriceRate: String): To =
       To(toQty.toInt, toAsset, AveragePriceDefinition.parse(toAvgPriceRate))
 
@@ -163,7 +174,7 @@ object Event {
         case _ => throw new MatchError(elems)
       }
 
-    Elements.matching(elements) { case List(fromQty, fromAsset, "->", toQty, toAsset, toAvgPriceRate, rest@_*) =>
+    SSV.matchValues(lineValues) { case Seq(fromQty, fromAsset, "->", toQty, toAsset, toAvgPriceRate, rest@_*) =>
       val from = From(fromQty.toInt, fromAsset)
       val to = makeTo(toQty, toAsset, toAvgPriceRate)
       val event = Event(from, Vector(to))
@@ -176,9 +187,7 @@ case class EventsNote(date: LocalDate, events: List[Event]) extends InputNote
 
 object EventsNote {
   def fromFile(date: LocalDate)(file: File): EventsNote = {
-    val events = TSV.fromFile(file) { lines =>
-      lines.map(Event.parseTsvElements).toList
-    }
-    EventsNote(date, events)
+    val events = SSV.readFile(file).map(Event.parseLineValues)
+    EventsNote(date, events.toList)
   }
 }

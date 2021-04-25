@@ -7,15 +7,13 @@ package object irpf {
   type OwnedAssets = Map[StockbrokerAsset, OwnedAsset]
 
   object OwnedAssets {
-    def fromFile(file: File): OwnedAssets =
-      TSV.fromFile(file) { lines =>
-        lines
-          .map { elements =>
-            val ownedAsset = OwnedAsset.parseTsvElements(elements)
-            ownedAsset.stockbrokerAsset -> ownedAsset
-          }
-          .toMap
+    def fromFile(file: File): OwnedAssets = {
+      val entries = SSV.readFile(file).map { lineValues =>
+        val ownedAsset = OwnedAsset.fromLineValues(lineValues)
+        ownedAsset.stockbrokerAsset -> ownedAsset
       }
+      entries.toMap
+    }
   }
 
   implicit class OwnedAssetsOps(private val ownedAssets: OwnedAssets) extends AnyVal {
@@ -35,10 +33,10 @@ package object irpf {
     }
 
     def writeFile(file: File): Unit =
-      TSV.writeFile(file)(
+      SSV.writeFile(file)(
         ownedAssets.values.toArray
           .sortBy(oa => (oa.stockbrokerAsset.asset, oa.stockbrokerAsset.stockbroker))
-          .map(OwnedAsset.toTsvElements)
+          .map(OwnedAsset.toLineValues)
       )
   }
 

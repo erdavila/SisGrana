@@ -5,8 +5,6 @@ import java.time.YearMonth
 
 case class OperationsAmounts(purchaseAmount: Amount, saleAmount: Amount)
 
-case class ProcessedBrokerageNote(original: BrokerageNote, operationsAmountsPerAsset: Map[String, OperationsAmounts])
-
 sealed abstract class TradeBase(quantity: Int, purchaseAveragePrice: Double, saleAveragePrice: Double) {
   require(quantity >= 0)
   require(purchaseAveragePrice >= 0.0)
