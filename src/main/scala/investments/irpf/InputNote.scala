@@ -68,14 +68,14 @@ case class BrokerageNote(
   stockbroker: String, date: LocalDate,
   negotiations: List[Negotiation],
   costs: List[Cost],
-  irrf: Double, totalValue: Double
+  totalValue: Double,
 ) extends InputNote {
   import BrokerageNote.DoubleOps
 
   lazy val totalCosts: Double = costs.map(_.value).sum
 
-  def wasIrrfCharged: Boolean = {
-    val totalValue = -totalCosts +
+  def checkTotalValue(): Unit = {
+    val expectedTotalValue = -totalCosts +
       negotiations
         .map { n =>
           n.operation match {
@@ -85,44 +85,41 @@ case class BrokerageNote(
         }
         .sum
 
-    if (totalValue =~= this.totalValue) {
-      false
-    } else if (totalValue + irrf =~= this.totalValue) {
-      true
-    } else {
-      throw new AssertionError(s"Values don't match!\n$totalValue + ${irrf} != ${this.totalValue}")
-    }
+    assert(expectedTotalValue =~= this.totalValue, s"Total value does not match. Check if IRRF was charged")
   }
 }
 
 object BrokerageNote {
-  def fromFile(date: LocalDate, stockbroker: String, nameNormalizer: NameNormalizer)(file: File): BrokerageNote = {
-    val linesValues = SSV.readFile(file)
+  def fromFile(date: LocalDate, stockbroker: String, nameNormalizer: NameNormalizer)(file: File): BrokerageNote =
+    try {
+      val linesValues = SSV.readFile(file)
 
-    val (negotiationsLinesValues, remaining1) = linesValues.span(_.nonEmpty)
-    val (costsLinesValues, remaining2) = remaining1.drop(1).span(_.nonEmpty)
-    val (irrfString, totalString) = remaining2.drop(1) match {
-      case Seq(irrfLineValues, totalLineValues, remaining3@_*) =>
-        def singleValue(lineValues: Seq[String], name: String): String =
-          lineValues match {
-            case Seq(value) => value
-            case _ => throw new Exception(s"Invalid values for $name: $lineValues")
-          }
-        val irrfString = singleValue(irrfLineValues, "IRRF")
-        val totalString = singleValue(totalLineValues, "total")
+      val (negotiationsLinesValues, remaining1) = linesValues.span(_.nonEmpty)
+      val (costsLinesValues, remaining2) = remaining1.drop(1).span(_.nonEmpty)
+      val totalString = remaining2.drop(1) match {
+        case Seq(totalLineValues, remaining3@_*) =>
+          def singleValue(lineValues: Seq[String], name: String): String =
+            lineValues match {
+              case Seq(value) => value
+              case _ => throw new Exception(s"Invalid values for $name: $lineValues")
+            }
+          val totalString = singleValue(totalLineValues, "total")
 
-        if (remaining3.isEmpty) (irrfString, totalString)
-        else throw new Exception(s"Exceeding data: $remaining3")
-      case _ => throw new Exception("Missing data")
+          if (remaining3.isEmpty) totalString
+          else throw new Exception(s"Exceeding data: $remaining3")
+        case _ => throw new Exception("Missing data")
+      }
+
+      val negotiations = negotiationsLinesValues.map(Negotiation.parseLineValues(nameNormalizer))
+      val costs = costsLinesValues.map(Cost.parseLineValues)
+      val total = BrNumber.parse(totalString)
+
+      val note = BrokerageNote(stockbroker, date, negotiations.toList, costs.toList, total)
+      note.checkTotalValue()
+      note
+    } catch {
+      case t: Throwable => throw new Exception(s"An exception was thrown while reading file $file", t)
     }
-
-    val negotiations = negotiationsLinesValues.map(Negotiation.parseLineValues(nameNormalizer))
-    val costs = costsLinesValues.map(Cost.parseLineValues)
-    val irrf = BrNumber.parse(irrfString)
-    val total = BrNumber.parse(totalString)
-
-    BrokerageNote(stockbroker, date, negotiations.toList, costs.toList, irrf, total)
-  }
 
   implicit private class DoubleOps(private val x: Double) extends AnyVal {
     def =~=(y: Double): Boolean =

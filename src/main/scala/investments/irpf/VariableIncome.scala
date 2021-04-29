@@ -187,9 +187,6 @@ object VariableIncome {
         }
       }
 
-      if (ymOutcome.totalIrrf > 0.0) {
-        indentedPrinter.println(s"  IRRF: ${formatMoney(ymOutcome.totalIrrf)}")
-      }
       indentedPrinter.println()
     }
 
@@ -231,7 +228,7 @@ class VariableIncome(types: Types, debug: Debug) {
         case bn: BrokerageNote => (bn.date, bn.stockbroker)
         case en: EventsNote => (en.date, "")
       }
-      val initialYMOutcome = YearMonthOutcome(yearMonth, SwingTrade.Zero, Trade.Zero, Trade.Zero, 0.0, ownedAssets)
+      val initialYMOutcome = YearMonthOutcome(yearMonth, SwingTrade.Zero, Trade.Zero, Trade.Zero, ownedAssets)
       val ymOutcome = sortedNotes.foldLeft(initialYMOutcome) { (ymOutcome, note) =>
         note match {
           case bn: BrokerageNote => processBrokerageNote(bn)(ymOutcome)
@@ -244,7 +241,6 @@ class VariableIncome(types: Types, debug: Debug) {
           debug.println(ymOutcome.swingTrade)
           debug.println(s"Day Trade: ${ymOutcome.dayTrade}")
           debug.println(s"FIIs: ${ymOutcome.fiisTrade}")
-          debug.println(s"Total IRRF: ${ymOutcome.totalIrrf}")
           debug.printOwnedAssets(ymOutcome.ownedAssets)
         }
       }
@@ -259,22 +255,17 @@ class VariableIncome(types: Types, debug: Debug) {
           debug.println(n)
         }
         debug.println(s"Costs: ${note.costs}")
-        debug.println(s"IRRF: ${note.irrf}")
         debug.println(s"Value: ${note.totalValue}")
       }
 
       val operationsAmountsPerStockWithoutCosts = aggregateOperationsAmountsPerStock(note.negotiations)
       val operationsAmountsPerStock = addCosts(note.totalCosts)(operationsAmountsPerStockWithoutCosts)
 
-      val newYearMonthOutcome = operationsAmountsPerStock.foldLeft(yearMonthOutcome) { case (ymOutcome, (asset, opsAmounts)) =>
+      operationsAmountsPerStock.foldLeft(yearMonthOutcome) { case (ymOutcome, (asset, opsAmounts)) =>
         val stockbrokerAsset = StockbrokerAsset(note.stockbroker, asset)
         lazy val averagePurchasePriceWithoutCost = operationsAmountsPerStockWithoutCosts(stockbrokerAsset.asset).saleAmount.averagePrice
         processAsset(stockbrokerAsset, opsAmounts, averagePurchasePriceWithoutCost)(ymOutcome)
       }
-
-      newYearMonthOutcome
-        .focus(_.totalIrrf)
-        .modify(_ + (if (note.wasIrrfCharged) note.irrf else 0.0))
     }
 
   private def aggregateOperationsAmountsPerStock(negotiations: Seq[Negotiation]): Map[String, OperationsAmounts] =

@@ -52,12 +52,10 @@ CONTEÚDO :=
     LINHA-EM-BRANCO
     LINHA-DE-CUSTO*
     LINHA-EM-BRANCO
-    LINHA-DE-IRRF
     LINHA-DE-VALOR-DA-NOTA
 LINHA-DE-NEGOCIAÇÃO := [OPERAÇÃO]  [NOME:s]  [QUANTIA:i]  [PREÇO:n]
 OPERAÇÃO := 'C' /* compra */ | 'V' /* venda */
-LINHA-DE-CUSTO := [DESCRIÇÃO:s] /* ignorada */  [CUSTO:n]
-LINHA-DE-IRRF := [IRRF:n] /* conforme aparece na nota. Pode não ter sido realmente cobrado. */
+LINHA-DE-CUSTO := [DESCRIÇÃO:s] /* ignorada */  [CUSTO:n]  /* não incluir IRRF! */
 LINHA-DE-VALOR-DA-NOTA := [VALOR:sn] /* positivo se houve mais vendas, negativo se houve mais compras */
 ```
 

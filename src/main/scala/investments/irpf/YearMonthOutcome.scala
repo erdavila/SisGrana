@@ -82,6 +82,5 @@ case class YearMonthOutcome(
   swingTrade: SwingTrade,
   dayTrade: Trade,
   fiisTrade: Trade,
-  totalIrrf: Double,
   ownedAssets: OwnedAssets,
 )
