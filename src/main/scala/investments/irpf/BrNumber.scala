@@ -16,6 +16,9 @@ object BrNumber {
     number
   }
 
-  def format(price: Double): String =
-    NF.format(price)
+  def format(number: Double): String =
+    NF.format(number)
+
+  def formatMoney(number: Double): String =
+    s"R$$ ${format(number)}"
 }

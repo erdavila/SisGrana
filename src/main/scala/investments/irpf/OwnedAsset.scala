@@ -1,6 +1,7 @@
 package sisgrana
 package investments.irpf
 
+import java.io.File
 import monocle.syntax.all._
 
 case class Amount(quantity: Int, averagePrice: Double) {
@@ -52,4 +53,40 @@ object OwnedAsset {
       BrNumber.format(ownedAsset.amount.averagePrice),
       ownedAsset.stockbrokerAsset.stockbroker,
     ).map(_.toString)
+}
+
+object OwnedAssets {
+  type Type = Map[StockbrokerAsset, OwnedAsset]
+
+  def fromFile(file: File): OwnedAssets = {
+    val entries = SSV.readFile(file).map { lineValues =>
+      val ownedAsset = OwnedAsset.fromLineValues(lineValues)
+      ownedAsset.stockbrokerAsset -> ownedAsset
+    }
+    entries.toMap
+  }
+
+  implicit class Ops(private val ownedAssets: OwnedAssets) extends AnyVal {
+    def addTo(stockbrokerAsset: StockbrokerAsset)(amount: Amount): OwnedAssets =
+      ownedAssets.updatedWith(stockbrokerAsset) { ownedAssetOpt =>
+        val ownedAsset = ownedAssetOpt.getOrElse(OwnedAsset(stockbrokerAsset, Amount.Zero))
+        Some(ownedAsset.add(amount))
+      }
+
+    def removeFrom(stockbrokerAsset: StockbrokerAsset)(quantity: Int): OwnedAssets = {
+      assert(quantity >= 0)
+      ownedAssets.updatedWith(stockbrokerAsset) { ownedAssetOpt =>
+        val ownedAsset = ownedAssetOpt.getOrElse(OwnedAsset(stockbrokerAsset, Amount.Zero))
+        val newOwnedAsset = ownedAsset.remove(quantity)
+        Option.when(newOwnedAsset.amount.quantity > 0) { newOwnedAsset }
+      }
+    }
+
+    def writeFile(file: File): Unit =
+      SSV.writeFile(file)(
+        ownedAssets.values.toArray
+          .sortBy(oa => (oa.stockbrokerAsset.asset, oa.stockbrokerAsset.stockbroker))
+          .map(OwnedAsset.toLineValues)
+      )
+  }
 }
