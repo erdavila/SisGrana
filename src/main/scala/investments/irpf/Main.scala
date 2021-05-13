@@ -62,13 +62,22 @@ class Main(types: Types, nameNormalizer: NameNormalizer) {
     }
 
     printer.context("Bens") {
-      for (ownedAsset <- finalOwnedAssets.values.toArray.sortBy(ss => (ss.stockbrokerAsset.asset, ss.stockbrokerAsset.stockbroker))) {
-        val `type` = types(ownedAsset.stockbrokerAsset.asset)
-        val tag =
-          if (`type` != Type.Default) s" [${`type`.code}]"
-          else ""
+      val ownedAssetsGroupedByStockbroker = finalOwnedAssets
+        .groupMap(_._1.stockbroker)(t => (t._1.asset, t._2))
+        .toIndexedSeq
+        .sortBy(_._1)
 
-        printer.println(s"${ownedAsset.stockbrokerAsset.asset}: ${ownedAsset.amount.formatted} - ${ownedAsset.stockbrokerAsset.stockbroker}$tag")
+      for ((stockbroker, ownedAssets) <- ownedAssetsGroupedByStockbroker) {
+        printer.context(stockbroker) {
+          for ((asset, ownedAsset) <- ownedAssets.toIndexedSeq.sortBy(_._1)) {
+            val `type` = types(ownedAsset.stockbrokerAsset.asset)
+            val tag =
+              if (`type` != Type.Default) s" [${`type`.code}]"
+              else ""
+
+            printer.println(s"$asset: ${ownedAsset.amount.formatted}$tag")
+          }
+        }
       }
     }
 
