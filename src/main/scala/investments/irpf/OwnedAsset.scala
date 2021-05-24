@@ -1,8 +1,8 @@
 package sisgrana
 package investments.irpf
 
+import com.softwaremill.quicklens._
 import java.io.File
-import monocle.syntax.all._
 
 case class Amount(quantity: Int, averagePrice: Double) {
   require(quantity >= 0)
@@ -18,7 +18,7 @@ case class Amount(quantity: Int, averagePrice: Double) {
 
   def remove(quantity: Int): Amount = {
     require(quantity > 0)
-    this.focus(_.quantity).modify(_ - quantity)
+    this.modify(_.quantity).using(_ - quantity)
   }
 }
 
@@ -28,11 +28,11 @@ object Amount {
 
 case class OwnedAsset(stockbrokerAsset: StockbrokerAsset, amount: Amount) {
   def add(amount: Amount): OwnedAsset =
-    this.focus(_.amount).modify(_.add(amount))
+    this.modify(_.amount).using(_.add(amount))
 
   def remove(quantity: Int): OwnedAsset = {
     require(quantity > 0)
-    this.focus(_.amount).modify(_.remove(quantity))
+    this.modify(_.amount).using(_.remove(quantity))
   }
 }
 

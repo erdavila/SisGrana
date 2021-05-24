@@ -1,10 +1,10 @@
 package sisgrana
 package investments.irpf
 
+import com.softwaremill.quicklens._
 import investments.irpf.OwnedAssets.Ops
 import java.io.File
 import java.time.{LocalDate, YearMonth}
-import monocle.syntax.all._
 
 case class FileNameValues(date: LocalDate, name: String, file: File)
 
@@ -94,7 +94,7 @@ class Main(types: Types, nameNormalizer: NameNormalizer) {
       val initialYMOutcome = YearMonthOutcome(0.0, SwingTrade.Zero, 0.0, ownedAssets)
       val finalYMOutcome = sortedFileNames.foldLeft(initialYMOutcome) { (ymOutcome, fileName) =>
         fileName match {
-          case EventsFileName(date, file) => ymOutcome.focus(_.ownedAssets).modify(processEvents(date, file))
+          case EventsFileName(date, file) => ymOutcome.modify(_.ownedAssets).using(processEvents(date, file))
           case BrokerageNoteFileName(date, stockbroker, file) => processBrokerageNote(date, stockbroker, file)(ymOutcome)
         }
       }
@@ -245,8 +245,8 @@ class Main(types: Types, nameNormalizer: NameNormalizer) {
         val opsAmounts = opsAmountsOpt.getOrElse(OperationsAmounts(Amount.Zero, Amount.Zero))
         val newOpsAmounts =
           negotiation.operation match {
-            case Operation.Purchase => opsAmounts.focus(_.purchaseAmount).modify(_.add(amount))
-            case Operation.Sale => opsAmounts.focus(_.saleAmount).modify(_.add(amount))
+            case Operation.Purchase => opsAmounts.modify(_.purchaseAmount).using(_.add(amount))
+            case Operation.Sale => opsAmounts.modify(_.saleAmount).using(_.add(amount))
           }
         Some(newOpsAmounts)
       }
@@ -270,15 +270,15 @@ class Main(types: Types, nameNormalizer: NameNormalizer) {
           case Operation.Sale => amount.totalValue - proportionalCost
         }
         amount
-          .focus(_.averagePrice)
-          .replace(totalValueWithCosts / amount.quantity)
+          .modify(_.averagePrice)
+          .setTo(totalValueWithCosts / amount.quantity)
       }
 
     opsAmountsPerStock
       .view.mapValues { opsAmounts =>
       opsAmounts
-        .focus(_.purchaseAmount).modify(addOperationCosts(Operation.Purchase))
-        .focus(_.saleAmount).modify(addOperationCosts(Operation.Sale))
+        .modify(_.purchaseAmount).using(addOperationCosts(Operation.Purchase))
+        .modify(_.saleAmount).using(addOperationCosts(Operation.Sale))
     }
       .toMap
   }
@@ -357,10 +357,10 @@ class Main(types: Types, nameNormalizer: NameNormalizer) {
         }
 
       yearMonthOutcome
-        .focus(_.dayTradeResult).modify(_ + dayTradeResultDelta)
-        .focus(_.swingTrade).modify(_ + swingTradeDelta)
-        .focus(_.fiisResult).modify(_ + fiisResultDelta)
-        .focus(_.ownedAssets).modify { ownedAssets =>
+        .modify(_.dayTradeResult).using(_ + dayTradeResultDelta)
+        .modify(_.swingTrade).using(_ + swingTradeDelta)
+        .modify(_.fiisResult).using(_ + fiisResultDelta)
+        .modify(_.ownedAssets).using { ownedAssets =>
           if (amountAfter.quantity == 0) ownedAssets.removed(stockbrokerAsset)
           else ownedAssets.updated(stockbrokerAsset, OwnedAsset(stockbrokerAsset, amountAfter))
         }

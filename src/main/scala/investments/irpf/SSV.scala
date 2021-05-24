@@ -1,8 +1,8 @@
 package sisgrana
 package investments.irpf
 
+import com.softwaremill.quicklens._
 import java.io.{File, PrintWriter}
-import monocle.syntax.all._
 import scala.io.Source
 
 object SSV {
@@ -26,25 +26,25 @@ object SSV {
   private[irpf] def fromChars(chars: Iterator[Char]): Seq[Seq[String]] = {
     case class Data(linesValues: Vector[Vector[String]], lineValues: Vector[String], value: String, lineNumber: Int, columnNumber: Int) {
       def appendToValue(char: Char): Data =
-        this.focus(_.value).modify(_ :+ char)
+        this.modify(_.value).using(_ :+ char)
 
       def commitValue(): Data =
         this
-          .focus(_.lineValues).modify(_ :+ this.value)
-          .focus(_.value).replace("")
+          .modify(_.lineValues).using(_ :+ this.value)
+          .modify(_.value).setTo("")
 
       def commitLineValues(): Data =
         this
-          .focus(_.linesValues).modify(_ :+ this.lineValues)
-          .focus(_.lineValues).replace(Vector.empty)
+          .modify(_.linesValues).using(_ :+ this.lineValues)
+          .modify(_.lineValues).setTo(Vector.empty)
 
       def incrementLineNumber(): Data =
         this
-          .focus(_.lineNumber).modify(_ + 1)
-          .focus(_.columnNumber).replace(1)
+          .modify(_.lineNumber).using(_ + 1)
+          .modify(_.columnNumber).setTo(1)
 
       def incrementColumnNumber(): Data =
-        this.focus(_.columnNumber).modify(_ + 1)
+        this.modify(_.columnNumber).using(_ + 1)
     }
 
     sealed trait State {

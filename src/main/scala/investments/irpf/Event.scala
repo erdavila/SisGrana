@@ -1,8 +1,8 @@
 package sisgrana
 package investments.irpf
 
+import com.softwaremill.quicklens._
 import java.io.File
-import monocle.syntax.all._
 import scala.annotation.tailrec
 
 case class Event(from: Event.From, tos: Vector[Event.To]) {
@@ -53,7 +53,7 @@ object Event {
       elems match {
         case Seq("+", toQty, toAsset, toAvgPriceRate, rest@_*) =>
           val to = makeTo(toQty, toAsset, toAvgPriceRate)
-          val newEvent = event.focus(_.tos).modify(_ :+ to)
+          val newEvent = event.modify(_.tos).using(_ :+ to)
           parseMoreTos(newEvent, rest)
         case Seq() => event
         case _ => throw new MatchError(elems)
