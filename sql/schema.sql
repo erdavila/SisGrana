@@ -19,3 +19,16 @@ CREATE TABLE IF NOT EXISTS asset_change(
 
     PRIMARY KEY (date, asset, stockbroker)
 );
+
+CREATE TABLE IF NOT EXISTS asset_quote(
+    asset TEXT NOT NULL,
+    date TEXT NOT NULL,
+
+    open_price NUMERIC NOT NULL,
+    close_price NUMERIC NOT NULL,
+    min_price NUMERIC NOT NULL,
+    avg_price NUMERIC NOT NULL,
+    max_price NUMERIC NOT NULL,
+
+    PRIMARY KEY (asset, date)
+);

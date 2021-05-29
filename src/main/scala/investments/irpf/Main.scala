@@ -7,6 +7,7 @@ import investments.utils.BrNumber
 import investments.variableIncome.importAssets.{BrokerageNoteFileName => _, EventsFileName => _, _}
 import java.io.File
 import java.time.{LocalDate, YearMonth}
+import sisgrana.utils.IndentedPrinter
 
 case class FileNameValues(date: LocalDate, name: String, file: File)
 

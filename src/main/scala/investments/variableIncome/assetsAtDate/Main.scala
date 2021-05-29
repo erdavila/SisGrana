@@ -1,11 +1,11 @@
 package sisgrana
 package investments.variableIncome.assetsAtDate
 
-import investments.irpf.IndentedPrinter
 import investments.utils.BrNumber
 import investments.variableIncome.model.ctx._
 import investments.variableIncome.model.{AssetChange, LocalDateSupport, ctx}
 import java.time.LocalDate
+import utils.IndentedPrinter
 
 object Main extends LocalDateSupport {
 
