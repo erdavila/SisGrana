@@ -1,8 +1,9 @@
 package sisgrana
-package investments.irpf
+package investments.variableIncome.fileImport
 
 import java.io.File
 import scala.annotation.tailrec
+import utils.quoted
 
 class NameNormalizer(map: Map[String, String]) {
   def normalize(name: String): String = {
@@ -24,9 +25,11 @@ class NameNormalizer(map: Map[String, String]) {
 }
 
 object NameNormalizer {
-  def fromFile(file: File): NameNormalizer = {
+  private val FileName = "names.ssv"
+
+  def get(): NameNormalizer = {
     val entries = for {
-      names <- SSV.readFile(file)
+      names <- SSV.readFile(new File(DataPath, FileName))
       normalizedName = names.head
       name <- names
     } yield name -> normalizedName

@@ -4,6 +4,7 @@ package investments.irpf
 import com.softwaremill.quicklens._
 import java.io.File
 import scala.annotation.tailrec
+import sisgrana.investments.variableIncome.fileImport.SSV
 
 case class Event(from: Event.From, tos: Vector[Event.To]) {
   def formatted: String =

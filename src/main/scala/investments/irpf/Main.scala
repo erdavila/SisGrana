@@ -3,6 +3,7 @@ package investments.irpf
 
 import com.softwaremill.quicklens._
 import investments.irpf.OwnedAssets.Ops
+import investments.variableIncome.fileImport.{Amount => _, BrokerageNoteFileName => _, _}
 import java.io.File
 import java.time.{LocalDate, YearMonth}
 
@@ -11,9 +12,7 @@ case class FileNameValues(date: LocalDate, name: String, file: File)
 case class OperationsAmounts(purchaseAmount: Amount, saleAmount: Amount)
 
 object Main {
-  private val DataPath = "data"
   private val EndAssetsFileName = "END - assets.ssv"
-  private val NamesFileName = "names.ssv"
   private val TypesFileName = "types.ssv"
 
   private val SwingTradeExemptableLimit = 20_000.00
@@ -24,7 +23,7 @@ object Main {
   def main(args: Array[String]): Unit = {
     val year = args(0).toInt
 
-    val nameNormalizer = NameNormalizer.fromFile(new File(DataPath, NamesFileName))
+    val nameNormalizer = NameNormalizer.get()
     val types = Types.fromFile(new File(DataPath, TypesFileName))
 
     val previousYearDir = new File(DataPath, (year - 1).toString)

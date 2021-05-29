@@ -2,6 +2,7 @@ package sisgrana
 package investments.irpf
 
 import com.softwaremill.quicklens._
+import investments.variableIncome.fileImport.SSV
 import java.io.File
 
 case class Amount(quantity: Int, averagePrice: Double) {

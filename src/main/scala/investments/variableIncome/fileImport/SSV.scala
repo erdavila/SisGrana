@@ -1,9 +1,10 @@
 package sisgrana
-package investments.irpf
+package investments.variableIncome.fileImport
 
 import com.softwaremill.quicklens._
 import java.io.{File, PrintWriter}
 import scala.io.Source
+import utils.use
 
 object SSV {
   case class UnexpectedCharacterException(char: Char, lineNumber: Int, columnNumber: Int) extends Exception {
@@ -23,7 +24,7 @@ object SSV {
     }
   }
 
-  private[irpf] def fromChars(chars: Iterator[Char]): Seq[Seq[String]] = {
+  private[investments] def fromChars(chars: Iterator[Char]): Seq[Seq[String]] = {
     case class Data(linesValues: Vector[Vector[String]], lineValues: Vector[String], value: String, lineNumber: Int, columnNumber: Int) {
       def appendToValue(char: Char): Data =
         this.modify(_.value).using(_ :+ char)

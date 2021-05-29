@@ -1,10 +1,13 @@
 package sisgrana
-package investments.irpf
+package investments.variableIncome.fileImport
 
+import investments.irpf.BrNumber
 import java.io.File
 import java.time.LocalDate
+import utils.DoubleOps
 
 sealed trait Operation
+
 object Operation {
   case object Purchase extends Operation
   case object Sale extends Operation
@@ -26,7 +29,8 @@ case class Negotiation(operation: Operation, asset: String, quantity: Int, price
   require(quantity > 0)
   require(price >= 0.0)
 
-  lazy val unsignedValue: Double = quantity * price
+  lazy val totalValue: Double = quantity * price
+  lazy val amount: Amount = Amount.fromAveragePrice(quantity, price)
 }
 
 object Negotiation {
@@ -49,7 +53,6 @@ case class BrokerageNote(
   costs: List[Cost],
   totalValue: Double,
 ) {
-  import BrokerageNote.DoubleOps
 
   lazy val totalCosts: Double = costs.map(_.value).sum
 
@@ -58,8 +61,8 @@ case class BrokerageNote(
       negotiations
         .map { n =>
           n.operation match {
-            case Operation.Purchase => -n.unsignedValue
-            case Operation.Sale => n.unsignedValue
+            case Operation.Purchase => -n.totalValue
+            case Operation.Sale => n.totalValue
           }
         }
         .sum
@@ -99,9 +102,4 @@ object BrokerageNote {
     } catch {
       case t: Throwable => throw new Exception(s"An exception was thrown while reading file $file", t)
     }
-
-  implicit private class DoubleOps(private val x: Double) extends AnyVal {
-    def =~=(y: Double): Boolean =
-      math.abs(x - y) < 0.01
-  }
 }
