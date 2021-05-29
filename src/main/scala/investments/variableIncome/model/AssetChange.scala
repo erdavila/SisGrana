@@ -42,3 +42,26 @@ case class AssetChange(
   lazy val resultingAmountWithCost: AmountWithCost =
     AmountWithCost(resultingQuantity, resultingTotalValue, resultingCostTotalValue, Operation.Purchase)
 }
+
+object AssetChange {
+  def fromAmountsWithCost(asset: String, stockbroker: String, date: LocalDate, byEvent: Boolean = false)(
+    purchaseAmountWithCost: AmountWithCost,
+    saleAmountWithCost: AmountWithCost,
+    resultingAmountWithCost: AmountWithCost,
+  ): AssetChange =
+    AssetChange(
+      asset,
+      stockbroker,
+      date,
+      byEvent,
+      purchaseAmountWithCost.quantity,
+      purchaseAmountWithCost.totalValue,
+      purchaseAmountWithCost.totalCost,
+      saleAmountWithCost.quantity,
+      saleAmountWithCost.totalValue,
+      saleAmountWithCost.totalCost,
+      resultingAmountWithCost.quantity,
+      resultingAmountWithCost.totalValue,
+      resultingAmountWithCost.totalCost,
+    )
+}

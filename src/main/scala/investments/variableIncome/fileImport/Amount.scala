@@ -25,7 +25,7 @@ object Amount {
     Amount(quantity, quantity * averagePrice)
 }
 
-case class AmountWithCost(quantity: Int, totalValue: Double, totalCost: Double, operation: Operation) extends AmountBase {
+case class AmountWithCost(quantity: Int, totalValue: Double, totalCost: Double, operation: Operation = Operation.Purchase) extends AmountBase {
   require(quantity >= 0)
   require(totalValue >= 0.0)
   require(totalCost >= 0.0)
@@ -53,4 +53,7 @@ case class AmountWithCost(quantity: Int, totalValue: Double, totalCost: Double, 
 
 object AmountWithCost {
   val Zero: AmountWithCost = AmountWithCost(0, 0.0, 0.0, Operation.Purchase)
+
+  def fromAveragePriceAndCost(quantity: Int, averagePrice: Double, averageCost: Double): AmountWithCost =
+    AmountWithCost(quantity, quantity * averagePrice, quantity * averageCost, Operation.Purchase)
 }

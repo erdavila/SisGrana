@@ -2,11 +2,11 @@ package sisgrana
 package investments.variableIncome.fileImport
 
 import com.softwaremill.quicklens._
-import investments.variableIncome.model.ctx
+import investments.variableIncome.model.{CustomEncoding, ctx}
 import java.io.File
 import java.time.LocalDate
 
-object Main {
+object Main extends CustomEncoding {
 
   private lazy val nameNormalizer = NameNormalizer.get()
 
@@ -15,25 +15,34 @@ object Main {
       .flatMap { arg =>
         val file = new File(arg)
         file.getName match {
+          case EventsFileName.Regex(dateString) =>
+            val date = LocalDate.parse(dateString)
+            Some(EventsFileName(date, file))
           case BrokerageNoteFileName.Regex(dateString, stockbroker) =>
             val date = LocalDate.parse(dateString)
             Some(BrokerageNoteFileName(date, stockbroker, file))
-          case fileName =>
-            Console.err.println(s"Ignorando arquivo $fileName")
+          case _ =>
+            Console.err.println(s"Ignorando $file")
             None
         }
       }
-      .sortBy(_.date)
+      .sortBy {
+        case EventsFileName(date, _) => (date, 1)
+        case BrokerageNoteFileName(date, _, _) => (date, 2)
+      }
 
     ctx.transaction {
       for (f <- brokerageNoteFileNames) {
-        processFile(f)
+        println(s"Importando ${f.file}")
+        f match {
+          case fn@BrokerageNoteFileName(_, _, _) => processBrokerageNoteFile(fn)
+          case fn@EventsFileName(_, _) => processEventsFile(fn)
+        }
       }
     }
   }
 
-  private def processFile(fileName: BrokerageNoteFileName): Unit = {
-    println(s"Importando ${fileName.file.getName}")
+  private def processBrokerageNoteFile(fileName: BrokerageNoteFileName): Unit = {
     val brokerageNote = BrokerageNote.fromFile(fileName.date, fileName.stockbroker, nameNormalizer)(fileName.file)
     val assetsOpsAmounts = aggregateAssetOperations(brokerageNote)
 
@@ -52,7 +61,7 @@ object Main {
       }
     }
 
-    val assetProcessor = new AssetProcessor(fileName.stockbroker, fileName.date, includeCost)
+    val assetProcessor = new AssetOperationsProcessor(fileName.stockbroker, fileName.date, includeCost)
 
     for ((asset, opsAmounts) <- assetsOpsAmounts) {
       assetProcessor.process(asset, opsAmounts)
@@ -70,6 +79,14 @@ object Main {
         }
         Some(newOpsAmounts)
       }
+    }
+  }
+
+  private def processEventsFile(fileName: EventsFileName): Unit = {
+    val events = Events.fromFile(fileName.file)
+    for (event <- events) {
+      val processor = new EventProcessor(event, fileName.date)
+      processor.process()
     }
   }
 }

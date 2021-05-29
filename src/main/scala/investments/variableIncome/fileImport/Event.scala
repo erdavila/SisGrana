@@ -1,10 +1,10 @@
 package sisgrana
-package investments.irpf
+package investments.variableIncome.fileImport
 
 import com.softwaremill.quicklens._
+import investments.irpf.{BrNumber, Events}
 import java.io.File
 import scala.annotation.tailrec
-import sisgrana.investments.variableIncome.fileImport.SSV
 
 case class Event(from: Event.From, tos: Vector[Event.To]) {
   def formatted: String =
@@ -13,23 +13,27 @@ case class Event(from: Event.From, tos: Vector[Event.To]) {
 
 object Event {
   case class From(quantity: Int, asset: String) {
+    require(quantity > 0)
     def formatted: String = s"$quantity $asset"
   }
 
   sealed trait AveragePriceDefinition {
     def formatted: String
     def apply(averagePrice: Double): Double
+    def apply(averagePrice: Double, averageCost: Double): (Double, Double)
   }
 
   object AveragePriceDefinition {
     case class Constant(value: Double) extends AveragePriceDefinition {
       override def formatted: String = BrNumber.formatMoney(value)
       override def apply(averagePrice: Double): Double = value
+      override def apply(averagePrice: Double, averageCost: Double): (Double, Double) = (value, 0.0)
     }
 
     case class Multiplier(multiplier: Double) extends AveragePriceDefinition {
       override def formatted: String = BrNumber.format(multiplier) ++ "x"
       override def apply(averagePrice: Double): Double = multiplier * averagePrice
+      override def apply(averagePrice: Double, averageCost: Double): (Double, Double) = (apply(averagePrice), apply(averageCost))
     }
 
     def parse(string: String): AveragePriceDefinition =

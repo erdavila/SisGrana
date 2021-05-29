@@ -2,14 +2,14 @@ package sisgrana
 package investments.variableIncome.fileImport
 
 import investments.variableIncome.model.ctx.{localDateEncoder => _, _}
-import investments.variableIncome.model.{AssetChange, Encoders, ctx}
+import investments.variableIncome.model.{AssetChange, CustomEncoding, ctx}
 import java.time.LocalDate
 
-class AssetProcessor(
+class AssetOperationsProcessor(
   stockbroker: String,
   date: LocalDate,
   includeCost: (Amount, Operation) => AmountWithCost
-) extends Encoders {
+) extends CustomEncoding {
   def process(asset: String, operationsAmounts: OperationsAmounts): Unit = {
     val purchaseAmountWithCost = includeCost(operationsAmounts.purchase, Operation.Purchase)
     val saleAmountWithCost = includeCost(operationsAmounts.sale, Operation.Sale)

@@ -4,7 +4,7 @@ package investments.variableIncome.model
 import investments.variableIncome.model.ctx._
 import java.time.LocalDate
 
-trait Encoders {
+trait CustomEncoding {
   implicit val localDateDecoder: Decoder[LocalDate] =
     decoder((index, row) => LocalDate.parse(row.getObject(index).toString))
 
