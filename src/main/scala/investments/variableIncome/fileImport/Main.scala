@@ -2,11 +2,11 @@ package sisgrana
 package investments.variableIncome.fileImport
 
 import com.softwaremill.quicklens._
-import investments.variableIncome.model.{CustomEncoding, ctx}
+import investments.variableIncome.model.{Amount, LocalDateSupport, ctx}
 import java.io.File
 import java.time.LocalDate
 
-object Main extends CustomEncoding {
+object Main extends LocalDateSupport {
 
   private lazy val nameNormalizer = NameNormalizer.get()
 

@@ -4,6 +4,7 @@ package investments.irpf
 import com.softwaremill.quicklens._
 import investments.variableIncome.fileImport.SSV
 import java.io.File
+import sisgrana.investments.utils.BrNumber
 
 case class Amount(quantity: Int, averagePrice: Double) {
   require(quantity >= 0)

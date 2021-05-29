@@ -3,7 +3,8 @@ package investments.irpf
 
 import com.softwaremill.quicklens._
 import investments.irpf.OwnedAssets.Ops
-import investments.variableIncome.fileImport.{Amount => _, BrokerageNoteFileName => _, EventsFileName => _, _}
+import investments.utils.BrNumber
+import investments.variableIncome.fileImport.{BrokerageNoteFileName => _, EventsFileName => _, _}
 import java.io.File
 import java.time.{LocalDate, YearMonth}
 

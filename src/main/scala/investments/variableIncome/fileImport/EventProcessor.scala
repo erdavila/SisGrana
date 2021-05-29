@@ -3,10 +3,10 @@ package investments.variableIncome.fileImport
 
 import investments.irpf.StockbrokerAsset
 import investments.variableIncome.model.ctx._
-import investments.variableIncome.model.{AssetChange, CustomEncoding, ctx}
+import investments.variableIncome.model.{AmountWithCost, AssetChange, LocalDateSupport, ctx}
 import java.time.LocalDate
 
-class EventProcessor(event: Event, eventDate: LocalDate) extends CustomEncoding {
+class EventProcessor(event: Event, eventDate: LocalDate) extends LocalDateSupport {
   def process(): Unit = {
     val involvedAssets = event.tos.map(_.asset).toSet + event.from.asset
     val assetsAmountsWithCostByStockBroker = getInvolvedAssetsAmountsWithCost(involvedAssets)

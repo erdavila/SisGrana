@@ -1,5 +1,5 @@
 package sisgrana
-package investments.irpf
+package investments.utils
 
 import java.text.{NumberFormat, ParseException, ParsePosition}
 import java.util.Locale

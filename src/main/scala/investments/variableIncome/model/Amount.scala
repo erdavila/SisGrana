@@ -1,5 +1,7 @@
 package sisgrana
-package investments.variableIncome.fileImport
+package investments.variableIncome.model
+
+import investments.variableIncome.fileImport.Operation
 
 trait AmountBase {
   def quantity: Int
@@ -29,6 +31,8 @@ case class AmountWithCost(quantity: Int, totalValue: Double, totalCost: Double, 
   require(quantity >= 0)
   require(totalValue >= 0.0)
   require(totalCost >= 0.0)
+
+  lazy val totalValueWithCost: Double = totalValue + totalCost
 
   lazy val averagePriceWithCost: Double = {
     val total = operation match {

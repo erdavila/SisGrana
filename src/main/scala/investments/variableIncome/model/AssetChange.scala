@@ -1,7 +1,7 @@
 package sisgrana
 package investments.variableIncome.model
 
-import investments.variableIncome.fileImport.{AmountWithCost, Operation}
+import investments.variableIncome.fileImport.Operation
 import java.time.LocalDate
 
 case class AssetChange(

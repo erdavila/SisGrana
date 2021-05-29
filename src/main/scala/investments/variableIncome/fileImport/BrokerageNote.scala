@@ -1,7 +1,8 @@
 package sisgrana
 package investments.variableIncome.fileImport
 
-import investments.irpf.BrNumber
+import investments.utils.BrNumber
+import investments.variableIncome.model.Amount
 import java.io.File
 import java.time.LocalDate
 import utils.DoubleOps

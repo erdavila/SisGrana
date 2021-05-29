@@ -2,9 +2,10 @@ package sisgrana
 package investments.variableIncome.fileImport
 
 import com.softwaremill.quicklens._
-import investments.irpf.{BrNumber, Events}
+import investments.irpf.Events
 import java.io.File
 import scala.annotation.tailrec
+import sisgrana.investments.utils.BrNumber
 
 case class Event(from: Event.From, tos: Vector[Event.To]) {
   def formatted: String =
