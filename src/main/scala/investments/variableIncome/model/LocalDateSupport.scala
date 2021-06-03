@@ -5,6 +5,8 @@ import investments.variableIncome.model.ctx._
 import java.time.LocalDate
 
 trait LocalDateSupport {
+  val MaxDate: LocalDate = LocalDate.of(9999, 12, 31)
+
   implicit val localDateDecoder: Decoder[LocalDate] =
     decoder((index, row) => LocalDate.parse(row.getObject(index).toString))
 

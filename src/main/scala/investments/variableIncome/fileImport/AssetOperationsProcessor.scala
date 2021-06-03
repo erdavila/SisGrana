@@ -28,32 +28,18 @@ class AssetOperationsProcessor(
   }
 
   private def getCurrentResultingAmountWithCost(asset: String, stockbroker: String, date: LocalDate): Option[AmountWithCost] = {
-    val latestDateResult = ctx.run(
-      ctx.query[AssetChange]
+    val result = ctx.run(
+      AssetChange.latestAssetChangesAtDateQuery(MaxDate)
         .filter(ac => ac.asset == lift(asset) && ac.stockbroker == lift(stockbroker))
-        .map(_.date)
-        .max
     )
-
-    latestDateResult.map { latestDate =>
+    assert(result.lengthIs <= 1)
+    result.headOption.map { assetChange =>
       try {
-        if (latestDate.isAfter(date)) {
-          throw new Exception(s"Encontrado registro mais recente referente a $latestDate")
+        if (assetChange.date.isAfter(date)) {
+          throw new Exception(s"Encontrado registro mais recente referente a ${assetChange.date}")
+        } else if (assetChange.date == date && (assetChange.purchaseQuantity > 0 || assetChange.saleQuantity > 0)) {
+          throw new Exception(s"Encontrado registro com operações na mesma data: $assetChange")
         } else {
-          val result = ctx.run(
-            ctx.query[AssetChange]
-              .filter(ac =>
-                ac.asset == lift(asset)
-                  && ac.stockbroker == lift(stockbroker)
-                  && ac.date == lift(latestDate)
-              )
-          )
-          assert(result.length == 1)
-          val assetChange = result.head
-          if (latestDate == date && (assetChange.purchaseQuantity > 0 || assetChange.saleQuantity > 0)) {
-            throw new Exception(s"Encontrado registro com operações na mesma data: $assetChange")
-          }
-
           assetChange.resultingAmountWithCost
         }
       } catch {

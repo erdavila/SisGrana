@@ -2,6 +2,7 @@ package sisgrana
 package investments.variableIncome.model
 
 import investments.variableIncome.fileImport.Operation
+import investments.variableIncome.model.ctx._
 import java.time.LocalDate
 
 case class AssetChange(
@@ -43,7 +44,7 @@ case class AssetChange(
     AmountWithCost(resultingQuantity, resultingTotalValue, resultingCostTotalValue, Operation.Purchase)
 }
 
-object AssetChange {
+object AssetChange extends LocalDateSupport {
   def fromAmountsWithCost(asset: String, stockbroker: String, date: LocalDate, byEvent: Boolean = false)(
     purchaseAmountWithCost: AmountWithCost,
     saleAmountWithCost: AmountWithCost,
@@ -64,4 +65,26 @@ object AssetChange {
       resultingAmountWithCost.totalValue,
       resultingAmountWithCost.totalCost,
     )
+
+  //noinspection TypeAnnotation
+  def latestAssetChangesAtDateQuery(maxDate: LocalDate) =
+    ctx.quote {
+      for {
+        (asset, stockbroker, dateOpt) <- latestDateByAssetStockbroker(maxDate)
+        ac <- query[AssetChange]
+        if asset == ac.asset &&
+          stockbroker == ac.stockbroker &&
+          dateOpt.contains(ac.date)
+      } yield ac
+    }
+
+  private def latestDateByAssetStockbroker(maxDate: LocalDate) =
+    ctx.quote {
+      query[AssetChange]
+        .filter(_.date <= lift(maxDate))
+        .groupBy(ac => (ac.asset, ac.stockbroker))
+        .map { case ((asset, stockbroker), changes) =>
+          (asset, stockbroker, changes.map(_.date).max)
+        }
+    }
 }

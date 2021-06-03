@@ -12,20 +12,10 @@ object Main extends LocalDateSupport {
   def main(args: Array[String]): Unit = {
     val date = args.headOption.fold(LocalDate.now())(LocalDate.parse)
 
-    val result = ctx.run {
-      val latestChanges = query[AssetChange]
-        .filter(ac => ac.date <= lift(date))
-        .groupBy(ac => (ac.asset, ac.stockbroker))
-        .map { case ((asset, stockbroker), assetChanges) => (asset, stockbroker, assetChanges.map(_.date).max) }
-
-      for {
-        ac <- query[AssetChange]
-          .filter(_.resultingQuantity > 0)
-          .sortBy(ac => (ac.stockbroker, ac.asset))
-        (asset, stockbroker, dateOpt) <- latestChanges
-        if ac.asset == asset && ac.stockbroker == stockbroker && dateOpt.contains(ac.date)
-      } yield ac
-    }
+    val result = ctx.run(
+      AssetChange.latestAssetChangesAtDateQuery(date)
+        .filter(_.resultingQuantity > 0)
+    )
 
     val printer = new IndentedPrinter
     for ((stockbroker, assetChanges) <- result.groupBy(_.stockbroker).toIndexedSeq.sortBy(_._1)) {
