@@ -2,7 +2,7 @@ package sisgrana
 package investments.irpf
 
 import com.softwaremill.quicklens._
-import investments.variableIncome.fileImport.SSV
+import investments.variableIncome.importAssets.SSV
 import java.io.File
 import sisgrana.investments.utils.BrNumber
 

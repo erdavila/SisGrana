@@ -1,5 +1,5 @@
 package sisgrana
-package investments.variableIncome.fileImport
+package investments.variableIncome.importAssets
 
 import java.io.File
 import scala.annotation.tailrec

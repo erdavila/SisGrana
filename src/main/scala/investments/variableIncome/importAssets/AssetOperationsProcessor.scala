@@ -1,5 +1,5 @@
 package sisgrana
-package investments.variableIncome.fileImport
+package investments.variableIncome.importAssets
 
 import investments.variableIncome.model.ctx.{localDateEncoder => _, _}
 import investments.variableIncome.model.{Amount, AmountWithCost, AssetChange, LocalDateSupport, ctx}

@@ -1,7 +1,7 @@
 package sisgrana
 package investments.irpf
 
-import investments.variableIncome.fileImport.SSV
+import investments.variableIncome.importAssets.SSV
 import java.io.File
 
 sealed abstract class Type(val code: String) {

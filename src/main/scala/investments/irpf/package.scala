@@ -1,7 +1,7 @@
 package sisgrana
 package investments
 
-import investments.variableIncome.fileImport.Events
+import investments.variableIncome.importAssets.Events
 
 package object irpf {
   type OwnedAssets = OwnedAssets.Type

@@ -1,5 +1,5 @@
 package sisgrana
-package investments.variableIncome.fileImport
+package investments.variableIncome.importAssets
 
 import com.softwaremill.quicklens._
 import investments.irpf.Events

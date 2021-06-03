@@ -1,5 +1,5 @@
 package sisgrana
-package investments.variableIncome.fileImport
+package investments.variableIncome.importAssets
 
 import investments.irpf.StockbrokerAsset
 import investments.variableIncome.model.ctx._

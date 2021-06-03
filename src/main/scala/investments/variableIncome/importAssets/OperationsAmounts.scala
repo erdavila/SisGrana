@@ -1,5 +1,5 @@
 package sisgrana
-package investments.variableIncome.fileImport
+package investments.variableIncome.importAssets
 
 import investments.variableIncome.model.Amount
 

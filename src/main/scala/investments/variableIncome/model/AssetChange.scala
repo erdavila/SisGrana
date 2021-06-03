@@ -1,7 +1,7 @@
 package sisgrana
 package investments.variableIncome.model
 
-import investments.variableIncome.fileImport.Operation
+import investments.variableIncome.importAssets.Operation
 import investments.variableIncome.model.ctx._
 import java.time.LocalDate
 
