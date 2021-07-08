@@ -4,10 +4,11 @@ package investments.irpf
 import com.softwaremill.quicklens._
 import investments.irpf.OwnedAssets.Ops
 import investments.utils.BrNumber
+import investments.variableIncome.AssetType
 import investments.variableIncome.importAssets.{BrokerageNoteFileName => _, EventsFileName => _, _}
 import java.io.File
 import java.time.{LocalDate, YearMonth}
-import sisgrana.utils.IndentedPrinter
+import utils.IndentedPrinter
 
 case class FileNameValues(date: LocalDate, name: String, file: File)
 
@@ -26,7 +27,7 @@ object Main {
     val year = args(0).toInt
 
     val nameNormalizer = NameNormalizer.get()
-    val types = Types.fromFile(new File(DataPath, TypesFileName))
+    val typeResolver = AssetType.Resolver.fromFile(new File(DataPath, TypesFileName))
 
     val previousYearDir = new File(DataPath, (year - 1).toString)
     val currentYearDir = new File(DataPath, year.toString)
@@ -39,7 +40,7 @@ object Main {
       .collect { case FileName.select(values) => values }
       .toIndexedSeq
 
-    val main = new Main(types, nameNormalizer)
+    val main = new Main(typeResolver, nameNormalizer)
 
     val initialOwnedAssets = OwnedAssets.fromFile(initialAssetsFile)
     val finalOwnedAssets = main.process(fileNames)(initialOwnedAssets)
@@ -47,7 +48,7 @@ object Main {
   }
 }
 
-class Main(types: Types, nameNormalizer: NameNormalizer) {
+class Main(types: AssetType.Resolver, nameNormalizer: NameNormalizer) {
   import Main.{DayTradeTaxRate, FIIsTaxRate, SwingTradeExemptableLimit, SwingTradeTaxRate}
 
   private val printer = new IndentedPrinter
@@ -73,7 +74,7 @@ class Main(types: Types, nameNormalizer: NameNormalizer) {
           for ((asset, ownedAsset) <- ownedAssets.toIndexedSeq.sortBy(_._1)) {
             val `type` = types(ownedAsset.stockbrokerAsset.asset)
             val tag =
-              if (`type` != Type.Default) s" [${`type`.code}]"
+              if (`type` != AssetType.Default) s" [${`type`.code}]"
               else ""
 
             printer.println(s"$asset: ${ownedAsset.amount.formatted}$tag")

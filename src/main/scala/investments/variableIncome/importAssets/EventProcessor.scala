@@ -2,22 +2,22 @@ package sisgrana
 package investments.variableIncome.importAssets
 
 import investments.irpf.StockbrokerAsset
+import investments.variableIncome.model._
 import investments.variableIncome.model.ctx._
-import investments.variableIncome.model.{AmountWithCost, AssetChange, LocalDateSupport, ctx}
 import java.time.LocalDate
 
 class EventProcessor(event: Event, eventDate: LocalDate) extends LocalDateSupport {
   def process(): Unit = {
     val involvedAssets = event.tos.map(_.asset).toSet + event.from.asset
-    val assetsAmountsWithCostByStockBroker = getInvolvedAssetsAmountsWithCost(involvedAssets)
-      .groupMap(_._1.stockbroker) { case (stockbrokerAsset, amountWithCost) => (stockbrokerAsset.asset, amountWithCost) }
+    val assetsPositionsAndSwingTradeResultByStockbroker = getInvolvedAssetsPositionsAndSwingTradeResults(involvedAssets)
+      .groupMap(_._1.stockbroker) { case (stockbrokerAsset, positionAndSwingTradeResult) => (stockbrokerAsset.asset, positionAndSwingTradeResult) }
 
-    for ((stockbroker, assetsAmountsWithCost) <- assetsAmountsWithCostByStockBroker) {
-      processEventOnStockBrokerAssets(stockbroker, assetsAmountsWithCost.toMap)
+    for ((stockbroker, assetsPositionsAndSwingTradeResult) <- assetsPositionsAndSwingTradeResultByStockbroker) {
+      processEventOnStockBrokerAssets(stockbroker, assetsPositionsAndSwingTradeResult.toMap)
     }
   }
 
-  private def getInvolvedAssetsAmountsWithCost(assets: Set[String]): Map[StockbrokerAsset, AmountWithCost] = {
+  private def getInvolvedAssetsPositionsAndSwingTradeResults(assets: Set[String]): Map[StockbrokerAsset, (AmountWithCost, TradeResult)] = {
     val result = ctx.run {
       val latestAssetChange = query[AssetChange]
         .filter(ac => liftQuery(assets).contains(ac.asset))
@@ -39,44 +39,57 @@ class EventProcessor(event: Event, eventDate: LocalDate) extends LocalDateSuppor
           throw new Exception(s"Encontrado registro com data igual ou posterior ao evento: $assetChange")
         }
 
-        StockbrokerAsset(assetChange.stockbroker, assetChange.asset) -> assetChange.resultingAmountWithCost
+        assetChange.stockbrokerAsset -> ((assetChange.position, assetChange.swingTradeResult))
       }
       .toMap
   }
 
-  private def processEventOnStockBrokerAssets(stockbroker: String, amountsWithCostByAsset: Map[String, AmountWithCost]): Unit =
-    for (matchingAssetAmountWithCost <- amountsWithCostByAsset.get(event.from.asset)) {
-      val times = matchingAssetAmountWithCost.quantity / event.from.quantity
+  private def processEventOnStockBrokerAssets(stockbroker: String, positionAndSwingTradeResultByAsset: Map[String, (AmountWithCost, TradeResult)]): Unit =
+    for {
+      updatedPositionAndSwingTradeResultByAsset <- calculateUpdatedPositions(positionAndSwingTradeResultByAsset)
+      (asset, (position, swingTradeResult)) <- updatedPositionAndSwingTradeResultByAsset
+    } {
+      save(asset, position, swingTradeResult, stockbroker)
+    }
+
+  private[importAssets] def calculateUpdatedPositions(
+    positionAndSwingTradeResultByAsset: Map[String, (AmountWithCost, TradeResult)],
+  ): Option[Map[String, (AmountWithCost, TradeResult)]] =
+    positionAndSwingTradeResultByAsset.get(event.from.asset).map { case (matchingAssetPosition, matchingAssetSwingTradeResult) =>
+      val times = matchingAssetPosition.quantity / event.from.quantity
       val removedQuantity = times * event.from.quantity
-      val newMatchingAssetAmountWithCost = matchingAssetAmountWithCost.modifyQuantity(_ - removedQuantity)
+      val newQuantity = matchingAssetPosition.quantity - removedQuantity
+      val newMatchingAssetPosition = matchingAssetPosition.withQuantity(newQuantity)
 
-      val newAmountsWithCostByAsset = amountsWithCostByAsset + (event.from.asset -> newMatchingAssetAmountWithCost)
+      val newPositionAndSwingTradeResultByAsset = positionAndSwingTradeResultByAsset +
+        (event.from.asset -> ((newMatchingAssetPosition, matchingAssetSwingTradeResult)))
 
-      val updatedAmountsWithCostByAsset = event.tos.foldLeft(newAmountsWithCostByAsset) { (amountsWithCostByAsset, to) =>
-        amountsWithCostByAsset.updatedWith(to.asset) { amountWithCostOpt =>
-          val amountWithCost = amountWithCostOpt.getOrElse(AmountWithCost.Zero)
+      event.tos.foldLeft(newPositionAndSwingTradeResultByAsset) { (positionAndSwingTradeResultByAsset, to) =>
+        positionAndSwingTradeResultByAsset.updatedWith(to.asset) { positionAndSwingTradeResultOpt =>
+          val (position, swingTradeResult) = positionAndSwingTradeResultOpt.getOrElse((PurchaseAmountWithCost.Zero, TradeResult.Zero))
           val (averagePrice, averageCost) = to.averagePriceDefinition(
-            matchingAssetAmountWithCost.averagePrice,
-            matchingAssetAmountWithCost.averageCost,
+            matchingAssetPosition.averagePrice,
+            matchingAssetPosition.averageCost,
           )
 
-          val newAmountWithCost = AmountWithCost.fromAveragePriceAndCost(times * to.quantity, averagePrice, averageCost)
-          val updatedAmountWithCost = amountWithCost + newAmountWithCost
-          Some(updatedAmountWithCost)
-        }
-      }
+          val quantity = times * to.quantity
+          val amount =
+            if (quantity >= 0) {
+              PurchaseAmountWithCost(quantity, quantity * averagePrice, quantity * averageCost)
+            } else {
+              SaleAmountWithCost(-quantity, -quantity * averagePrice, -quantity * averageCost)
+            }
 
-      for ((asset, amountWithCost) <- updatedAmountsWithCostByAsset) {
-        save(asset, amountWithCost, stockbroker)
+          val (eventSwingTradeResult, newUpdatedPosition) = AssetOperationsProcessor.calculateSwingTradeResultAndUpdatedPositionAmount(position, amount)
+          Some((newUpdatedPosition, swingTradeResult + eventSwingTradeResult))
+        }
       }
     }
 
-  private def save(asset: String, amountWithCost: AmountWithCost, stockbroker: String): Unit = {
-    val assetChange = AssetChange.fromAmountsWithCost(asset, stockbroker, eventDate, byEvent = true)(
-      AmountWithCost.Zero,
-      AmountWithCost.Zero,
-      amountWithCost,
-    )
+  private def save(asset: String, position: AmountWithCost, swingTradeResult: TradeResult, stockbroker: String): Unit = {
+    val assetChange = AssetChange.withZeroes(asset, stockbroker, eventDate, byEvent = true)
+      .withPosition(position)
+      .withSwingTradeResult(swingTradeResult)
 
     ctx.run {
       query[AssetChange]

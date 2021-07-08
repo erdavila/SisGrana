@@ -1,7 +1,7 @@
 package sisgrana
 package investments.variableIncome.importQuotes
 
-import investments.variableIncome.model.AssetChange
+import investments.variableIncome.model.{AssetChange, PurchaseAmountWithCost}
 import java.time.LocalDate
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -138,14 +138,9 @@ class AssetDateRangeTest extends AnyFunSuite with TableDrivenPropertyChecks with
   private def D(i: Int): LocalDate = LocalDate.of(2021, 1, 1).plusDays(i)
 
   private def changes(tuple: (LocalDate, Int)*): Seq[AssetChange] =
-    for ((date, resultingQuantity) <- tuple)
-      yield AssetChange(
-        asset = "", stockbroker = "",
-        date = date, byEvent = false,
-        purchaseQuantity = 0, purchaseTotalValue = 0.0, purchaseCostTotal = 0.0,
-        saleQuantity = 0, saleTotalValue = 0.0, saleCostTotal = 0.0,
-        resultingQuantity = resultingQuantity, resultingTotalValue = 0.0, resultingCostTotalValue = 0.0,
-      )
+    for ((date, positionQuantity) <- tuple)
+      yield AssetChange.withZeroes("", "", date, byEvent = false)
+        .withPosition(PurchaseAmountWithCost.fromTotals(positionQuantity, positionQuantity.toDouble, 0.0))
 
   private def ranges(dates: (LocalDate, LocalDate)*): Seq[AssetDateRange] =
     for ((beginDate, endDate) <- dates)

@@ -1,33 +1,32 @@
 package sisgrana
 package investments.variableIncome.importAssets
 
+import investments.variableIncome.importAssets.AssetOperationsProcessor.calculateSwingTradeResultAndUpdatedPositionAmount
+import investments.variableIncome.model._
 import investments.variableIncome.model.ctx.{localDateEncoder => _, _}
-import investments.variableIncome.model.{Amount, AmountWithCost, AssetChange, LocalDateSupport, ctx}
 import java.time.LocalDate
 
 class AssetOperationsProcessor(
   stockbroker: String,
   date: LocalDate,
-  includeCost: (Amount, Operation) => AmountWithCost
+  includeCostToPurchaseAmount: Amount => PurchaseAmountWithCost,
+  includeCostToSaleAmount: Amount => SaleAmountWithCost,
 ) extends LocalDateSupport {
   def process(asset: String, operationsAmounts: OperationsAmounts): Unit = {
-    val purchaseAmountWithCost = includeCost(operationsAmounts.purchase, Operation.Purchase)
-    val saleAmountWithCost = includeCost(operationsAmounts.sale, Operation.Sale)
+    val purchaseAmountWithCost = includeCostToPurchaseAmount(operationsAmounts.purchase)
+    val saleAmountWithCost = includeCostToSaleAmount(operationsAmounts.sale)
 
-    val currentResultingAmountWithCost =
-      getCurrentResultingAmountWithCost(asset, stockbroker, date)
-        .getOrElse(AmountWithCost.Zero)
+    val currentPositionAmountWithCost =
+      getCurrentPositionAmountWithCost(asset, stockbroker, date)
+        .getOrElse(PurchaseAmountWithCost.Zero)
 
-    val updatedResultingAmountWithCost = makeUpdatedResultingAmountWithCost(
-      currentResultingAmountWithCost,
-      purchaseAmountWithCost,
-      saleAmountWithCost,
-    )
+    val (dayTradeResult, nonDayTradeAmount) = TradeResult.from(purchaseAmountWithCost, saleAmountWithCost)
+    val (swingTradeResult, updatedPositionAmountWithCost) = calculateSwingTradeResultAndUpdatedPositionAmount(currentPositionAmountWithCost, nonDayTradeAmount)
 
-    save(asset, purchaseAmountWithCost, saleAmountWithCost, updatedResultingAmountWithCost)
+    save(asset, purchaseAmountWithCost, saleAmountWithCost, updatedPositionAmountWithCost, dayTradeResult, swingTradeResult)
   }
 
-  private def getCurrentResultingAmountWithCost(asset: String, stockbroker: String, date: LocalDate): Option[AmountWithCost] = {
+  private def getCurrentPositionAmountWithCost(asset: String, stockbroker: String, date: LocalDate): Option[AmountWithCost] = {
     val result = ctx.run(
       AssetChange.latestAssetChangesAtDateQuery(MaxDate)
         .filter(ac => ac.asset == lift(asset) && ac.stockbroker == lift(stockbroker))
@@ -40,64 +39,63 @@ class AssetOperationsProcessor(
         } else if (assetChange.date == date && (assetChange.purchaseQuantity > 0 || assetChange.saleQuantity > 0)) {
           throw new Exception(s"Encontrado registro com operações na mesma data: $assetChange")
         } else {
-          assetChange.resultingAmountWithCost
+          assetChange.position
         }
       } catch {
         case e: Exception =>
-          throw new Exception(s"Exception while getting current resulting values for $asset $stockbroker $date", e)
+          throw new Exception(s"Exception while getting current position values for $asset $stockbroker $date", e)
       }
     }
   }
 
-  private def makeUpdatedResultingAmountWithCost(
-    currentResultingAmount: AmountWithCost,
-    purchaseAmount: AmountWithCost,
-    saleAmount: AmountWithCost,
-  ): AmountWithCost = {
-    val quantityDelta = purchaseAmount.quantity - saleAmount.quantity
-    if (quantityDelta > 0) {
-      val nonDayTradePurchaseAmountWithCost = purchaseAmount.modifyQuantity(_ => quantityDelta)
-      currentResultingAmount + nonDayTradePurchaseAmountWithCost
-    } else {
-      currentResultingAmount.modifyQuantity(_ + quantityDelta)
-    }
-  }
+  private def save(
+    asset: String,
+    purchase: PurchaseAmountWithCost,
+    sale: SaleAmountWithCost,
+    position: AmountWithCost,
+    dayTrade: TradeResult,
+    swingTrade: TradeResult,
+  ): Unit = {
+    val assetChange = AssetChange.withZeroes(asset, stockbroker, date, byEvent = false)
+      .withPurchaseAmount(purchase)
+      .withSaleAmount(sale)
+      .withPosition(position)
+      .withDayTradeResult(dayTrade)
+      .withSwingTradeResult(swingTrade)
 
-  private def save(asset: String, purchase: AmountWithCost, sale: AmountWithCost, resulting: AmountWithCost): Unit = {
     ctx.run {
-      val liftedPurchase = lift(purchase)
-      val liftedSale = lift(sale)
-      val liftedResulting = lift(resulting)
-
       ctx.query[AssetChange]
-        .insert(
-          AssetChange(
-            asset = lift(asset),
-            stockbroker = lift(stockbroker),
-            date = lift(date),
-            byEvent = false,
-            purchaseQuantity = liftedPurchase.quantity,
-            purchaseTotalValue = liftedPurchase.totalValue,
-            purchaseCostTotal = liftedPurchase.totalCost,
-            saleQuantity = liftedSale.quantity,
-            saleTotalValue = liftedSale.totalValue,
-            saleCostTotal = liftedSale.totalCost,
-            resultingQuantity = liftedResulting.quantity,
-            resultingTotalValue = liftedResulting.totalValue,
-            resultingCostTotalValue = liftedResulting.totalCost,
-          )
-        )
+        .insert(lift(assetChange))
         .onConflictUpdate(_.asset, _.stockbroker, _.date)(
           (t, e) => t.purchaseQuantity -> e.purchaseQuantity,
           (t, e) => t.purchaseTotalValue -> e.purchaseTotalValue,
-          (t, e) => t.purchaseCostTotal -> e.purchaseCostTotal,
+          (t, e) => t.purchaseTotalCost -> e.purchaseTotalCost,
           (t, e) => t.saleQuantity -> e.saleQuantity,
           (t, e) => t.saleTotalValue -> e.saleTotalValue,
-          (t, e) => t.saleCostTotal -> e.saleCostTotal,
-          (t, e) => t.resultingQuantity -> e.resultingQuantity,
-          (t, e) => t.resultingTotalValue -> e.resultingTotalValue,
-          (t, e) => t.resultingCostTotalValue -> e.resultingCostTotalValue,
+          (t, e) => t.saleTotalCost -> e.saleTotalCost,
+          (t, e) => t.dayTradeResultQuantity -> (t.dayTradeResultQuantity + e.dayTradeResultQuantity),
+          (t, e) => t.dayTradeResultTotalGrossValue -> (t.dayTradeResultTotalGrossValue + e.dayTradeResultTotalGrossValue),
+          (t, e) => t.dayTradeResultTotalCost -> (t.dayTradeResultTotalCost + e.dayTradeResultTotalCost),
+          (t, e) => t.swingTradeResultQuantity -> (t.swingTradeResultQuantity + e.swingTradeResultQuantity),
+          (t, e) => t.swingTradeResultTotalGrossValue -> (t.swingTradeResultTotalGrossValue + e.swingTradeResultTotalGrossValue),
+          (t, e) => t.swingTradeResultTotalCost -> (t.swingTradeResultTotalCost + e.swingTradeResultTotalCost),
+          (t, e) => t.positionQuantity -> e.positionQuantity,
+          (t, e) => t.positionTotalValue -> e.positionTotalValue,
+          (t, e) => t.positionTotalCost -> e.positionTotalCost,
         )
     }
   }
+}
+
+object AssetOperationsProcessor {
+  def calculateSwingTradeResultAndUpdatedPositionAmount(
+    currentPositionAmount: AmountWithCost,
+    nonDayTradeAmount: AmountWithCost,
+  ): (TradeResult, AmountWithCost) =
+    (currentPositionAmount, nonDayTradeAmount) match {
+      case (p1@PurchaseAmountWithCost(_, _, _), p2@PurchaseAmountWithCost(_, _, _)) => (TradeResult.Zero, p1 + p2)
+      case (s1@SaleAmountWithCost(_, _, _), s2@SaleAmountWithCost(_, _, _)) => (TradeResult.Zero, s1 + s2)
+      case (p@PurchaseAmountWithCost(_, _, _), s@SaleAmountWithCost(_, _, _)) => TradeResult.from(p, s)
+      case (s@SaleAmountWithCost(_, _, _), p@PurchaseAmountWithCost(_, _, _)) => TradeResult.from(p, s)
+    }
 }

@@ -3,7 +3,7 @@ package investments.variableIncome.assetsAtDate
 
 import investments.utils.BrNumber
 import investments.variableIncome.model.ctx._
-import investments.variableIncome.model.{AssetChange, LocalDateSupport, ctx}
+import investments.variableIncome.model._
 import java.time.LocalDate
 import utils.IndentedPrinter
 
@@ -14,15 +14,15 @@ object Main extends LocalDateSupport {
 
     val result = ctx.run(
       AssetChange.latestAssetChangesAtDateQuery(date)
-        .filter(_.resultingQuantity > 0)
+        .filter(_.positionQuantity != 0)
     )
 
     val printer = new IndentedPrinter
     for ((stockbroker, assetChanges) <- result.groupBy(_.stockbroker).toIndexedSeq.sortBy(_._1)) {
       printer.context(stockbroker) {
         for (ac <- assetChanges.sortBy(_.asset)) {
-          val amountWithCost = ac.resultingAmountWithCost
-          printer.println(s"${ac.asset} ${amountWithCost.quantity} x ${BrNumber.formatMoney(amountWithCost.averagePriceWithCost)} = ${BrNumber.formatMoney(amountWithCost.totalValueWithCost)}")
+          val position = ac.position
+          printer.println(s"${ac.asset} ${position.signedQuantity} x ${BrNumber.formatMoney(position.averagePriceWithCost)} = ${BrNumber.formatMoney(position.signedTotalValueWithCost)}")
         }
       }
     }

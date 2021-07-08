@@ -1,7 +1,7 @@
 package sisgrana
 package investments.variableIncome.model
 
-import investments.variableIncome.importAssets.Operation
+import investments.irpf.StockbrokerAsset
 import investments.variableIncome.model.ctx._
 import java.time.LocalDate
 
@@ -14,56 +14,114 @@ case class AssetChange(
 
   purchaseQuantity: Int,
   purchaseTotalValue: Double,
-  purchaseCostTotal: Double,
+  purchaseTotalCost: Double,
 
   saleQuantity: Int,
   saleTotalValue: Double,
-  saleCostTotal: Double,
+  saleTotalCost: Double,
 
-  resultingQuantity: Int,
-  resultingTotalValue: Double,
-  resultingCostTotalValue: Double,
+  dayTradeResultQuantity: Int,
+  dayTradeResultTotalGrossValue: Double,
+  dayTradeResultTotalCost: Double,
+
+  swingTradeResultQuantity: Int,
+  swingTradeResultTotalGrossValue: Double,
+  swingTradeResultTotalCost: Double,
+
+  positionQuantity: Int,
+  positionTotalValue: Double,
+  positionTotalCost: Double,
 ) {
-  assert(purchaseQuantity >= 0)
-  assert(purchaseTotalValue >= 0.0)
-  assert(purchaseCostTotal >= 0.0)
-  assert(saleQuantity >= 0)
-  assert(saleTotalValue >= 0.0)
-  assert(saleCostTotal >= 0.0)
-  assert(resultingQuantity >= 0)
-  assert(resultingTotalValue >= 0.0)
-  assert(resultingCostTotalValue >= 0.0)
+  require(purchaseQuantity >= 0)
+  require(purchaseTotalValue >= 0.0)
+  require(purchaseTotalCost >= 0.0)
+  require(saleQuantity >= 0)
+  require(saleTotalValue >= 0.0)
+  require(saleTotalCost >= 0.0)
+  require(dayTradeResultQuantity >= 0)
+  require(dayTradeResultTotalCost >= 0.0)
+  require(swingTradeResultQuantity >= 0)
+  require(swingTradeResultTotalCost >= 0.0)
+  require(math.signum(positionQuantity) == math.signum(positionTotalValue))
+  require(positionTotalCost >= 0.0)
 
-  lazy val purchaseAmountWithCost: AmountWithCost =
-    AmountWithCost(purchaseQuantity, purchaseTotalValue, purchaseCostTotal, Operation.Purchase)
+  lazy val stockbrokerAsset: StockbrokerAsset =
+    StockbrokerAsset(stockbroker, asset)
 
-  lazy val saleAmountWithCost: AmountWithCost =
-    AmountWithCost(saleQuantity, saleTotalValue, saleCostTotal, Operation.Sale)
+  lazy val purchaseAmount: PurchaseAmountWithCost =
+    PurchaseAmountWithCost(purchaseQuantity, purchaseTotalValue, purchaseTotalCost)
 
-  lazy val resultingAmountWithCost: AmountWithCost =
-    AmountWithCost(resultingQuantity, resultingTotalValue, resultingCostTotalValue, Operation.Purchase)
+  lazy val saleAmount: SaleAmountWithCost =
+    SaleAmountWithCost(saleQuantity, saleTotalValue, saleTotalCost)
+
+  lazy val dayTradeResult: TradeResult =
+    TradeResult.fromTotals(dayTradeResultQuantity, dayTradeResultTotalGrossValue, dayTradeResultTotalCost)
+
+  lazy val swingTradeResult: TradeResult =
+    TradeResult.fromTotals(swingTradeResultQuantity, swingTradeResultTotalGrossValue, swingTradeResultTotalCost)
+
+  lazy val position: AmountWithCost =
+    if (positionQuantity >= 0) {
+      PurchaseAmountWithCost(positionQuantity, positionTotalValue, positionTotalCost)
+    } else {
+      SaleAmountWithCost(-positionQuantity, -positionTotalValue, positionTotalCost)
+    }
+
+  def withPurchaseAmount(purchase: PurchaseAmountWithCost): AssetChange =
+    this.copy(
+      purchaseQuantity = purchase.quantity,
+      purchaseTotalValue = purchase.totalValue,
+      purchaseTotalCost = purchase.totalCost,
+    )
+
+  def withSaleAmount(sale: SaleAmountWithCost): AssetChange =
+    this.copy(
+      saleQuantity = sale.quantity,
+      saleTotalValue = sale.totalValue,
+      saleTotalCost = sale.totalCost,
+    )
+
+  def withDayTradeResult(dayTradeResult: TradeResult): AssetChange =
+    this.copy(
+      dayTradeResultQuantity = dayTradeResult.quantity,
+      dayTradeResultTotalGrossValue = dayTradeResult.totalGrossValue,
+      dayTradeResultTotalCost = dayTradeResult.totalCost,
+    )
+
+  def withSwingTradeResult(swingTradeResult: TradeResult): AssetChange =
+    this.copy(
+      swingTradeResultQuantity = swingTradeResult.quantity,
+      swingTradeResultTotalGrossValue = swingTradeResult.totalGrossValue,
+      swingTradeResultTotalCost = swingTradeResult.totalCost,
+    )
+
+  def withPosition(position: AmountWithCost): AssetChange = {
+    position match {
+      case PurchaseAmountWithCost(quantity, totalValue, totalCost) =>
+        this.copy(
+          positionQuantity = quantity,
+          positionTotalValue = totalValue,
+          positionTotalCost = totalCost
+        )
+      case SaleAmountWithCost(quantity, totalValue, totalCost) =>
+        this.copy(
+          positionQuantity = -quantity,
+          positionTotalValue = -totalValue,
+          positionTotalCost = totalCost
+        )
+    }
+  }
 }
 
 object AssetChange extends LocalDateSupport {
-  def fromAmountsWithCost(asset: String, stockbroker: String, date: LocalDate, byEvent: Boolean = false)(
-    purchaseAmountWithCost: AmountWithCost,
-    saleAmountWithCost: AmountWithCost,
-    resultingAmountWithCost: AmountWithCost,
-  ): AssetChange =
+  def withZeroes(asset: String, stockbroker: String, date: LocalDate, byEvent: Boolean = false): AssetChange =
     AssetChange(
-      asset,
-      stockbroker,
-      date,
-      byEvent,
-      purchaseAmountWithCost.quantity,
-      purchaseAmountWithCost.totalValue,
-      purchaseAmountWithCost.totalCost,
-      saleAmountWithCost.quantity,
-      saleAmountWithCost.totalValue,
-      saleAmountWithCost.totalCost,
-      resultingAmountWithCost.quantity,
-      resultingAmountWithCost.totalValue,
-      resultingAmountWithCost.totalCost,
+      asset, stockbroker, date, byEvent,
+      purchaseQuantity = 0, purchaseTotalValue = 0.0, purchaseTotalCost = 0.0,
+      saleQuantity = 0, saleTotalValue = 0.0, saleTotalCost = 0.0,
+      dayTradeResultQuantity = 0, dayTradeResultTotalGrossValue = 0.0, dayTradeResultTotalCost = 0.0,
+      swingTradeResultQuantity = 0, swingTradeResultTotalGrossValue = 0.0, swingTradeResultTotalCost = 0.0,
+      positionQuantity = 0, positionTotalValue = 0.0, positionTotalCost = 0.0,
     )
 
   //noinspection TypeAnnotation

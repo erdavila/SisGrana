@@ -2,7 +2,7 @@ package sisgrana
 package investments.variableIncome.importAssets
 
 import com.softwaremill.quicklens._
-import investments.variableIncome.model.{Amount, LocalDateSupport, ctx}
+import investments.variableIncome.model.{Amount, LocalDateSupport, AmountWithCost, PurchaseAmountWithCost, SaleAmountWithCost, ctx}
 import java.io.File
 import java.time.LocalDate
 
@@ -46,7 +46,7 @@ object Main extends LocalDateSupport {
     val brokerageNote = BrokerageNote.fromFile(fileName.date, fileName.stockbroker, nameNormalizer)(fileName.file)
     val assetsOpsAmounts = aggregateAssetOperations(brokerageNote)
 
-    val includeCost = {
+    val (includeCostToPurchaseAmount, includeCostToSaleAmount) = {
       val allAssetsOpsTotalValue = assetsOpsAmounts
         .valuesIterator
         .map(oa => oa.purchase.totalValue + oa.sale.totalValue)
@@ -54,14 +54,22 @@ object Main extends LocalDateSupport {
 
       val allAssetsOpsTotalCost = brokerageNote.totalCosts
 
-      (opAmount: Amount, operation: Operation) => {
+      def includeTo[A <: AmountWithCost](fromTotals: (Int, Double, Double) => A)(opAmount: Amount): A = {
         val opRatio = opAmount.totalValue / allAssetsOpsTotalValue
-        val opTotalCost = allAssetsOpsTotalCost * opRatio
-        opAmount.withTotalCost(opTotalCost, operation)
+        val totalCost = allAssetsOpsTotalCost * opRatio
+        fromTotals(opAmount.quantity, opAmount.totalValue, totalCost)
       }
+
+      val includeToPurchase = includeTo(PurchaseAmountWithCost.fromTotals)(_)
+      val includeToSale = includeTo(SaleAmountWithCost.fromTotals)(_)
+      (includeToPurchase, includeToSale)
     }
 
-    val assetProcessor = new AssetOperationsProcessor(fileName.stockbroker, fileName.date, includeCost)
+    val assetProcessor = new AssetOperationsProcessor(
+      fileName.stockbroker, fileName.date,
+      includeCostToPurchaseAmount,
+      includeCostToSaleAmount,
+    )
 
     for ((asset, opsAmounts) <- assetsOpsAmounts) {
       assetProcessor.process(asset, opsAmounts)

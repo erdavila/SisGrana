@@ -20,12 +20,12 @@ object AssetDateRange {
 
     object AssetChangeZero {
       def unapply(ac: AssetChange): Option[LocalDate] =
-        Option.when(ac.resultingQuantity == 0)(ac.date)
+        Option.when(ac.positionQuantity == 0)(ac.date)
     }
 
     object AssetChangeNonZero {
       def unapply(ac: AssetChange): Option[LocalDate] =
-        Option.when(ac.resultingQuantity > 0)(ac.date)
+        Option.when(ac.positionQuantity != 0)(ac.date)
     }
 
     @tailrec
