@@ -101,7 +101,7 @@ class AssetOperationsProcessorTest extends AnyFunSuite with TableDrivenPropertyC
     )
 
     forAll(cases) { case (currentPositionAmount, nonDayTradeAmount, expectedSwingTradeResult, expectedUpdatedPositionAmount) =>
-      val (swingTradeResult, updatedPositionAmount) = AssetOperationsProcessor.calculateSwingTradeResultAndUpdatedPositionAmount(currentPositionAmount, nonDayTradeAmount)
+      val (swingTradeResult, updatedPositionAmount) = AssetOperationsProcessor.calculateSwingTradeResultAndUpdatedPosition(currentPositionAmount, nonDayTradeAmount)
       swingTradeResult should equal (expectedSwingTradeResult)
       updatedPositionAmount should equal (expectedUpdatedPositionAmount)
     }

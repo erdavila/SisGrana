@@ -4,7 +4,6 @@ package investments.variableIncome.importAssets
 import investments.variableIncome.importAssets.Event.AveragePriceDefinition.{Constant, Multiplier}
 import investments.variableIncome.importAssets.Event.{From, To}
 import investments.variableIncome.model.{PurchaseAmountWithCost, SaleAmountWithCost, TradeResult}
-import java.time.LocalDate
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -16,7 +15,7 @@ class EventProcessorTest extends AnyFunSuite with TableDrivenPropertyChecks with
     val cases = Table(
       (
         "event",
-        "positionAndSwingTradeResultByAsset",
+        "positionByAsset",
         "expected updatedPositionAndSwingTradeResultByAsset",
       ),
       (
@@ -27,7 +26,7 @@ class EventProcessorTest extends AnyFunSuite with TableDrivenPropertyChecks with
           )
         ),
         Map(
-          Asset -> ((PurchaseAmountWithCost(5, 10.00, 0.10), TradeResult.Zero)),
+          Asset -> PurchaseAmountWithCost(5, 10.00, 0.10),
         ),
         Some(
           Map(
@@ -44,11 +43,11 @@ class EventProcessorTest extends AnyFunSuite with TableDrivenPropertyChecks with
           )
         ),
         Map(
-          Asset -> ((PurchaseAmountWithCost(25, 250.00, 0.50), TradeResult(7, 123.00, 0.32))),
+          Asset -> PurchaseAmountWithCost(25, 250.00, 0.50),
         ),
         Some(
           Map(
-            Asset -> ((PurchaseAmountWithCost(27, 260.00, 0.50), TradeResult(7, 123.00, 0.32))),
+            Asset -> ((PurchaseAmountWithCost(27, 260.00, 0.50), TradeResult.Zero)),
           )
         ),
       ),
@@ -60,13 +59,13 @@ class EventProcessorTest extends AnyFunSuite with TableDrivenPropertyChecks with
           )
         ),
         Map(
-          Asset -> ((PurchaseAmountWithCost.fromAverages(3, 10.00, 0.10), TradeResult.Zero)),
-          "XXXX4" -> ((SaleAmountWithCost.fromAverages(5, 5.00, 0.04), TradeResult(2, -14.00, 0.14))),
+          Asset -> PurchaseAmountWithCost.fromAverages(3, 10.00, 0.10),
+          "XXXX4" -> SaleAmountWithCost.fromAverages(5, 5.00, 0.08),
         ),
         Some(
           Map(
             Asset -> ((PurchaseAmountWithCost.Zero, TradeResult.Zero)),
-            "XXXX4" -> ((SaleAmountWithCost.fromAverages(2, 5.00, 0.04), TradeResult(5, -29.00, 0.56))),
+            "XXXX4" -> ((SaleAmountWithCost.fromAverages(2, 5.00, 0.08), TradeResult(3, -15.00, 0.54))),
           )
         ),
       ),
@@ -78,21 +77,21 @@ class EventProcessorTest extends AnyFunSuite with TableDrivenPropertyChecks with
           )
         ),
         Map(
-          Asset -> ((PurchaseAmountWithCost.fromAverages(3, 10.00, 0.30), TradeResult.Zero)),
-          "XXXX4" -> ((SaleAmountWithCost.fromAverages(2, 8.00, 0.08), TradeResult(2, -14.00, 0.14))),
+          Asset -> PurchaseAmountWithCost.fromAverages(3, 10.00, 0.30),
+          "XXXX4" -> SaleAmountWithCost.fromAverages(2, 8.00, 0.08),
         ),
         Some(
           Map(
             Asset -> ((PurchaseAmountWithCost.Zero, TradeResult.Zero)),
-            "XXXX4" -> ((PurchaseAmountWithCost.fromAverages(1, 10.00, 0.30), TradeResult(4, -18.00, 0.9))),
+            "XXXX4" -> ((PurchaseAmountWithCost.fromAverages(1, 10.00, 0.30), TradeResult(2, -4.00, 0.76))),
           )
         ),
       ),
     )
 
-    forAll(cases) { case (event, positionAndSwingTradeResultByAsset, expectedPositionAndSwingTradeResultByAsset) =>
-      val processor = new EventProcessor(event, LocalDate.now())
-      val result = processor.calculateUpdatedPositions(positionAndSwingTradeResultByAsset)
+    forAll(cases) { case (event, positionByAsset, expectedPositionAndSwingTradeResultByAsset) =>
+      val processor = new EventProcessor(event)
+      val result = processor.calculateUpdatedPositionsAndSwingTradeResult(positionByAsset)
       result should equal (expectedPositionAndSwingTradeResultByAsset)
     }
   }

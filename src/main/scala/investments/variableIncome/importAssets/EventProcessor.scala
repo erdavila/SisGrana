@@ -3,68 +3,39 @@ package investments.variableIncome.importAssets
 
 import investments.irpf.StockbrokerAsset
 import investments.variableIncome.model._
-import investments.variableIncome.model.ctx._
-import java.time.LocalDate
 
-class EventProcessor(event: Event, eventDate: LocalDate) extends LocalDateSupport {
-  def process(): Unit = {
-    val involvedAssets = event.tos.map(_.asset).toSet + event.from.asset
-    val assetsPositionsAndSwingTradeResultByStockbroker = getInvolvedAssetsPositionsAndSwingTradeResults(involvedAssets)
-      .groupMap(_._1.stockbroker) { case (stockbrokerAsset, positionAndSwingTradeResult) => (stockbrokerAsset.asset, positionAndSwingTradeResult) }
+class EventProcessor(event: Event) {
+  def process(positionByAsset: Map[StockbrokerAsset, AmountWithCost]): Seq[Map[StockbrokerAsset, (AmountWithCost, TradeResult)]] = {
+    val assetsPositionsByStockbroker = positionByAsset
+      .groupMap(_._1.stockbroker) { case (stockbrokerAsset, position) => (stockbrokerAsset.asset, position) }
 
-    for ((stockbroker, assetsPositionsAndSwingTradeResult) <- assetsPositionsAndSwingTradeResultByStockbroker) {
-      processEventOnStockBrokerAssets(stockbroker, assetsPositionsAndSwingTradeResult.toMap)
-    }
-  }
-
-  private def getInvolvedAssetsPositionsAndSwingTradeResults(assets: Set[String]): Map[StockbrokerAsset, (AmountWithCost, TradeResult)] = {
-    val result = ctx.run {
-      val latestAssetChange = query[AssetChange]
-        .filter(ac => liftQuery(assets).contains(ac.asset))
-        .groupBy(ac => (ac.asset, ac.stockbroker))
-        .map { case ((asset, stockbroker), assetChanges) =>
-          (asset, stockbroker, assetChanges.map(_.date).max)
-        }
-
-      for {
-        (asset, stockbroker, dateOpt) <- latestAssetChange
-        ac <- query[AssetChange]
-        if ac.asset == asset && ac.stockbroker == stockbroker && dateOpt.contains(ac.date)
-      } yield ac
-    }
-
-    result
-      .map { assetChange =>
-        if (!assetChange.date.isBefore(eventDate)) {
-          throw new Exception(s"Encontrado registro com data igual ou posterior ao evento: $assetChange")
-        }
-
-        assetChange.stockbrokerAsset -> ((assetChange.position, assetChange.swingTradeResult))
+    assetsPositionsByStockbroker
+      .map { case (stockbroker, assetsPositions) =>
+        processEventOnStockBrokerAssets(assetsPositions.toMap)
+          .map { case (asset, positionAndTradeResult) => StockbrokerAsset(stockbroker, asset) -> positionAndTradeResult }
       }
-      .toMap
+      .toSeq
   }
 
-  private def processEventOnStockBrokerAssets(stockbroker: String, positionAndSwingTradeResultByAsset: Map[String, (AmountWithCost, TradeResult)]): Unit =
-    for {
-      updatedPositionAndSwingTradeResultByAsset <- calculateUpdatedPositions(positionAndSwingTradeResultByAsset)
-      (asset, (position, swingTradeResult)) <- updatedPositionAndSwingTradeResultByAsset
-    } {
-      save(asset, position, swingTradeResult, stockbroker)
-    }
+  private def processEventOnStockBrokerAssets(positionByAsset: Map[String, AmountWithCost]): Map[String, (AmountWithCost, TradeResult)] =
+    calculateUpdatedPositionsAndSwingTradeResult(positionByAsset)
+      .getOrElse(Map.empty)
 
-  private[importAssets] def calculateUpdatedPositions(
-    positionAndSwingTradeResultByAsset: Map[String, (AmountWithCost, TradeResult)],
+  private[importAssets] def calculateUpdatedPositionsAndSwingTradeResult(
+    positionByAsset: Map[String, AmountWithCost],
   ): Option[Map[String, (AmountWithCost, TradeResult)]] =
-    positionAndSwingTradeResultByAsset.get(event.from.asset).map { case (matchingAssetPosition, matchingAssetSwingTradeResult) =>
+    positionByAsset.get(event.from.asset).map { matchingAssetPosition =>
       val times = matchingAssetPosition.quantity / event.from.quantity
       val removedQuantity = times * event.from.quantity
       val newQuantity = matchingAssetPosition.quantity - removedQuantity
       val newMatchingAssetPosition = matchingAssetPosition.withQuantity(newQuantity)
 
-      val newPositionAndSwingTradeResultByAsset = positionAndSwingTradeResultByAsset +
-        (event.from.asset -> ((newMatchingAssetPosition, matchingAssetSwingTradeResult)))
+      val positionAndSwingTradeResultByAsset =
+        (positionByAsset + (event.from.asset -> newMatchingAssetPosition))
+          .view.mapValues((_, TradeResult.Zero))
+          .toMap
 
-      event.tos.foldLeft(newPositionAndSwingTradeResultByAsset) { (positionAndSwingTradeResultByAsset, to) =>
+      event.tos.foldLeft(positionAndSwingTradeResultByAsset) { (positionAndSwingTradeResultByAsset, to) =>
         positionAndSwingTradeResultByAsset.updatedWith(to.asset) { positionAndSwingTradeResultOpt =>
           val (position, swingTradeResult) = positionAndSwingTradeResultOpt.getOrElse((PurchaseAmountWithCost.Zero, TradeResult.Zero))
           val (averagePrice, averageCost) = to.averagePriceDefinition(
@@ -73,27 +44,11 @@ class EventProcessor(event: Event, eventDate: LocalDate) extends LocalDateSuppor
           )
 
           val quantity = times * to.quantity
-          val amount =
-            if (quantity >= 0) {
-              PurchaseAmountWithCost(quantity, quantity * averagePrice, quantity * averageCost)
-            } else {
-              SaleAmountWithCost(-quantity, -quantity * averagePrice, -quantity * averageCost)
-            }
+          val amount = AmountWithCost.fromSignedQuantityAndAverages(quantity, averagePrice, averageCost)
 
-          val (eventSwingTradeResult, newUpdatedPosition) = AssetOperationsProcessor.calculateSwingTradeResultAndUpdatedPositionAmount(position, amount)
+          val (eventSwingTradeResult, newUpdatedPosition) = AssetOperationsProcessor.calculateSwingTradeResultAndUpdatedPosition(position, amount)
           Some((newUpdatedPosition, swingTradeResult + eventSwingTradeResult))
         }
       }
     }
-
-  private def save(asset: String, position: AmountWithCost, swingTradeResult: TradeResult, stockbroker: String): Unit = {
-    val assetChange = AssetChange.withZeroes(asset, stockbroker, eventDate, byEvent = true)
-      .withPosition(position)
-      .withSwingTradeResult(swingTradeResult)
-
-    ctx.run {
-      query[AssetChange]
-        .insert(lift(assetChange))
-    }
-  }
 }

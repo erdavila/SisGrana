@@ -114,7 +114,10 @@ case class AssetChange(
 }
 
 object AssetChange extends LocalDateSupport {
-  def withZeroes(asset: String, stockbroker: String, date: LocalDate, byEvent: Boolean = false): AssetChange =
+  def withZeroes(stockbrokerAsset: StockbrokerAsset, date: LocalDate, byEvent: Boolean): AssetChange =
+    withZeroes(stockbrokerAsset.asset, stockbrokerAsset.stockbroker, date, byEvent)
+
+  def withZeroes(asset: String, stockbroker: String, date: LocalDate, byEvent: Boolean): AssetChange =
     AssetChange(
       asset, stockbroker, date, byEvent,
       purchaseQuantity = 0, purchaseTotalValue = 0.0, purchaseTotalCost = 0.0,

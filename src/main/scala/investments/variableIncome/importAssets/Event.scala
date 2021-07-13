@@ -3,11 +3,14 @@ package investments.variableIncome.importAssets
 
 import com.softwaremill.quicklens._
 import investments.irpf.Events
+import investments.utils.BrNumber
 import java.io.File
 import scala.annotation.tailrec
-import sisgrana.investments.utils.BrNumber
 
 case class Event(from: Event.From, tos: Vector[Event.To]) {
+  def subjectAssets: Set[String] =
+    tos.map(_.asset).toSet + from.asset
+
   def formatted: String =
     s"${from.formatted} -> ${tos.map(_.formatted).mkString(" + ")}"
 }

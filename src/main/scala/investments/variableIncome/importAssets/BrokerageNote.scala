@@ -49,7 +49,8 @@ object Negotiation {
 }
 
 case class BrokerageNote(
-  stockbroker: String, date: LocalDate,
+  stockbroker: String,
+  date: LocalDate,
   negotiations: List[Negotiation],
   costs: List[Cost],
   totalValue: Double,

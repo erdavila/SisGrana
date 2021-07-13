@@ -33,6 +33,15 @@ sealed trait AmountWithCost {
   def withSameOperation(quantity: Int, totalValue: Double, totalCost: Double): AmountWithCost
 }
 
+object AmountWithCost {
+  def fromSignedQuantityAndAverages(signedQuantity: Int, averagePrice: Double, averageCost: Double): AmountWithCost =
+    if (signedQuantity >= 0) {
+      PurchaseAmountWithCost.fromAverages(signedQuantity, averagePrice, averageCost)
+    } else {
+      SaleAmountWithCost.fromAverages(-signedQuantity, averagePrice, averageCost)
+    }
+}
+
 case class PurchaseAmountWithCost(quantity: Int, totalValue: Double, totalCost: Double) extends AmountWithCost {
   override lazy val totalValueWithCost: Double = totalValue + totalCost
 
