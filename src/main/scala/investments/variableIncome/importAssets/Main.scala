@@ -3,6 +3,8 @@ package investments.variableIncome.importAssets
 
 import com.softwaremill.quicklens._
 import investments.irpf.StockbrokerAsset
+import investments.variableIncome.importAssets.AssetOperationsProcessor.OperationsOutcome
+import investments.variableIncome.importAssets.EventProcessor.EventOutcome
 import investments.variableIncome.model._
 import investments.variableIncome.model.ctx._
 import java.io.File
@@ -37,6 +39,8 @@ object Main extends LocalDateSupport {
   private case class LatestPosition(date: LocalDate, position: AmountWithCost)
 
   private def processDate(date: LocalDate, importedFileNames: Seq[ImportedFileName]): Unit = {
+    println(s"Processando dados de $date")
+
     val (eventsArray, brokerageNotes) = importedFileNames.partitionMap {
       case ImportedFileName(_, "EVENTS", file) => Left(Events.fromFile(file))
       case ImportedFileName(_, stockbroker, file) => Right(BrokerageNote.fromFile(date, stockbroker, nameNormalizer)(file))
@@ -63,29 +67,46 @@ object Main extends LocalDateSupport {
         if latestPosition.position.quantity != 0
       } yield stockbrokerAsset -> latestPosition.position
 
-    val positionAndSwingTradeResultAfterEventsByAsset = processEvents(previousPositionByAsset, events)
-    val assetChangeAfterOperationsByAsset = processBrokerageNotes(previousPositionByAsset ++ positionAndSwingTradeResultAfterEventsByAsset.view.mapValues(_._1), brokerageNotes)
+    val eventOutcomeByAsset = processEvents(previousPositionByAsset, events)
+    val operationsOutcomeByAsset = processBrokerageNotes(previousPositionByAsset ++ eventOutcomeByAsset.view.mapValues(_.position), brokerageNotes)
 
     val assetChanges =
       for {
-        stockbrokerAsset <- (positionAndSwingTradeResultAfterEventsByAsset.keySet ++ assetChangeAfterOperationsByAsset.keySet).toSeq
-        ac = (positionAndSwingTradeResultAfterEventsByAsset.get(stockbrokerAsset), assetChangeAfterOperationsByAsset.get(stockbrokerAsset)) match {
-          case (Some((_, swingTradeResultAfterEvents)), Some(assetChangeAfterOperations)) =>
-            assetChangeAfterOperations
-              .withSwingTradeResult(assetChangeAfterOperations.swingTradeResult + swingTradeResultAfterEvents)
+        stockbrokerAsset <- (eventOutcomeByAsset.keySet ++ operationsOutcomeByAsset.keySet).toSeq
+
+        initialAssetChange = AssetChange
+          .withZeroes(stockbrokerAsset, date, byEvent = false)
+          .withPreviousPosition(previousPositionByAsset.getOrElse(stockbrokerAsset, PurchaseAmountWithCost.Zero))
+
+        postEventAssetChange = eventOutcomeByAsset.get(stockbrokerAsset) match {
+          case Some(eventOutcome) =>
+            initialAssetChange
               .copy(byEvent = true)
-          case (Some((positionAfterEvents, swingTradeResultAfterEvents)), None) =>
-            AssetChange.withZeroes(stockbrokerAsset, date, byEvent = true)
-              .withPosition(positionAfterEvents)
-              .withSwingTradeResult(swingTradeResultAfterEvents)
-          case (None, Some(assetChangeAfterOperations)) => assetChangeAfterOperations
-          case (None, None) => throw new Exception("Can never happen!!!")
+              .withEventTradeResult(eventOutcome.tradeResult)
+              .withPostEventPosition(eventOutcome.position)
+          case None =>
+            initialAssetChange
+              .withPostEventPosition(initialAssetChange.previousPosition)
         }
-      } yield ac
+
+        assetChange = operationsOutcomeByAsset.get(stockbrokerAsset) match {
+          case Some(operationsOutcome) =>
+            postEventAssetChange
+              .withPurchaseAmount(operationsOutcome.purchaseAmount)
+              .withSaleAmount(operationsOutcome.saleAmount)
+              .withDayTradeResult(operationsOutcome.dayTradeResult)
+              .withNonDayTradeAmount(operationsOutcome.nonDayTradeAmount)
+              .withOperationsTradeResult(operationsOutcome.swingTradeResult)
+              .withResultingPosition(operationsOutcome.position)
+          case None =>
+            postEventAssetChange
+              .withResultingPosition(postEventAssetChange.postEventPosition)
+        }
+      } yield assetChange
 
     for (ac <- assetChanges) {
-      latestPositions.get(ac.stockbrokerAsset).filterNot(_.date `isBefore` date).foreach(_ =>
-        throw new Exception(s"Encontrado registro referente a ${ac.stockbrokerAsset} com data igual ou posterior a $date")
+      latestPositions.get(ac.stockbrokerAsset).filterNot(_.date `isBefore` date).foreach(existingAC =>
+        throw new Exception(s"Encontrado registro referente a ${ac.stockbrokerAsset} com data ${existingAC.date}, que é igual ou posterior a $date")
       )
       ctx.run(query[AssetChange].insert(lift(ac)))
     }
@@ -98,14 +119,14 @@ object Main extends LocalDateSupport {
     )
 
     result
-      .map(ac => ac.stockbrokerAsset -> LatestPosition(ac.date, ac.position))
+      .map(ac => ac.stockbrokerAsset -> LatestPosition(ac.date, ac.resultingPosition))
       .toMap
   }
 
   private def processEvents(
     positionByAsset: Map[StockbrokerAsset, AmountWithCost],
     events: Seq[Event],
-  ): Map[StockbrokerAsset, (AmountWithCost, TradeResult)] =
+  ): Map[StockbrokerAsset, EventOutcome] =
     events
       .flatMap { event =>
         val processor = new EventProcessor(event)
@@ -123,7 +144,7 @@ object Main extends LocalDateSupport {
   private def processBrokerageNotes(
     positionByAsset: Map[StockbrokerAsset, AmountWithCost],
     brokerageNotes: Seq[BrokerageNote],
-  ): Map[StockbrokerAsset, AssetChange] =
+  ): Map[StockbrokerAsset, OperationsOutcome] =
     brokerageNotes
       .map { processBrokerageNote(positionByAsset, _) }
       .reduceOption(_ ++ _)
@@ -132,7 +153,7 @@ object Main extends LocalDateSupport {
   private def processBrokerageNote(
     positionByAsset: Map[StockbrokerAsset, AmountWithCost],
     brokerageNote: BrokerageNote,
-  ): Map[StockbrokerAsset, AssetChange] = {
+  ): Map[StockbrokerAsset, OperationsOutcome] = {
     val assetsOpsAmounts = aggregateAssetOperations(brokerageNote)
 
     val (includeCostToPurchaseAmount, includeCostToSaleAmount) = {
@@ -155,8 +176,6 @@ object Main extends LocalDateSupport {
     }
 
     val assetProcessor = new AssetOperationsProcessor(
-      brokerageNote.stockbroker,
-      brokerageNote.date,
       includeCostToPurchaseAmount,
       includeCostToSaleAmount,
     )
@@ -166,8 +185,8 @@ object Main extends LocalDateSupport {
         (asset, opsAmounts) <- assetsOpsAmounts
         stockbrokerAsset = StockbrokerAsset(brokerageNote.stockbroker, asset)
         position = positionByAsset.getOrElse(stockbrokerAsset, PurchaseAmountWithCost.Zero)
-        assetChange = assetProcessor.process(asset, opsAmounts, position)
-      } yield stockbrokerAsset -> assetChange
+        operationsOutcome = assetProcessor.process(opsAmounts, position)
+      } yield stockbrokerAsset -> operationsOutcome
     ).toMap
   }
 

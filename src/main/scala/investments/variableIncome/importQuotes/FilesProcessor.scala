@@ -138,13 +138,13 @@ class FilesProcessor extends LocalDateSupport {
     val result = beforeRange ++ inRange
 
     result
-      .groupBy(ac => (ac.asset, ac.stockbroker))
+      .groupBy(ac => ac.stockbrokerAsset)
       .view.mapValues { assetChanges =>
         AssetDateRange.seqFromAssetChanges(assetChanges.sortBy(_.date), minDate, maxDate)
       }
       .groupMapReduce
-        { case ((asset, _), _) => asset }
-        { case ((_, _), ranges) => ranges }
+        { case (stockbrokerAsset, _) => stockbrokerAsset.asset }
+        { case (_, ranges) => ranges }
         { AssetDateRange.mergeSeqs }
   }
 

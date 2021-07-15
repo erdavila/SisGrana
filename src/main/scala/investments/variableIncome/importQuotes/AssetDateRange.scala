@@ -6,10 +6,13 @@ import java.time.LocalDate
 import scala.annotation.tailrec
 
 case class AssetDateRange(beginDate: LocalDate, endDate: LocalDate) {
-  require(!beginDate.isAfter(endDate))
+  private val ord = implicitly[Ordering[LocalDate]]
+  import ord._
+
+  require(beginDate <= endDate)
 
   def contains(date: LocalDate): Boolean =
-    !date.isBefore(beginDate) && !date.isAfter(endDate)
+    date >= beginDate && date <= endDate
 }
 
 object AssetDateRange {
@@ -20,12 +23,12 @@ object AssetDateRange {
 
     object AssetChangeZero {
       def unapply(ac: AssetChange): Option[LocalDate] =
-        Option.when(ac.positionQuantity == 0)(ac.date)
+        Option.when(ac.resultingPositionQuantity == 0)(ac.date)
     }
 
     object AssetChangeNonZero {
       def unapply(ac: AssetChange): Option[LocalDate] =
-        Option.when(ac.positionQuantity != 0)(ac.date)
+        Option.when(ac.resultingPositionQuantity != 0)(ac.date)
     }
 
     @tailrec

@@ -9,11 +9,11 @@ class TradeResultTest extends AnyFunSuite with TableDrivenPropertyChecks with Ma
   test("TradeResult.from()") {
     object purchase {
       val Zero: PurchaseAmountWithCost = PurchaseAmountWithCost.Zero
-      def apply(quantity: Int, totalValue: Double, totalCost: Double): PurchaseAmountWithCost = PurchaseAmountWithCost(quantity, totalValue, totalCost)
+      def apply(quantity: Int, totalValue: Double, totalCost: Double): PurchaseAmountWithCost = PurchaseAmountWithCost.fromTotals(quantity, totalValue, totalCost)
     }
     object sale {
       val Zero: SaleAmountWithCost = SaleAmountWithCost.Zero
-      def apply(quantity: Int, totalValue: Double, totalCost: Double): SaleAmountWithCost = SaleAmountWithCost(quantity, totalValue, totalCost)
+      def apply(quantity: Int, totalValue: Double, totalCost: Double): SaleAmountWithCost = SaleAmountWithCost.fromTotals(quantity, totalValue, totalCost)
     }
     val expectedDayTradeResult = TradeResultTest.DSL
     val expectedRemainingAmount = AmountWithCostTest.DSL

@@ -3,7 +3,12 @@ package investments.variableIncome.model
 
 case class TradeResult(quantity: Int, totalGrossValue: Double, totalCost: Double) {
   require(quantity >= 0)
-  require(totalCost >= 0.0)
+  if (quantity == 0) {
+    require(totalGrossValue == 0.0)
+    require(totalCost == 0.0)
+  } else {
+    require(totalCost >= 0.0)
+  }
 
   lazy val netValue: Double = totalGrossValue - totalCost
 

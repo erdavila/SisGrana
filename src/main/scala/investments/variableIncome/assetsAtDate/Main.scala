@@ -14,14 +14,14 @@ object Main extends LocalDateSupport {
 
     val result = ctx.run(
       AssetChange.latestAssetChangesAtDateQuery(date)
-        .filter(_.positionQuantity != 0)
+        .filter(_.resultingPositionQuantity != 0)
     )
 
     val printer = new IndentedPrinter
     for ((stockbroker, assetChanges) <- result.groupBy(_.stockbroker).toIndexedSeq.sortBy(_._1)) {
       printer.context(stockbroker) {
         for (ac <- assetChanges.sortBy(_.asset)) {
-          val position = ac.position
+          val position = ac.resultingPosition
           printer.println(s"${ac.asset} ${position.signedQuantity} x ${BrNumber.formatMoney(position.averagePriceWithCost)} = ${BrNumber.formatMoney(position.signedTotalValueWithCost)}")
         }
       }

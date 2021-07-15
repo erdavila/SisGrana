@@ -140,7 +140,7 @@ class AssetDateRangeTest extends AnyFunSuite with TableDrivenPropertyChecks with
   private def changes(tuple: (LocalDate, Int)*): Seq[AssetChange] =
     for ((date, positionQuantity) <- tuple)
       yield AssetChange.withZeroes("", "", date, byEvent = false)
-        .withPosition(PurchaseAmountWithCost.fromTotals(positionQuantity, positionQuantity.toDouble, 0.0))
+        .withResultingPosition(PurchaseAmountWithCost.fromTotals(positionQuantity, positionQuantity.toDouble, 0.0))
 
   private def ranges(dates: (LocalDate, LocalDate)*): Seq[AssetDateRange] =
     for ((beginDate, endDate) <- dates)

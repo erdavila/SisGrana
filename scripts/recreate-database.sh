@@ -1,11 +1,11 @@
 #!/bin/bash
-set -e
 
 read -p 'Tem certeza?! ' CONFIRMATION
 if [ "$CONFIRMATION" != "SIM!" ]; then
   exit
 fi
 
+set -ex
 rm data/investments.sqlite
 sqlite3 data/investments.sqlite < sql/schema.sql
 scripts/import.sh data/2019/* data/2020/* data/2021/*

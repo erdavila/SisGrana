@@ -3,17 +3,22 @@ package investments.variableIncome.model
 
 sealed trait AmountWithCost {
   require(quantity >= 0)
-  require(totalValue >= 0.0)
-  require(totalCost >= 0.0)
+  if (quantity == 0) {
+    require(averagePrice == 0.0)
+    require(averageCost == 0.0)
+  } else {
+    require(averagePrice > 0.0)
+    require(averageCost >= 0.0)
+  }
 
   def quantity: Int
-  def totalValue: Double
-  def totalCost: Double
+  def averagePrice: Double
+  def averageCost: Double
 
-  lazy val averagePrice: Double = totalValue / quantity
-  lazy val averageCost: Double = totalCost / quantity
-  lazy val averagePriceWithCost: Double = totalValueWithCost / quantity
-  def totalValueWithCost: Double
+  lazy val totalValue: Double = averagePrice * quantity
+  lazy val totalCost: Double = averageCost * quantity
+  lazy val totalValueWithCost: Double = averagePriceWithCost * quantity
+  def averagePriceWithCost: Double
 
   def signedQuantity: Int = sign * quantity
   def signedTotalValue: Double = sign * totalValue
@@ -21,12 +26,12 @@ sealed trait AmountWithCost {
   protected def sign: Int
 
   def withQuantity(quantity: Int): AmountWithCost
-  protected final def withQuantity[A <: AmountWithCost](quantity: Int, zero: => A, create: (Int, Double, Double) => A): A = {
+  protected final def withQuantity[A <: AmountWithCost](quantity: Int, zero: => A, fromAverages: (Int, Double, Double) => A): A = {
     if (this.quantity == 0) require(quantity == 0)
     if (quantity == 0) {
       zero
     } else {
-      create(quantity, quantity * averagePrice, quantity * averageCost)
+      fromAverages(quantity, averagePrice, averageCost)
     }
   }
 
@@ -40,21 +45,42 @@ object AmountWithCost {
     } else {
       SaleAmountWithCost.fromAverages(-signedQuantity, averagePrice, averageCost)
     }
+
+  def fromSignedQuantityAndTotals(signedQuantity: Int, totalValue: Double, totalCost: Double): AmountWithCost =
+    if (signedQuantity == 0) {
+      require(totalValue == 0.0)
+      require(totalCost == 0.0)
+      PurchaseAmountWithCost.Zero
+    } else {
+      fromSignedQuantityAndAverages(
+        signedQuantity,
+        totalValue / signedQuantity,
+        totalCost / signedQuantity,
+      )
+    }
+
+  def combine(amount1: AmountWithCost, amount2: AmountWithCost): (AmountWithCost, TradeResult) =
+    (amount1, amount2) match {
+      case (p1@PurchaseAmountWithCost(_, _, _), p2@PurchaseAmountWithCost(_, _, _)) => (p1 + p2, TradeResult.Zero)
+      case (s1@SaleAmountWithCost(_, _, _), s2@SaleAmountWithCost(_, _, _)) => (s1 + s2, TradeResult.Zero)
+      case (p@PurchaseAmountWithCost(_, _, _), s@SaleAmountWithCost(_, _, _)) => TradeResult.from(p, s).swap
+      case (s@SaleAmountWithCost(_, _, _), p@PurchaseAmountWithCost(_, _, _)) => TradeResult.from(p, s).swap
+    }
 }
 
-case class PurchaseAmountWithCost(quantity: Int, totalValue: Double, totalCost: Double) extends AmountWithCost {
-  override lazy val totalValueWithCost: Double = totalValue + totalCost
+case class PurchaseAmountWithCost(quantity: Int, averagePrice: Double, averageCost: Double) extends AmountWithCost {
+  override lazy val averagePriceWithCost: Double = averagePrice + averageCost
 
   override protected def sign: Int = +1
 
   override def withQuantity(quantity: Int): PurchaseAmountWithCost =
-    withQuantity(quantity, PurchaseAmountWithCost.Zero, PurchaseAmountWithCost(_, _, _))
+    withQuantity(quantity, PurchaseAmountWithCost.Zero, PurchaseAmountWithCost.fromAverages)
 
   override def withSameOperation(quantity: Int, totalValue: Double, totalCost: Double): PurchaseAmountWithCost =
     PurchaseAmountWithCost(quantity, totalValue, totalCost)
 
   def +(other: PurchaseAmountWithCost): PurchaseAmountWithCost =
-    PurchaseAmountWithCost(
+    PurchaseAmountWithCost.fromTotals(
       quantity = this.quantity + other.quantity,
       totalValue = this.totalValue + other.totalValue,
       totalCost = this.totalCost + other.totalCost,
@@ -64,30 +90,39 @@ case class PurchaseAmountWithCost(quantity: Int, totalValue: Double, totalCost: 
 object PurchaseAmountWithCost {
   val Zero: PurchaseAmountWithCost = PurchaseAmountWithCost(0, 0.0, 0.0)
 
+  private def apply(quantity: Int, averagePrice: Double, averageCost: Double): PurchaseAmountWithCost =
+    new PurchaseAmountWithCost(quantity, averagePrice, averageCost)
+
   def fromAverages(quantity: Int, averagePrice: Double, averageCost: Double): PurchaseAmountWithCost =
-    fromTotals(
-      quantity,
-      quantity * averagePrice,
-      quantity * averageCost,
-    )
+    PurchaseAmountWithCost(quantity, averagePrice, averageCost)
 
   def fromTotals(quantity: Int, totalValue: Double, totalCost: Double): PurchaseAmountWithCost =
-    PurchaseAmountWithCost(quantity, totalValue, totalCost)
+    if (quantity == 0) {
+      require(totalValue == 0.0)
+      require(totalCost == 0.0)
+      Zero
+    } else {
+      fromAverages(
+        quantity,
+        totalValue / quantity,
+        totalCost / quantity,
+      )
+    }
 }
 
-case class SaleAmountWithCost(quantity: Int, totalValue: Double, totalCost: Double) extends AmountWithCost {
-  override lazy val totalValueWithCost: Double = totalValue - totalCost
+case class SaleAmountWithCost(quantity: Int, averagePrice: Double, averageCost: Double) extends AmountWithCost {
+  override lazy val averagePriceWithCost: Double = averagePrice - averageCost
 
   override protected def sign: Int = -1
 
   override def withQuantity(quantity: Int): SaleAmountWithCost =
-    withQuantity(quantity, SaleAmountWithCost.Zero, SaleAmountWithCost(_, _, _))
+    withQuantity(quantity, SaleAmountWithCost.Zero, SaleAmountWithCost.fromAverages)
 
   override def withSameOperation(quantity: Int, totalValue: Double, totalCost: Double): SaleAmountWithCost =
     SaleAmountWithCost(quantity, totalValueWithCost, totalCost)
 
   def +(other: SaleAmountWithCost): SaleAmountWithCost =
-    SaleAmountWithCost(
+    SaleAmountWithCost.fromTotals(
       quantity = this.quantity + other.quantity,
       totalValue = this.totalValue + other.totalValue,
       totalCost = this.totalCost + other.totalCost,
@@ -97,13 +132,22 @@ case class SaleAmountWithCost(quantity: Int, totalValue: Double, totalCost: Doub
 object SaleAmountWithCost {
   val Zero: SaleAmountWithCost = SaleAmountWithCost(0, 0.0, 0.0)
 
+  private def apply(quantity: Int, averagePrice: Double, averageCost: Double): SaleAmountWithCost =
+    new SaleAmountWithCost(quantity, averagePrice, averageCost)
+
   def fromAverages(quantity: Int, averagePrice: Double, averageCost: Double): SaleAmountWithCost =
-    fromTotals(
-      quantity,
-      quantity * averagePrice,
-      quantity * averageCost,
-    )
+    SaleAmountWithCost(quantity, averagePrice, averageCost)
 
   def fromTotals(quantity: Int, totalValue: Double, totalCost: Double): SaleAmountWithCost =
-    SaleAmountWithCost(quantity, totalValue, totalCost)
+    if (quantity == 0) {
+      require(totalValue == 0.0)
+      require(totalCost == 0.0)
+      Zero
+    } else {
+      fromAverages(
+        quantity,
+        totalValue / quantity,
+        totalCost / quantity,
+      )
+    }
 }
