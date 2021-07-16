@@ -4,7 +4,7 @@ package investments.irpf
 import com.softwaremill.quicklens._
 import investments.irpf.OwnedAssets.Ops
 import investments.utils.BrNumber
-import investments.variableIncome.AssetType
+import investments.variableIncome.{AssetType, DataPath}
 import investments.variableIncome.importAssets._
 import java.io.File
 import java.time.{LocalDate, YearMonth}
@@ -16,7 +16,7 @@ case class OperationsAmounts(purchaseAmount: Amount, saleAmount: Amount)
 
 object Main {
   private val EndAssetsFileName = "END - assets.ssv"
-  private val TypesFileName = "types.ssv"
+  val TypesFileName = "types.ssv"
 
   private val SwingTradeExemptableLimit = 20_000.00
   private val SwingTradeTaxRate = 0.15

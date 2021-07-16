@@ -1,6 +1,7 @@
 package sisgrana
 package investments.variableIncome.importAssets
 
+import investments.variableIncome.DataPath
 import java.io.File
 import scala.annotation.tailrec
 import utils.quoted
