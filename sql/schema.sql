@@ -9,9 +9,11 @@ CREATE TABLE IF NOT EXISTS asset_change(
     previous_position_average_price NUMERIC NOT NULL,
     previous_position_average_cost NUMERIC NOT NULL,
 
-    event_trade_result_quantity INTEGER NOT NULL,
-    event_trade_result_total_gross_value INTEGER NOT NULL,
-    event_trade_result_total_cost INTEGER NOT NULL,
+    event_trade_quantity INTEGER NOT NULL,
+    event_trade_total_purchase_value NUMERIC NOT NULL,
+    event_trade_total_purchase_cost NUMERIC NOT NULL,
+    event_trade_total_sale_value NUMERIC NOT NULL,
+    event_trade_total_sale_cost NUMERIC NOT NULL,
 
     post_event_position_quantity INTEGER NOT NULL,
     post_event_position_average_price NUMERIC NOT NULL,
@@ -25,17 +27,21 @@ CREATE TABLE IF NOT EXISTS asset_change(
     sale_average_price NUMERIC NOT NULL,
     sale_average_cost NUMERIC NOT NULL,
 
-    day_trade_result_quantity INTEGER NOT NULL,
-    day_trade_result_total_gross_value INTEGER NOT NULL,
-    day_trade_result_total_cost INTEGER NOT NULL,
+    day_trade_quantity INTEGER NOT NULL,
+    day_trade_total_purchase_value NUMERIC NOT NULL,
+    day_trade_total_purchase_cost NUMERIC NOT NULL,
+    day_trade_total_sale_value NUMERIC NOT NULL,
+    day_trade_total_sale_cost NUMERIC NOT NULL,
 
     non_day_trade_operations_quantity INTEGER NOT NULL,
     non_day_trade_operations_average_price NUMERIC NOT NULL,
     non_day_trade_operations_average_cost NUMERIC NOT NULL,
 
-    operations_trade_result_quantity INTEGER NOT NULL,
-    operations_trade_result_total_gross_value INTEGER NOT NULL,
-    operations_trade_result_total_cost INTEGER NOT NULL,
+    operations_trade_quantity INTEGER NOT NULL,
+    operations_trade_total_purchase_value NUMERIC NOT NULL,
+    operations_trade_total_purchase_cost NUMERIC NOT NULL,
+    operations_trade_total_sale_value NUMERIC NOT NULL,
+    operations_trade_total_sale_cost NUMERIC NOT NULL,
 
     resulting_position_quantity INTEGER NOT NULL,
     resulting_position_average_price NUMERIC NOT NULL,

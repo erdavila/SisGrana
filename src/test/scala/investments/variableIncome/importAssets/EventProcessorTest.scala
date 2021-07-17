@@ -66,7 +66,7 @@ class EventProcessorTest extends AnyFunSuite with TableDrivenPropertyChecks with
         Some(
           Map(
             Asset -> EventOutcome(TradeResult.Zero, PurchaseAmountWithCost.Zero),
-            "XXXX4" -> EventOutcome(TradeResult(3, -15.00, 0.54), SaleAmountWithCost.fromAverages(2, 5.00, 0.08)),
+            "XXXX4" -> EventOutcome(TradeResult.fromAverages(3, 10.00, 0.10, 5.00, 0.08), SaleAmountWithCost.fromAverages(2, 5.00, 0.08)),
           )
         ),
       ),
@@ -84,7 +84,7 @@ class EventProcessorTest extends AnyFunSuite with TableDrivenPropertyChecks with
         Some(
           Map(
             Asset -> EventOutcome(TradeResult.Zero, PurchaseAmountWithCost.Zero),
-            "XXXX4" -> EventOutcome(TradeResult(2, -4.00, 0.76), PurchaseAmountWithCost.fromAverages(1, 10.00, 0.30)),
+            "XXXX4" -> EventOutcome(TradeResult.fromAverages(2, 10.00, 0.30, 8.0, 0.08), PurchaseAmountWithCost.fromAverages(1, 10.00, 0.30)),
           )
         ),
       ),

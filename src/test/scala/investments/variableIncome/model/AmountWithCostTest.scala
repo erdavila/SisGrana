@@ -27,75 +27,75 @@ class AmountWithCostTest extends AnyFunSuite with TableDrivenPropertyChecks with
       ),
       (
         currentPositionAmount.Zero,
-        nonDayTradeAmount.purchase(10, 30.00, 0.20),
+        nonDayTradeAmount.purchase.totals(10, 30.00, 0.20),
         expectedSwingTradeResult.Zero,
-        expectedUpdatedPositionAmount.purchase(10, 30.00, 0.20),
+        expectedUpdatedPositionAmount.purchase.totals(10, 30.00, 0.20),
       ),
       (
         currentPositionAmount.Zero,
-        nonDayTradeAmount.sale(10, 30.00, 0.20),
+        nonDayTradeAmount.sale.totals(10, 30.00, 0.20),
         expectedSwingTradeResult.Zero,
-        expectedUpdatedPositionAmount.sale(10, 30.00, 0.20),
+        expectedUpdatedPositionAmount.sale.totals(10, 30.00, 0.20),
       ),
       (
-        currentPositionAmount.purchase(10, 30.00, 0.20),
+        currentPositionAmount.purchase.totals(10, 30.00, 0.20),
         nonDayTradeAmount.Zero,
         expectedSwingTradeResult.Zero,
-        expectedUpdatedPositionAmount.purchase(10, 30.00, 0.20),
+        expectedUpdatedPositionAmount.purchase.totals(10, 30.00, 0.20),
       ),
       (
-        currentPositionAmount.purchase(10, 30.00, 0.20),
-        nonDayTradeAmount.purchase(3, 12.00, 0.12),
+        currentPositionAmount.purchase.totals(10, 30.00, 0.20),
+        nonDayTradeAmount.purchase.totals(3, 12.00, 0.12),
         expectedSwingTradeResult.Zero,
-        expectedUpdatedPositionAmount.purchase(13, 42.00, 0.32),
+        expectedUpdatedPositionAmount.purchase.totals(13, 42.00, 0.32),
       ),
       (
-        currentPositionAmount.purchase(10, 30.00, 0.20),
-        nonDayTradeAmount.sale(3, 12.00, 0.12),
-        expectedSwingTradeResult(3, 3.00, 0.18),
-        expectedUpdatedPositionAmount.purchase(7, 21.00, 0.14),
+        currentPositionAmount.purchase.averages(10, 3.00, 0.02),
+        nonDayTradeAmount.sale.averages(3, 4.00, 0.04),
+        expectedSwingTradeResult.averages(3, 3.00, 0.02, 4.00, 0.04),
+        expectedUpdatedPositionAmount.purchase.averages(7, 3.00, 0.02),
       ),
       (
-        currentPositionAmount.purchase(10, 30.00, 0.20),
-        nonDayTradeAmount.sale(10, 20.00, 0.12),
-        expectedSwingTradeResult(10, -10.00, 0.32),
+        currentPositionAmount.purchase.totals(10, 30.00, 0.20),
+        nonDayTradeAmount.sale.totals(10, 20.00, 0.12),
+        expectedSwingTradeResult.totals(10, 30.00, 0.20, 20.00, 0.12),
         expectedUpdatedPositionAmount.Zero,
       ),
       (
-        currentPositionAmount.purchase(10, 30.00, 0.20),
-        nonDayTradeAmount.sale(12, 48.00, 0.36),
-        expectedSwingTradeResult(10, 10.00, 0.50),
-        expectedUpdatedPositionAmount.sale(2, 8.00, 0.06),
+        currentPositionAmount.purchase.averages(10, 3.00, 0.02),
+        nonDayTradeAmount.sale.averages(12, 4.00, 0.03),
+        expectedSwingTradeResult.averages(10, 3.00, 0.02, 4.00, 0.03),
+        expectedUpdatedPositionAmount.sale.averages(2, 4.00, 0.03),
       ),
       (
-        currentPositionAmount.sale(10, 30.00, 0.20),
+        currentPositionAmount.sale.totals(10, 30.00, 0.20),
         nonDayTradeAmount.Zero,
         expectedSwingTradeResult.Zero,
-        expectedUpdatedPositionAmount.sale(10, 30.00, 0.20),
+        expectedUpdatedPositionAmount.sale.totals(10, 30.00, 0.20),
       ),
       (
-        currentPositionAmount.sale(10, 30.00, 0.20),
-        nonDayTradeAmount.sale(3, 12.00, 0.12),
+        currentPositionAmount.sale.totals(10, 30.00, 0.20),
+        nonDayTradeAmount.sale.totals(3, 12.00, 0.12),
         expectedSwingTradeResult.Zero,
-        expectedUpdatedPositionAmount.sale(13, 42, 0.32),
+        expectedUpdatedPositionAmount.sale.totals(13, 42, 0.32),
       ),
       (
-        currentPositionAmount.sale(10, 30.00, 0.20),
-        nonDayTradeAmount.purchase(3, 12.00, 0.12),
-        expectedSwingTradeResult(3, -3.00, 0.18),
-        expectedUpdatedPositionAmount.sale(7, 21.00, 0.14),
+        currentPositionAmount.sale.averages(10, 3.00, 0.02),
+        nonDayTradeAmount.purchase.averages(3, 4.00, 0.04),
+        expectedSwingTradeResult.averages(3, 4.00, 0.04, 3.00, 0.02),
+        expectedUpdatedPositionAmount.sale.averages(7, 3.00, 0.02),
       ),
       (
-        currentPositionAmount.sale(10, 30.00, 0.20),
-        nonDayTradeAmount.purchase(10, 20.00, 0.30),
-        expectedSwingTradeResult(10, 10.00, 0.50),
+        currentPositionAmount.sale.totals(10, 30.00, 0.20),
+        nonDayTradeAmount.purchase.totals(10, 20.00, 0.30),
+        expectedSwingTradeResult.totals(10, 20.00, 0.30, 30.00, 0.20),
         expectedUpdatedPositionAmount.Zero,
       ),
       (
-        currentPositionAmount.sale(10, 30.00, 0.20),
-        nonDayTradeAmount.purchase(12, 48.00, 0.36),
-        expectedSwingTradeResult(10, -10.00, 0.50),
-        expectedUpdatedPositionAmount.purchase(2, 8.00, 0.06),
+        currentPositionAmount.sale.averages(10, 3.00, 0.02),
+        nonDayTradeAmount.purchase.averages(12, 4.00, 0.03),
+        expectedSwingTradeResult.averages(10, 4.00, 0.03, 3.00, 0.02),
+        expectedUpdatedPositionAmount.purchase.averages(2, 4.00, 0.03),
       ),
     )
 
@@ -110,7 +110,19 @@ class AmountWithCostTest extends AnyFunSuite with TableDrivenPropertyChecks with
 object AmountWithCostTest {
   object DSL {
     val Zero: PurchaseAmountWithCost = PurchaseAmountWithCost.Zero
-    def purchase(quantity: Int, totalValue: Double, totalCost: Double): PurchaseAmountWithCost = PurchaseAmountWithCost.fromTotals(quantity, totalValue, totalCost)
-    def sale(quantity: Int, totalValue: Double, totalCost: Double): SaleAmountWithCost = SaleAmountWithCost.fromTotals(quantity, totalValue, totalCost)
+    val purchase: PurchaseDSL.type = PurchaseDSL
+    val sale: SaleDSL.type = SaleDSL
+  }
+
+  object PurchaseDSL {
+    val Zero: PurchaseAmountWithCost = PurchaseAmountWithCost.Zero
+    def averages: (Int, Double, Double) => PurchaseAmountWithCost = PurchaseAmountWithCost.fromAverages
+    def totals: (Int, Double, Double) => PurchaseAmountWithCost = PurchaseAmountWithCost.fromTotals
+  }
+
+  object SaleDSL {
+    val Zero: SaleAmountWithCost = SaleAmountWithCost.Zero
+    def averages: (Int, Double, Double) => SaleAmountWithCost = SaleAmountWithCost.fromAverages
+    def totals: (Int, Double, Double) => SaleAmountWithCost = SaleAmountWithCost.fromTotals
   }
 }

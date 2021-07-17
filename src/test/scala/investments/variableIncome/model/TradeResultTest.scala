@@ -7,14 +7,8 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 class TradeResultTest extends AnyFunSuite with TableDrivenPropertyChecks with Matchers {
   test("TradeResult.from()") {
-    object purchase {
-      val Zero: PurchaseAmountWithCost = PurchaseAmountWithCost.Zero
-      def apply(quantity: Int, totalValue: Double, totalCost: Double): PurchaseAmountWithCost = PurchaseAmountWithCost.fromTotals(quantity, totalValue, totalCost)
-    }
-    object sale {
-      val Zero: SaleAmountWithCost = SaleAmountWithCost.Zero
-      def apply(quantity: Int, totalValue: Double, totalCost: Double): SaleAmountWithCost = SaleAmountWithCost.fromTotals(quantity, totalValue, totalCost)
-    }
+    val purchase = AmountWithCostTest.PurchaseDSL
+    val sale = AmountWithCostTest.SaleDSL
     val expectedDayTradeResult = TradeResultTest.DSL
     val expectedRemainingAmount = AmountWithCostTest.DSL
 
@@ -32,33 +26,33 @@ class TradeResultTest extends AnyFunSuite with TableDrivenPropertyChecks with Ma
         expectedRemainingAmount.Zero,
       ),
       (
-        purchase(10, 20.00, 0.10),
+        purchase.averages(10, 2.00, 0.01),
         sale.Zero,
         expectedDayTradeResult.Zero,
-        expectedRemainingAmount.purchase(10, 20.00, 0.10),
+        expectedRemainingAmount.purchase.averages(10, 2.00, 0.01),
       ),
       (
         purchase.Zero,
-        sale(10, 20.00, 0.10),
+        sale.averages(10, 2.00, 0.01),
         expectedDayTradeResult.Zero,
-        expectedRemainingAmount.sale(10, 20.00, 0.10),
+        expectedRemainingAmount.sale.averages(10, 2.00, 0.01),
       ),
       (
-        purchase(10, 40.00, 0.20),
-        sale(7, 21.00, 0.14),
-        expectedDayTradeResult(7, -7.00, 0.28),
-        expectedRemainingAmount.purchase(3, 12.00, 0.06),
+        purchase.averages(10, 4.00, 0.02),
+        sale.averages(7, 3.00, 0.02),
+        expectedDayTradeResult.averages(7, 4.00, 0.02, 3.00, 0.02),
+        expectedRemainingAmount.purchase.averages(3, 4.00, 0.02),
       ),
       (
-        purchase(10, 40.00, 0.20),
-        sale(12, 60.00, 0.36),
-        expectedDayTradeResult(10, 10.00, 0.50),
-        expectedRemainingAmount.sale(2, 10.00, 0.06),
+        purchase.averages(10, 4.00, 0.05),
+        sale.averages(12, 5.00, 0.03),
+        expectedDayTradeResult.averages(10, 4.00, 0.05, 5.00, 0.03),
+        expectedRemainingAmount.sale.averages(2, 5.00, 0.03),
       ),
       (
-        purchase(10, 40.00, 0.20),
-        sale(10, 50.00, 0.30),
-        expectedDayTradeResult(10, 10.00, 0.50),
+        purchase.averages(10, 4.00, 0.05),
+        sale.averages(10, 5.00, 0.03),
+        expectedDayTradeResult.averages(10, 4.00, 0.05, 5.00, 0.03),
         expectedRemainingAmount.Zero,
       ),
     )
@@ -74,6 +68,7 @@ class TradeResultTest extends AnyFunSuite with TableDrivenPropertyChecks with Ma
 object TradeResultTest {
   object DSL {
     val Zero: TradeResult = TradeResult.Zero
-    def apply(quantity: Int, grossValue: Double, totalCost: Double): TradeResult = TradeResult(quantity, grossValue, totalCost)
+    def averages: (Int, Double, Double, Double, Double) => TradeResult = TradeResult.fromAverages
+    def totals: (Int, Double, Double, Double, Double) => TradeResult = TradeResult.fromTotals
   }
 }

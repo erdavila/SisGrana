@@ -1,27 +1,43 @@
 package sisgrana
 package investments.variableIncome.model
 
-case class TradeResult(quantity: Int, totalGrossValue: Double, totalCost: Double) {
+case class TradeResult(
+  quantity: Int,
+  totalPurchaseValue: Double,
+  totalPurchaseCost: Double,
+  totalSaleValue: Double,
+  totalSaleCost: Double,
+) {
   require(quantity >= 0)
   if (quantity == 0) {
-    require(totalGrossValue == 0.0)
-    require(totalCost == 0.0)
+    require(totalPurchaseValue == 0.0)
+    require(totalPurchaseCost == 0.0)
+    require(totalSaleValue == 0.0)
+    require(totalSaleCost == 0.0)
   } else {
-    require(totalCost >= 0.0)
+    require(totalPurchaseValue > 0.0)
+    require(totalPurchaseCost >= 0.0)
+    require(totalSaleValue > 0.0)
+    require(totalSaleCost >= 0.0)
   }
 
-  lazy val netValue: Double = totalGrossValue - totalCost
+  lazy val totalGrossValue: Double = totalSaleValue - totalPurchaseValue
+  lazy val totalCost: Double = totalPurchaseCost + totalSaleCost
+  lazy val totalNetValue: Double = totalGrossValue - totalCost
 
-  def +(other: TradeResult): TradeResult =
+  def +(other: TradeResult): TradeResult = {
     TradeResult(
       this.quantity + other.quantity,
-      this.totalGrossValue + other.totalGrossValue,
-      this.totalCost + other.totalCost,
+      this.totalPurchaseValue + other.totalPurchaseValue,
+      this.totalPurchaseCost + other.totalPurchaseCost,
+      this.totalSaleValue + other.totalSaleValue,
+      this.totalSaleCost + other.totalSaleCost,
     )
+  }
 }
 
 object TradeResult {
-  val Zero: TradeResult = TradeResult(0, 0.0, 0.0)
+  val Zero: TradeResult = TradeResult(0, 0.0, 0.0, 0.0, 0.0)
 
   def from(purchase: PurchaseAmountWithCost, sale: SaleAmountWithCost): (TradeResult, AmountWithCost) = {
     val tradeQuantity = math.min(purchase.quantity, sale.quantity)
@@ -30,8 +46,10 @@ object TradeResult {
     } else {
       TradeResult.fromAverages(
         tradeQuantity,
-        averageGrossValue = sale.averagePrice - purchase.averagePrice,
-        averageCost = sale.averageCost + purchase.averageCost,
+        purchase.averagePrice,
+        purchase.averageCost,
+        sale.averagePrice,
+        sale.averageCost,
       )
     }
 
@@ -41,13 +59,36 @@ object TradeResult {
     (tradeResult, remainingAmount)
   }
 
-  def fromAverages(quantity: Int, averageGrossValue: Double, averageCost: Double): TradeResult =
+  private def apply(
+    quantity: Int,
+    totalPurchaseValue: Double,
+    totalPurchaseCost: Double,
+    totalSaleValue: Double,
+    totalSaleCost: Double,
+  ): TradeResult =
+    new TradeResult(quantity, totalPurchaseValue, totalPurchaseCost, totalSaleValue, totalSaleCost)
+
+  def fromAverages(
+    quantity: Int,
+    averagePurchasePrice: Double,
+    averagePurchaseCost: Double,
+    averageSalePrice: Double,
+    averageSaleCost: Double,
+  ): TradeResult =
     TradeResult.fromTotals(
       quantity,
-      quantity * averageGrossValue,
-      quantity * averageCost,
+      quantity * averagePurchasePrice,
+      quantity * averagePurchaseCost,
+      quantity * averageSalePrice,
+      quantity * averageSaleCost,
     )
 
-  def fromTotals(quantity: Int, totalGrossValue: Double, totalCost: Double): TradeResult =
-    TradeResult(quantity, totalGrossValue, totalCost)
+  def fromTotals(
+    quantity: Int,
+    totalPurchaseValue: Double,
+    totalPurchaseCost: Double,
+    totalSaleValue: Double,
+    totalSaleCost: Double,
+  ): TradeResult =
+    TradeResult(quantity, totalPurchaseValue, totalPurchaseCost, totalSaleValue, totalSaleCost)
 }
