@@ -3,8 +3,6 @@ CREATE TABLE IF NOT EXISTS asset_change(
     stockbroker TEXT NOT NULL,
     date TEXT NOT NULL,
 
-    by_event BOOLEAN NOT NULL,
-
     previous_position_quantity INTEGER NOT NULL,
     previous_position_average_price NUMERIC NOT NULL,
     previous_position_average_cost NUMERIC NOT NULL,
@@ -26,22 +24,6 @@ CREATE TABLE IF NOT EXISTS asset_change(
     sale_quantity INTEGER NOT NULL,
     sale_average_price NUMERIC NOT NULL,
     sale_average_cost NUMERIC NOT NULL,
-
-    day_trade_quantity INTEGER NOT NULL,
-    day_trade_total_purchase_value NUMERIC NOT NULL,
-    day_trade_total_purchase_cost NUMERIC NOT NULL,
-    day_trade_total_sale_value NUMERIC NOT NULL,
-    day_trade_total_sale_cost NUMERIC NOT NULL,
-
-    non_day_trade_operations_quantity INTEGER NOT NULL,
-    non_day_trade_operations_average_price NUMERIC NOT NULL,
-    non_day_trade_operations_average_cost NUMERIC NOT NULL,
-
-    operations_trade_quantity INTEGER NOT NULL,
-    operations_trade_total_purchase_value NUMERIC NOT NULL,
-    operations_trade_total_purchase_cost NUMERIC NOT NULL,
-    operations_trade_total_sale_value NUMERIC NOT NULL,
-    operations_trade_total_sale_cost NUMERIC NOT NULL,
 
     resulting_position_quantity INTEGER NOT NULL,
     resulting_position_average_price NUMERIC NOT NULL,

@@ -3,7 +3,6 @@ package investments.variableIncome.importAssets
 
 import com.softwaremill.quicklens._
 import investments.irpf.StockbrokerAsset
-import investments.variableIncome.importAssets.AssetOperationsProcessor.OperationsOutcome
 import investments.variableIncome.importAssets.EventProcessor.EventOutcome
 import investments.variableIncome.model._
 import investments.variableIncome.model.ctx._
@@ -68,20 +67,22 @@ object Main extends LocalDateSupport {
       } yield stockbrokerAsset -> latestPosition.position
 
     val eventOutcomeByAsset = processEvents(previousPositionByAsset, events)
-    val operationsOutcomeByAsset = processBrokerageNotes(previousPositionByAsset ++ eventOutcomeByAsset.view.mapValues(_.position), brokerageNotes)
+    val operationsAmountsByAsset = brokerageNotes
+          .map(processBrokerageNote)
+          .reduceOption(_ ++ _)
+          .getOrElse(Map.empty)
 
     val assetChanges =
       for {
-        stockbrokerAsset <- (eventOutcomeByAsset.keySet ++ operationsOutcomeByAsset.keySet).toSeq
+        stockbrokerAsset <- (eventOutcomeByAsset.keySet ++ operationsAmountsByAsset.keySet).toSeq
 
         initialAssetChange = AssetChange
-          .withZeroes(stockbrokerAsset, date, byEvent = false)
+          .withZeroes(stockbrokerAsset, date)
           .withPreviousPosition(previousPositionByAsset.getOrElse(stockbrokerAsset, PurchaseAmountWithCost.Zero))
 
         postEventAssetChange = eventOutcomeByAsset.get(stockbrokerAsset) match {
           case Some(eventOutcome) =>
             initialAssetChange
-              .copy(byEvent = true)
               .withEventTradeResult(eventOutcome.tradeResult)
               .withPostEventPosition(eventOutcome.position)
           case None =>
@@ -89,18 +90,13 @@ object Main extends LocalDateSupport {
               .withPostEventPosition(initialAssetChange.previousPosition)
         }
 
-        assetChange = operationsOutcomeByAsset.get(stockbrokerAsset) match {
-          case Some(operationsOutcome) =>
+        assetChange = operationsAmountsByAsset.get(stockbrokerAsset) match {
+          case Some(operationsAmount) =>
             postEventAssetChange
-              .withPurchaseAmount(operationsOutcome.purchaseAmount)
-              .withSaleAmount(operationsOutcome.saleAmount)
-              .withDayTradeResult(operationsOutcome.dayTradeResult)
-              .withNonDayTradeAmount(operationsOutcome.nonDayTradeAmount)
-              .withOperationsTradeResult(operationsOutcome.swingTradeResult)
-              .withResultingPosition(operationsOutcome.position)
+              .withPurchaseAmount(operationsAmount.purchase)
+              .withSaleAmount(operationsAmount.sale)
           case None =>
             postEventAssetChange
-              .withResultingPosition(postEventAssetChange.postEventPosition)
         }
       } yield assetChange
 
@@ -141,19 +137,7 @@ object Main extends LocalDateSupport {
       }
       .getOrElse(Map.empty)
 
-  private def processBrokerageNotes(
-    positionByAsset: Map[StockbrokerAsset, AmountWithCost],
-    brokerageNotes: Seq[BrokerageNote],
-  ): Map[StockbrokerAsset, OperationsOutcome] =
-    brokerageNotes
-      .map { processBrokerageNote(positionByAsset, _) }
-      .reduceOption(_ ++ _)
-      .getOrElse(Map.empty)
-
-  private def processBrokerageNote(
-    positionByAsset: Map[StockbrokerAsset, AmountWithCost],
-    brokerageNote: BrokerageNote,
-  ): Map[StockbrokerAsset, OperationsOutcome] = {
+  private def processBrokerageNote(brokerageNote: BrokerageNote): Map[StockbrokerAsset, OperationsAmounts.WithCost] = {
     val assetsOpsAmounts = aggregateAssetOperations(brokerageNote)
 
     val (includeCostToPurchaseAmount, includeCostToSaleAmount) = {
@@ -175,18 +159,15 @@ object Main extends LocalDateSupport {
       (includeToPurchase, includeToSale)
     }
 
-    val assetProcessor = new AssetOperationsProcessor(
-      includeCostToPurchaseAmount,
-      includeCostToSaleAmount,
-    )
-
     (
       for {
         (asset, opsAmounts) <- assetsOpsAmounts
         stockbrokerAsset = StockbrokerAsset(brokerageNote.stockbroker, asset)
-        position = positionByAsset.getOrElse(stockbrokerAsset, PurchaseAmountWithCost.Zero)
-        operationsOutcome = assetProcessor.process(opsAmounts, position)
-      } yield stockbrokerAsset -> operationsOutcome
+        opsAmountsWithCost = OperationsAmounts.WithCost(
+          includeCostToPurchaseAmount(opsAmounts.purchase),
+          includeCostToSaleAmount(opsAmounts.sale),
+        )
+      } yield stockbrokerAsset -> opsAmountsWithCost
     ).toMap
   }
 

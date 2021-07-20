@@ -54,7 +54,7 @@ class AssetDateRangeTest extends AnyFunSuite with TableDrivenPropertyChecks with
     )
 
     forAll(cases) { (changes, ranges) =>
-      AssetDateRange.seqFromAssetChanges(changes, MinDate, MaxDate) should equal(ranges)
+      AssetDateRange.seqFromAssetChanges(changes, MinDate, MaxDate) should equal (ranges)
     }
   }
 
@@ -130,8 +130,8 @@ class AssetDateRangeTest extends AnyFunSuite with TableDrivenPropertyChecks with
     )
 
     forAll(cases) { case ((seq1, seq2), expected) =>
-      AssetDateRange.mergeSeqs(seq1, seq2) should equal(expected)
-      AssetDateRange.mergeSeqs(seq2, seq1) should equal(expected)
+      AssetDateRange.mergeSeqs(seq1, seq2) should equal (expected)
+      AssetDateRange.mergeSeqs(seq2, seq1) should equal (expected)
     }
   }
 
@@ -139,8 +139,8 @@ class AssetDateRangeTest extends AnyFunSuite with TableDrivenPropertyChecks with
 
   private def changes(tuple: (LocalDate, Int)*): Seq[AssetChange] =
     for ((date, positionQuantity) <- tuple)
-      yield AssetChange.withZeroes("", "", date, byEvent = false)
-        .withResultingPosition(PurchaseAmountWithCost.fromTotals(positionQuantity, positionQuantity.toDouble, 0.0))
+      yield AssetChange.withZeroes("", "", date)
+        .withPostEventPosition(PurchaseAmountWithCost.fromTotals(positionQuantity, positionQuantity.toDouble, 0.0))
 
   private def ranges(dates: (LocalDate, LocalDate)*): Seq[AssetDateRange] =
     for ((beginDate, endDate) <- dates)

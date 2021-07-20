@@ -10,8 +10,6 @@ case class AssetChange(
   stockbroker: String,
   date: LocalDate,
 
-  byEvent: Boolean,
-
   previousPositionQuantity: Int,
   previousPositionAveragePrice: Double,
   previousPositionAverageCost: Double,
@@ -33,22 +31,6 @@ case class AssetChange(
   saleQuantity: Int,
   saleAveragePrice: Double,
   saleAverageCost: Double,
-
-  dayTradeQuantity: Int,
-  dayTradeTotalPurchaseValue: Double,
-  dayTradeTotalPurchaseCost: Double,
-  dayTradeTotalSaleValue: Double,
-  dayTradeTotalSaleCost: Double,
-
-  nonDayTradeOperationsQuantity: Int,
-  nonDayTradeOperationsAveragePrice: Double,
-  nonDayTradeOperationsAverageCost: Double,
-
-  operationsTradeQuantity: Int,
-  operationsTradeTotalPurchaseValue: Double,
-  operationsTradeTotalPurchaseCost: Double,
-  operationsTradeTotalSaleValue: Double,
-  operationsTradeTotalSaleCost: Double,
 
   resultingPositionQuantity: Int,
   resultingPositionAveragePrice: Double,
@@ -96,104 +78,59 @@ case class AssetChange(
       saleAverageCost,
     )
 
-  val dayTradeResult: TradeResult =
-    TradeResult.fromTotals(
-      dayTradeQuantity,
-      dayTradeTotalPurchaseValue,
-      dayTradeTotalPurchaseCost,
-      dayTradeTotalSaleValue,
-      dayTradeTotalSaleCost,
-    )
+  lazy val (dayTradeResult: TradeResult, nonDayTradeOperationsAmount: AmountWithCost) =
+    TradeResult.from(purchaseAmount, saleAmount)
 
-  val nonDayTradeOperationsAmount: AmountWithCost =
-    AmountWithCost.fromSignedQuantityAndAverages(
-      nonDayTradeOperationsQuantity,
-      nonDayTradeOperationsAveragePrice,
-      nonDayTradeOperationsAverageCost,
-    )
+  lazy val (resultingPosition: AmountWithCost, operationsTradeResult: TradeResult) =
+    AmountWithCost.combine(postEventPosition, nonDayTradeOperationsAmount)
 
-  val operationsTradeResult: TradeResult =
-    TradeResult.fromTotals(
-      operationsTradeQuantity,
-      operationsTradeTotalPurchaseValue,
-      operationsTradeTotalPurchaseCost,
-      operationsTradeTotalSaleValue,
-      operationsTradeTotalSaleCost,
-    )
+  lazy val postOperationsTradePosition: AmountWithCost =
+    postEventPosition.withQuantity(postEventPosition.quantity - operationsTradeResult.quantity)
 
-  val resultingPosition: AmountWithCost =
-    AmountWithCost.fromSignedQuantityAndAverages(
-      resultingPositionQuantity,
-      resultingPositionAveragePrice,
-      resultingPositionAverageCost,
-    )
+  lazy val nonTradeOperationsAmount: AmountWithCost =
+    nonDayTradeOperationsAmount.withQuantity(nonDayTradeOperationsAmount.quantity - operationsTradeResult.quantity)
 
-  def swingTradeResult: TradeResult =
+  lazy val swingTradeResult: TradeResult =
     eventTradeResult + operationsTradeResult
 
   def withPreviousPosition(previousPosition: AmountWithCost): AssetChange =
     this.copy(
-      previousPositionQuantity = previousPosition.quantity,
+      previousPositionQuantity = previousPosition.signedQuantity,
       previousPositionAveragePrice = previousPosition.averagePrice,
       previousPositionAverageCost = previousPosition.averageCost
-    )
+    ).withSyncedResultingPositionFields()
 
   def withEventTradeResult(eventTradeResult: TradeResult): AssetChange =
     this.copy(
       eventTradeQuantity = eventTradeResult.quantity,
-      eventTradeTotalPurchaseValue = eventTradeResult.totalPurchaseCost,
+      eventTradeTotalPurchaseValue = eventTradeResult.totalPurchaseValue,
       eventTradeTotalPurchaseCost = eventTradeResult.totalPurchaseCost,
       eventTradeTotalSaleValue = eventTradeResult.totalSaleValue,
       eventTradeTotalSaleCost = eventTradeResult.totalSaleCost,
-    )
+    ).withSyncedResultingPositionFields()
 
   def withPostEventPosition(postEventPosition: AmountWithCost): AssetChange =
     this.copy(
-      postEventPositionQuantity = postEventPosition.quantity,
+      postEventPositionQuantity = postEventPosition.signedQuantity,
       postEventPositionAveragePrice = postEventPosition.averagePrice,
       postEventPositionAverageCost = postEventPosition.averageCost,
-    )
+    ).withSyncedResultingPositionFields()
 
   def withPurchaseAmount(purchaseAmount: PurchaseAmountWithCost): AssetChange =
     this.copy(
       purchaseQuantity = purchaseAmount.quantity,
       purchaseAveragePrice = purchaseAmount.averagePrice,
       purchaseAverageCost = purchaseAmount.averageCost,
-    )
+    ).withSyncedResultingPositionFields()
 
   def withSaleAmount(saleAmount: SaleAmountWithCost): AssetChange =
     this.copy(
       saleQuantity = saleAmount.quantity,
       saleAveragePrice = saleAmount.averagePrice,
       saleAverageCost = saleAmount.averageCost,
-    )
+    ).withSyncedResultingPositionFields()
 
-  def withDayTradeResult(dayTradeResult: TradeResult): AssetChange =
-    this.copy(
-      dayTradeQuantity = dayTradeResult.quantity,
-      dayTradeTotalPurchaseValue = dayTradeResult.totalPurchaseValue,
-      dayTradeTotalPurchaseCost = dayTradeResult.totalPurchaseCost,
-      dayTradeTotalSaleValue = dayTradeResult.totalSaleValue,
-      dayTradeTotalSaleCost = dayTradeResult.totalSaleCost,
-    )
-
-  def withNonDayTradeAmount(nonDayTradeAmount: AmountWithCost): AssetChange =
-    this.copy(
-      nonDayTradeOperationsQuantity = nonDayTradeAmount.quantity,
-      nonDayTradeOperationsAveragePrice = nonDayTradeAmount.averagePrice,
-      nonDayTradeOperationsAverageCost = nonDayTradeAmount.averageCost,
-    )
-
-  def withOperationsTradeResult(operationsTradeResult: TradeResult): AssetChange =
-    this.copy(
-      operationsTradeQuantity = operationsTradeResult.quantity,
-      operationsTradeTotalPurchaseValue = operationsTradeResult.totalPurchaseValue,
-      operationsTradeTotalPurchaseCost = operationsTradeResult.totalPurchaseCost,
-      operationsTradeTotalSaleValue = operationsTradeResult.totalSaleValue,
-      operationsTradeTotalSaleCost = operationsTradeResult.totalSaleCost,
-    )
-
-  def withResultingPosition(resultingPosition: AmountWithCost): AssetChange =
+  private def withSyncedResultingPositionFields() =
     this.copy(
       resultingPositionQuantity = resultingPosition.signedQuantity,
       resultingPositionAveragePrice = resultingPosition.averagePrice,
@@ -202,20 +139,17 @@ case class AssetChange(
 }
 
 object AssetChange extends LocalDateSupport {
-  def withZeroes(stockbrokerAsset: StockbrokerAsset, date: LocalDate, byEvent: Boolean): AssetChange =
-    withZeroes(stockbrokerAsset.asset, stockbrokerAsset.stockbroker, date, byEvent)
+  def withZeroes(stockbrokerAsset: StockbrokerAsset, date: LocalDate): AssetChange =
+    withZeroes(stockbrokerAsset.asset, stockbrokerAsset.stockbroker, date)
 
-  def withZeroes(asset: String, stockbroker: String, date: LocalDate, byEvent: Boolean): AssetChange =
+  def withZeroes(asset: String, stockbroker: String, date: LocalDate): AssetChange =
     AssetChange(
-      asset, stockbroker, date, byEvent,
+      asset, stockbroker, date,
       previousPositionQuantity = 0, previousPositionAveragePrice = 0.0, previousPositionAverageCost = 0.0,
       eventTradeQuantity = 0, eventTradeTotalPurchaseValue = 0.0, eventTradeTotalPurchaseCost = 0.0, eventTradeTotalSaleValue = 0.0, eventTradeTotalSaleCost = 0.0,
       postEventPositionQuantity = 0, postEventPositionAveragePrice = 0.0, postEventPositionAverageCost = 0.0,
       purchaseQuantity = 0, purchaseAveragePrice = 0.0, purchaseAverageCost = 0.0,
       saleQuantity = 0, saleAveragePrice = 0.0, saleAverageCost = 0.0,
-      dayTradeQuantity = 0, dayTradeTotalPurchaseValue = 0.0, dayTradeTotalPurchaseCost = 0.0, dayTradeTotalSaleValue = 0.0, dayTradeTotalSaleCost = 0.0,
-      nonDayTradeOperationsQuantity = 0, nonDayTradeOperationsAveragePrice = 0.0, nonDayTradeOperationsAverageCost = 0.0,
-      operationsTradeQuantity = 0, operationsTradeTotalPurchaseValue = 0.0, operationsTradeTotalPurchaseCost = 0.0, operationsTradeTotalSaleValue = 0.0, operationsTradeTotalSaleCost = 0.0,
       resultingPositionQuantity = 0, resultingPositionAveragePrice = 0.0, resultingPositionAverageCost = 0.0,
     )
 
