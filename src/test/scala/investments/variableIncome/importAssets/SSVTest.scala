@@ -1,10 +1,9 @@
 package sisgrana
-package investments.irpf
+package investments.variableIncome.importAssets
 
-import sisgrana.investments.variableIncome.importAssets.SSV.{InterruptedContentException, UnexpectedCharacterException}
+import investments.variableIncome.importAssets.SSV.{InterruptedContentException, UnexpectedCharacterException}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
-import sisgrana.investments.variableIncome.importAssets.SSV
 
 class SSVTest extends AnyFunSuite with Matchers {
   private def fromChars(chars: String): Seq[Seq[String]] =

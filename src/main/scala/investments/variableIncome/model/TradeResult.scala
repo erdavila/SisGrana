@@ -25,6 +25,12 @@ case class TradeResult(
   lazy val totalCost: Double = totalPurchaseCost + totalSaleCost
   lazy val totalNetValue: Double = totalGrossValue - totalCost
 
+  def purchaseAmount: PurchaseAmountWithCost =
+    PurchaseAmountWithCost.fromTotals(quantity, totalPurchaseValue, totalPurchaseCost)
+
+  def saleAmount: SaleAmountWithCost =
+    SaleAmountWithCost.fromTotals(quantity, totalSaleValue, totalSaleCost)
+
   def +(other: TradeResult): TradeResult = {
     TradeResult(
       this.quantity + other.quantity,

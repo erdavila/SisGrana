@@ -5,40 +5,28 @@ import investments.variableIncome.importAssets.SSV
 import java.io.File
 
 sealed abstract class AssetType(val code: String) {
-  def variableRate: Boolean
-  def exemptable: Boolean
-  def fii: Boolean
+  def taxation: Taxation
 }
 
 object AssetType {
   case object Stock extends AssetType("") {
-    override def variableRate: Boolean = true
-    override def exemptable: Boolean = true
-    override def fii: Boolean = false
+    override def taxation: Taxation = Taxation.ExemptableSwingTrade
   }
 
   case object ETF extends AssetType("ETF") {
-    override def variableRate: Boolean = true
-    override def exemptable: Boolean = false
-    override def fii: Boolean = false
+    override def taxation: Taxation = Taxation.NonExemptableSwingTrade
   }
 
   case object EtfRendaFixa extends AssetType("ETFRF") {
-    override def variableRate: Boolean = false
-    override def exemptable: Boolean = false
-    override def fii: Boolean = false
+    override def taxation: Taxation = Taxation.NonVariableIncome
   }
 
   case object FII extends AssetType("FII") {
-    override def variableRate: Boolean = true
-    override def exemptable: Boolean = false
-    override def fii: Boolean = true
+    override def taxation: Taxation = Taxation.FII
   }
 
   case object Option extends AssetType("option") {
-    override def variableRate: Boolean = true
-    override def exemptable: Boolean = false
-    override def fii: Boolean = false
+    override def taxation: Taxation = Taxation.NonExemptableSwingTrade
   }
 
   val ByCode: Map[String, AssetType] = Set(Stock, ETF, EtfRendaFixa, FII)
@@ -56,7 +44,11 @@ object AssetType {
   }
 
   object Resolver {
+    private val TypesFileName = "types.ssv"
+
     private val OptionRegex = """^[A-Z0-9]{4}[A-X]\d{3}$""".r
+
+    lazy val instance: Resolver = fromFile(new File(DataPath, TypesFileName))
 
     def fromFile(file: File): Resolver = {
       val entries = SSV.readFile(file).map { lineValues =>

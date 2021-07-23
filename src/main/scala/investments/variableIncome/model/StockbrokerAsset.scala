@@ -1,4 +1,4 @@
 package sisgrana
-package investments.irpf
+package investments.variableIncome.model
 
 case class StockbrokerAsset(stockbroker: String, asset: String)

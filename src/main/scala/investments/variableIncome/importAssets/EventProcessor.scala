@@ -1,9 +1,8 @@
 package sisgrana
 package investments.variableIncome.importAssets
 
-import investments.irpf.StockbrokerAsset
 import investments.variableIncome.importAssets.EventProcessor.EventOutcome
-import investments.variableIncome.model._
+import investments.variableIncome.model.{AmountWithCost, PurchaseAmountWithCost, StockbrokerAsset, TradeResult}
 
 class EventProcessor(event: Event) {
   def process(positionByAsset: Map[StockbrokerAsset, AmountWithCost]): Seq[Map[StockbrokerAsset, EventOutcome]] = {

@@ -2,10 +2,9 @@ package sisgrana
 package investments.variableIncome.importAssets
 
 import com.softwaremill.quicklens._
-import investments.irpf.StockbrokerAsset
 import investments.variableIncome.importAssets.EventProcessor.EventOutcome
-import investments.variableIncome.model._
 import investments.variableIncome.model.ctx._
+import investments.variableIncome.model._
 import java.io.File
 import java.time.LocalDate
 

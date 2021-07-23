@@ -102,14 +102,3 @@ Cada `10` ações `ABCD3` com preço médio `pm` é substituída por `10` açõe
 ```
 Cada `1` ação `PCAR3` com preço médio `pm` é substituída por `1` ação `PCAR3` com preço médio de `82,3%` de `pm`
 **mais** `1` ação `ASAI3` com preço médio de `17,7%` de `pm`.
-
-# Bens
-**Gerado automaticamente!**
-
-**Caminho:** data/`ANO`/END - assets.ssv
-
-Representa os bens no fim do ano.
-```
-CONTEÚDO := LINHA*
-LINHA := [NOME:s]  [QUANTIA:i]  [PREÇO-MÉDIO:n]  [CORRETORA:s]
-```

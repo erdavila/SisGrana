@@ -2,7 +2,6 @@ package sisgrana
 package investments.variableIncome.importAssets
 
 import com.softwaremill.quicklens._
-import investments.irpf.Events
 import investments.utils.BrNumber
 import java.io.File
 import scala.annotation.tailrec
@@ -78,8 +77,6 @@ object Event {
 }
 
 object Events {
-  type Type = Seq[Event]
-
-  def fromFile(file: File): Events =
+  def fromFile(file: File): Seq[Event] =
     SSV.readFile(file).map(Event.parseLineValues)
 }

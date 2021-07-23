@@ -20,24 +20,50 @@ class IndentedPrinter {
     result
   }
 
+  def context[A](x: Any, enabled: Boolean)(block: => A): A =
+    if (enabled) {
+      context(x)(block)
+    } else {
+      block
+    }
+
   def println(x: Any): Unit =
     Predef.println(s"${Indentation * indent}$x")
 
   def println(): Unit =
     Predef.println()
 
-  def node(x: Any)(children: Node*): Node =
-    Node(x, children)
+  object hierarchy {
+    def leaf(x: Any): Node =
+      Node(x, Seq.empty)
 
-  def printHierarchy(node: Node): Unit =
-    node.singleLine match {
-      case Some(line) => println(line)
-      case None => context(node.x) {
-        for (child <- node.children) {
-          printHierarchy(child)
-        }
+    def tree(x: Any)(children: Node*): Node =
+      Node(x, children)
+
+    def optionalTree(x: Any)(children: Option[Node]*): Option[Node] = {
+      val childNodes = children.map(_.toSeq).reduce(_ ++ _)
+      Option.when(childNodes.nonEmpty) {
+        tree(x)(childNodes: _*)
       }
     }
+
+    def optionalTree(x: Any, enabled: Boolean)(children: Option[Node]*): Option[Node] =
+      if (enabled) {
+        optionalTree(x)(children: _*)
+      } else {
+        None
+      }
+
+    def print(node: Node): Unit =
+      node.singleLine match {
+        case Some(line) => println(line)
+        case None => context(node.x) {
+          for (child <- node.children) {
+            print(child)
+          }
+        }
+      }
+  }
 }
 
 object IndentedPrinter {
