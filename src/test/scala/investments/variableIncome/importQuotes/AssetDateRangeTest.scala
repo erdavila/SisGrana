@@ -3,11 +3,8 @@ package investments.variableIncome.importQuotes
 
 import investments.variableIncome.model.{AssetChange, PurchaseAmountWithCost}
 import java.time.LocalDate
-import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.prop.TableDrivenPropertyChecks
 
-class AssetDateRangeTest extends AnyFunSuite with TableDrivenPropertyChecks with Matchers {
+class AssetDateRangeTest extends TestBase {
   test("seqFromAssetChanges") {
     val DateBefore = D(-1)
     val MinDate = D(0)

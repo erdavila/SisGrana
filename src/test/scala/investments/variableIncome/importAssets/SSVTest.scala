@@ -2,10 +2,8 @@ package sisgrana
 package investments.variableIncome.importAssets
 
 import investments.variableIncome.importAssets.SSV.{InterruptedContentException, UnexpectedCharacterException}
-import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.should.Matchers
 
-class SSVTest extends AnyFunSuite with Matchers {
+class SSVTest extends TestBase {
   private def fromChars(chars: String): Seq[Seq[String]] =
     SSV.fromChars(chars.iterator)
 

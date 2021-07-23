@@ -3,11 +3,8 @@ package investments.variableIncome.irpf
 
 import investments.variableIncome.irpf.Main.DoubleOps
 import investments.variableIncome.model.AmountWithCost
-import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.prop.TableDrivenPropertyChecks
 
-class MainTest extends AnyFunSuite with TableDrivenPropertyChecks with Matchers {
+class MainTest extends TestBase {
   test("Main.formatPositionChangeRaw()") {
     val cases = Table(
       (

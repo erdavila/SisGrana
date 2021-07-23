@@ -1,10 +1,7 @@
 package sisgrana
 package investments
 
-import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.should.Matchers
-
-class RateTest extends AnyFunSuite with Matchers {
+class RateTest extends TestBase {
   test("compose") {
     val rate1 = Rate(0.1234, 3)
     val rate2 = Rate(0.4321, 4)

@@ -5,11 +5,8 @@ import investments.variableIncome.importAssets.Event.AveragePriceDefinition.{Con
 import investments.variableIncome.importAssets.Event.{From, To}
 import investments.variableIncome.importAssets.EventProcessor.EventOutcome
 import investments.variableIncome.model.{PurchaseAmountWithCost, SaleAmountWithCost, TradeResult}
-import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.prop.TableDrivenPropertyChecks
 
-class EventProcessorTest extends AnyFunSuite with TableDrivenPropertyChecks with Matchers {
+class EventProcessorTest extends TestBase {
   test("calculateOutcome()") {
     val Asset = "ASST3"
 

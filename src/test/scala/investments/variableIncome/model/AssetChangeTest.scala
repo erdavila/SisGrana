@@ -2,11 +2,8 @@ package sisgrana
 package investments.variableIncome.model
 
 import java.time.LocalDate
-import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.prop.TableDrivenPropertyChecks
 
-class AssetChangeTest extends AnyFunSuite with TableDrivenPropertyChecks with Matchers {
+class AssetChangeTest extends TestBase {
   private val ZeroAssetChange = AssetChange.withZeroes("asset", "stockbroker", LocalDate.now())
 
   test("withPreviousPosition(), previousPosition, and fields") {

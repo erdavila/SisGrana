@@ -1,11 +1,7 @@
 package sisgrana
 package investments.variableIncome.model
 
-import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.prop.TableDrivenPropertyChecks
-
-class AmountWithCostTest extends AnyFunSuite with TableDrivenPropertyChecks with Matchers {
+class AmountWithCostTest extends TestBase {
   test("AmountWithCost.combine()") {
     val currentPositionAmount = AmountWithCostTest.DSL
     val nonDayTradeAmount = AmountWithCostTest.DSL

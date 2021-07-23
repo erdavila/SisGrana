@@ -1,11 +1,9 @@
 package sisgrana
 package utils
 
-import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.should.Matchers
 import utils.PredicateBinarySearch.ActionOperator
 
-class PredicateBinarySearchTest extends AnyFunSuite with Matchers {
+class PredicateBinarySearchTest extends TestBase {
   test("zero elements") {
     val elements = IndexedSeq.empty[Int]
     PredicateBinarySearch.search(elements)(_ ?<=> 0) should equal (PredicateBinarySearch.NotFound(0))
