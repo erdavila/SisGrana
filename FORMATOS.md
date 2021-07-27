@@ -64,41 +64,34 @@ LINHA-DE-VALOR-DA-NOTA := [VALOR:sn] /* positivo se houve mais vendas, negativo 
 
 ```
 CONTEÚDO := LINHA*
-LINHA := DE  ['->']  PARA
-DE := [QUANTIA:i]  [NOME:s]
-PARA := [QUANTIA:i]  [NOME:s]  [PREÇO-MÉDIO] (['+'] [QUANTIA:i]  [NOME:s]  [PREÇO-MÉDIO])*
-PREÇO-MÉDIO := PREÇO:n
-             | PORCENTAGEM:n '%'
-             | MULTIPLICADOR:n 'x'
-             | NUMERADOR:i '/' DENOMINADOR:i
+LINHA := 'convert'  [NOME:s]  [QUANTIA:i]  ->  [QUANTIA:i]  [NOME:s]
+       | 'bonus'  [NOME:s]  [QUANTIA:i]  ->  [QUANTIA:i]  [NOME:s]  [PREÇO:n]
 ```
 
 ## Exemplos
 ### Desdobramento (_Split_)
 Desdobramento de 1 para 4:
 ```
-1  MGLU3  ->  4  MGLU3  1/4
+convert  MGLU3  1  ->  4  MGLU3
 ```
 Cada `1` ação `MGLU3` com preço médio `pm` é substituída por `4` ações `MGLU3` com preço médio de `1/4` de `pm`.
 
 ### Grupamento (_Inplit_)
 Grupamento de 4 para 1:
 ```
-4  ABCD3  ->  1  ABCD3  4x
+convert  ABCD3  4  ->  1  ABCD3
 ```
 Cada `4` ações `ABCD3` com preço médio `pm` é substituída por `1` ação `ABCD3` com preço médio de `4` vezes `pm`.
 
 ### Bonificação
 Bonificação de 1 ação de valor R$ 12,34 para cada 10 ações:
 ```
-10  ABCD3  ->  10  ABCD3  1x  +  1  ABCD  12,34
+bonus  ABCD3  10  ->  1  ABCD3  12,34
 ```
-Cada `10` ações `ABCD3` com preço médio `pm` é substituída por `10` ações `ABCD` com o mesmo preço médio `pm`
-**mais** `1` ação `ABCD3` com preço médio de `R$ 12,34`.
+Para cada `10` ações `ABCD3`, `1` ação `ABCD3` com preço `R$ 12,34` é incluída.
 
 ### Cisão
 ```
-1  PCAR3  ->  1  PCAR3  82,3%  +  1  ASAI3  17,7%
+bonus  PCAR3  1  ->  1  ASAI3  14,70
 ```
-Cada `1` ação `PCAR3` com preço médio `pm` é substituída por `1` ação `PCAR3` com preço médio de `82,3%` de `pm`
-**mais** `1` ação `ASAI3` com preço médio de `17,7%` de `pm`.
+Para cada `1` ação `PCAR3`, `1` ação `ASAI3` com preço `R$ 14,70` é incluída.

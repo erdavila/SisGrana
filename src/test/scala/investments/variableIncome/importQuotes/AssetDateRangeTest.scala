@@ -1,7 +1,7 @@
 package sisgrana
 package investments.variableIncome.importQuotes
 
-import investments.variableIncome.model.{AssetChange, PurchaseAmountWithCost}
+import investments.variableIncome.model.{AssetChange, EventEffect, PurchaseAmountWithCost}
 import java.time.LocalDate
 
 class AssetDateRangeTest extends TestBase {
@@ -137,7 +137,7 @@ class AssetDateRangeTest extends TestBase {
   private def changes(tuple: (LocalDate, Int)*): Seq[AssetChange] =
     for ((date, positionQuantity) <- tuple)
       yield AssetChange.withZeroes("", "", date)
-        .withPostEventPosition(PurchaseAmountWithCost.fromTotals(positionQuantity, positionQuantity.toDouble, 0.0))
+        .withEventEffect(Some(EventEffect.SetPosition(PurchaseAmountWithCost.fromTotals(positionQuantity, positionQuantity.toDouble, 0.0))))
 
   private def ranges(dates: (LocalDate, LocalDate)*): Seq[AssetDateRange] =
     for ((beginDate, endDate) <- dates)

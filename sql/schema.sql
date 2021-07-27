@@ -7,15 +7,19 @@ CREATE TABLE IF NOT EXISTS asset_change(
     previous_position_average_price NUMERIC NOT NULL,
     previous_position_average_cost NUMERIC NOT NULL,
 
-    event_trade_quantity INTEGER NOT NULL,
-    event_trade_total_purchase_value NUMERIC NOT NULL,
-    event_trade_total_purchase_cost NUMERIC NOT NULL,
-    event_trade_total_sale_value NUMERIC NOT NULL,
-    event_trade_total_sale_cost NUMERIC NOT NULL,
+    event_effect_type TEXT NULL,
 
-    post_event_position_quantity INTEGER NOT NULL,
-    post_event_position_average_price NUMERIC NOT NULL,
-    post_event_position_average_cost NUMERIC NOT NULL,
+    event_set_position_quantity INTEGER NOT NULL,
+    event_set_position_average_price NUMERIC NOT NULL,
+    event_set_position_average_cost NUMERIC NOT NULL,
+
+    event_increase_quantity INTEGER NOT NULL,
+    event_increase_average_price NUMERIC NOT NULL,
+    event_increase_average_cost NUMERIC NOT NULL,
+
+    event_decrease_quantity INTEGER NOT NULL,
+    event_decrease_average_price NUMERIC NOT NULL,
+    event_decrease_average_cost NUMERIC NOT NULL,
 
     purchase_quantity INTEGER NOT NULL,
     purchase_average_price NUMERIC NOT NULL,

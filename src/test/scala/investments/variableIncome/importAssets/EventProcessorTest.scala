@@ -1,96 +1,108 @@
 package sisgrana
 package investments.variableIncome.importAssets
 
-import investments.variableIncome.importAssets.Event.AveragePriceDefinition.{Constant, Multiplier}
-import investments.variableIncome.importAssets.Event.{From, To}
-import investments.variableIncome.importAssets.EventProcessor.EventOutcome
-import investments.variableIncome.model.{PurchaseAmountWithCost, SaleAmountWithCost, TradeResult}
+import investments.variableIncome.model.{AmountWithCost, EventEffect}
 
 class EventProcessorTest extends TestBase {
-  test("calculateOutcome()") {
-    val Asset = "ASST3"
-
+  test("EventProcessor.processConversion()") {
     val cases = Table(
       (
-        "event",
-        "positionByAsset",
-        "expected updatedPositionAndSwingTradeResultByAsset",
+        "conversion",
+        "positions",
+        "expected effects",
       ),
       (
-        Event(
-          From(1, Asset),
-          Vector(
-            To(4, Asset, Multiplier(0.25)),
-          )
+        Event.Conversion("X", 1, "X", 4),
+        Map(
+          "X" -> AmountWithCost.fromSignedQuantityAndTotals(10, 40.00, 0.40),
         ),
         Map(
-          Asset -> PurchaseAmountWithCost.fromTotals(5, 10.00, 0.10),
-        ),
-        Some(
-          Map(
-            Asset -> EventOutcome(TradeResult.Zero, PurchaseAmountWithCost.fromTotals(20, 10.00, 0.10)),
-          )
+          "X" -> EventEffect.SetPosition(AmountWithCost.fromSignedQuantityAndTotals(40, 40.00, 0.40)),
         ),
       ),
       (
-        Event(
-          From(10, Asset),
-          Vector(
-            To(10, Asset, Multiplier(1)),
-            To(1, Asset, Constant(5.0)),
-          )
+        Event.Conversion("X", 1, "X", 4),
+        Map(
+          "X" -> AmountWithCost.fromSignedQuantityAndTotals(-10, -40.00, 0.40),
         ),
         Map(
-          Asset -> PurchaseAmountWithCost.fromTotals(25, 250.00, 0.50),
-        ),
-        Some(
-          Map(
-            Asset -> EventOutcome(TradeResult.Zero, PurchaseAmountWithCost.fromTotals(27, 260.00, 0.50)),
-          )
+          "X" -> EventEffect.SetPosition(AmountWithCost.fromSignedQuantityAndTotals(-40, -40.00, 0.40)),
         ),
       ),
       (
-        Event(
-          From(1, Asset),
-          Vector(
-            To(1, "XXXX4", Multiplier(1)),
-          )
+        Event.Conversion("X", 4, "X", 1),
+        Map(
+          "X" -> AmountWithCost.fromSignedQuantityAndTotals(16, 40.00, 0.40),
         ),
         Map(
-          Asset -> PurchaseAmountWithCost.fromAverages(3, 10.00, 0.10),
-          "XXXX4" -> SaleAmountWithCost.fromAverages(5, 5.00, 0.08),
-        ),
-        Some(
-          Map(
-            Asset -> EventOutcome(TradeResult.Zero, PurchaseAmountWithCost.Zero),
-            "XXXX4" -> EventOutcome(TradeResult.fromAverages(3, 10.00, 0.10, 5.00, 0.08), SaleAmountWithCost.fromAverages(2, 5.00, 0.08)),
-          )
+          "X" -> EventEffect.SetPosition(AmountWithCost.fromSignedQuantityAndTotals(4, 40.00, 0.40)),
         ),
       ),
       (
-        Event(
-          From(1, Asset),
-          Vector(
-            To(1, "XXXX4", Multiplier(1)),
-          )
+        Event.Conversion("X", 4, "X", 1),
+        Map(
+          "X" -> AmountWithCost.fromSignedQuantityAndAverages(15, 1.00, 0.10),
         ),
         Map(
-          Asset -> PurchaseAmountWithCost.fromAverages(3, 10.00, 0.30),
-          "XXXX4" -> SaleAmountWithCost.fromAverages(2, 8.00, 0.08),
-        ),
-        Some(
-          Map(
-            Asset -> EventOutcome(TradeResult.Zero, PurchaseAmountWithCost.Zero),
-            "XXXX4" -> EventOutcome(TradeResult.fromAverages(2, 10.00, 0.30, 8.0, 0.08), PurchaseAmountWithCost.fromAverages(1, 10.00, 0.30)),
-          )
+          "X" -> EventEffect.SetPosition(AmountWithCost.fromSignedQuantityAndAverages(3, 4.00, 0.40)),
         ),
       ),
     )
 
-    forAll(cases) { case (event, positionByAsset, expectedPositionAndSwingTradeResultByAsset) =>
-      val processor = new EventProcessor(event)
-      val result = processor.calculateOutcome(positionByAsset)
-      result should equal (expectedPositionAndSwingTradeResultByAsset)
+    forAll(cases) { case (conversion, positions, expectedEffects) =>
+      val effects = EventProcessor.processConversion(conversion, positions)
+
+      effects should equal (expectedEffects)
+    }
+  }
+
+  test("EventProcessor.processBonus()") {
+    val cases = Table(
+      (
+        "bonus",
+        "positions",
+        "expected effects",
+      ),
+      (
+        Event.Bonus("X", 10, "X", 1, 1.00),
+        Map(
+          "X" -> AmountWithCost.fromSignedQuantityAndAverages(20, 2.00, 0.02),
+        ),
+        Map(
+          "X" -> EventEffect.AddToPosition(AmountWithCost.fromSignedQuantityAndAverages(2, 1.00, 0.00))
+        ),
+      ),
+      (
+        Event.Bonus("X", 10, "X", 1, 1.00),
+        Map(
+          "X" -> AmountWithCost.fromSignedQuantityAndAverages(-20, 2.00, 0.02),
+        ),
+        Map.empty,
+      ),
+      (
+        Event.Bonus("X", 10, "X", 1, 1.00),
+        Map(
+          "X" -> AmountWithCost.fromSignedQuantityAndAverages(21, 2.00, 0.02),
+        ),
+        Map(
+          "X" -> EventEffect.AddToPosition(AmountWithCost.fromSignedQuantityAndAverages(2, 1.00, 0.00))
+        ),
+      ),
+      (
+        Event.Bonus("X", 10, "Y", 1, 1.00),
+        Map(
+          "X" -> AmountWithCost.fromSignedQuantityAndAverages(20, 2.00, 0.02),
+        ),
+        Map(
+          "Y" -> EventEffect.AddToPosition(AmountWithCost.fromSignedQuantityAndAverages(2, 1.00, 0.00))
+        ),
+      ),
+    )
+
+    forAll(cases) { case (bonus, positions, expectedEffects) =>
+      val effects = EventProcessor.processBonus(bonus, positions)
+
+      effects should equal (expectedEffects)
     }
   }
 }

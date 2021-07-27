@@ -32,19 +32,49 @@ object Main {
       }
     }
 
-  private[irpf] def formatPositionChangeRaw(from: AmountWithCost, change: AmountWithCost, to: AmountWithCost): String = {
-    val formattedFrom = from.signedFormatParens0
-    val sign = if (change.signedQuantity < 0) '-' else '+'
-    val formattedChange =
-      if (from.quantity == 0 || math.signum(from.signedQuantity) == math.signum(change.signedQuantity)) {
-        change.formatParens0
-      } else {
-        s"${change.quantity} unidades"
+  private def oppositeSignals(pos1: AmountWithCost, pos2: AmountWithCost): Boolean =
+    math.signum(pos1.signedQuantity) * math.signum(pos2.signedQuantity) == -1
+
+  private def formatPositionConversion(posBefore: AmountWithCost, posAfter: AmountWithCost, withLabel: Boolean = true): String = {
+    val formatted = s"${posBefore.signedFormatParens0} -> ${posAfter.signedFormatParens0}"
+    s"${positionLabel(withLabel)}$formatted"
+  }
+
+  private[irpf] def formatPositionChange(posBefore: AmountWithCost, posAfter: AmountWithCost, withLabel: Boolean = true): String = {
+    val formatted = {
+      def formattedChangeInOppositeDirection = {
+        val signal = if (posBefore.signedQuantity < 0) '+' else '-'
+        val quantityDelta = math.abs(posBefore.signedQuantity - posAfter.signedQuantity)
+        s"${posBefore.signedFormatParens0} $signal $quantityDelta unidades = ${posAfter.signedFormatParens0}"
       }
 
-    val formattedTo = to.signedFormatParens0
-    s"$formattedFrom $sign $formattedChange = $formattedTo"
+      math.signum(posBefore.signedQuantity) * math.signum(posAfter.signedQuantity) match {
+        case 1 =>
+          if (math.abs(posBefore.signedQuantity) < math.abs(posAfter.signedQuantity)) {
+            val signal = if (posBefore.signedQuantity > 0) '+' else '-'
+            val delta = AmountWithCost.fromSignedQuantityAndTotals(
+              posAfter.signedQuantity - posBefore.signedQuantity,
+              posAfter.signedTotalValue - posBefore.signedTotalValue,
+              posAfter.totalCost - posBefore.totalCost,
+            )
+            s"${posBefore.signedFormatParens0} $signal ${delta.formatParens0} = ${posAfter.signedFormatParens0}"
+          } else if (math.abs(posBefore.signedQuantity) > math.abs(posAfter.signedQuantity)) {
+            formattedChangeInOppositeDirection
+          } else {
+            formatPositionConversion(posBefore, posAfter, withLabel = false)
+          }
+        case -1 => formattedChangeInOppositeDirection
+        case _ => formatPositionConversion(posBefore, posAfter, withLabel = false)
+      }
+    }
+
+    s"${positionLabel(withLabel)}$formatted"
   }
+
+  private def positionLabel(withLabel: Boolean) = if (withLabel) "Posição: " else ""
+
+  private def formatTradeResult(tradeResult: TradeResult) =
+    s"Resultado: ${tradeResult.saleAmount.formatParens0} - ${tradeResult.purchaseAmount.formatParens0} = ${tradeResult.totalNetValue.format}"
 
   implicit private class IterableOps[A](private val iterable: Seq[A]) extends AnyVal {
     def groupAndSortBy[K: Ordering](f: A => K): Seq[(K, Seq[A])] =
@@ -52,31 +82,24 @@ object Main {
   }
 
   implicit private class AmountWithCostOps(private val amount: AmountWithCost) extends AnyVal {
-    def format: String =
-      formatValues(amount.quantity, amount.averagePriceWithCost, amount.totalValueWithCost)
-
     def formatParens0: String =
-      parens0(amount.quantity, format)
-
-    def signedFormat: String =
-      formatValues(amount.signedQuantity, amount.averagePriceWithCost, amount.signedTotalValueWithCost)
+      formatValues(signed = false)
 
     def signedFormatParens0: String =
-      parens0(amount.quantity, signedFormat)
+      formatValues(signed = true)
 
-    private def parens0(quantity: Int, formatted: String) = if (quantity == 0) formatted else s"($formatted)"
-
-    private def formatValues(quantity: Int, averagePriceWithCost: Double, totalValueWithCost: Double) =
-      if (quantity == 0) {
+    private def formatValues(signed: Boolean) =
+      if (amount.quantity == 0) {
         "0"
       } else {
-        s"$quantity x ${averagePriceWithCost.format} = ${totalValueWithCost.format}"
+        val (qty, total) =
+          if (signed) {
+            (amount.signedQuantity, amount.signedTotalValueWithCost)
+          } else {
+            (amount.quantity, amount.totalValueWithCost)
+          }
+        s"($qty x ${amount.averagePriceWithCost.format} = ${total.format})"
       }
-  }
-
-  implicit private class TradeResultOps(private val tradeResult: TradeResult) extends AnyVal {
-    def format: String =
-      s"Resultado: (${tradeResult.saleAmount.format}) - (${tradeResult.purchaseAmount.format}) = ${tradeResult.totalNetValue.format}"
   }
 
   implicit private[irpf] class DoubleOps(private val double: Double) extends AnyVal {
@@ -240,47 +263,48 @@ class Main(showDetails: Boolean) extends LocalDateSupport {
     printer.context(stockbroker, showDetails) {
       assetChanges.sortBy(_.asset)
         .map { ac =>
-          def tradeResultDetailsOpt(tradeResult: TradeResult) =
-            Option.when(tradeResult.quantity > 0) {
-              printer.hierarchy.leaf(tradeResult.format)
-            }
-
           val detailsOpt = printer.hierarchy.optionalTree(ac.asset, showDetails)(
-            printer.hierarchy.optionalTree("[Evento]")(
-              Option.when(ac.postEventPosition.quantity != ac.previousPosition.quantity) {
-                printer.hierarchy.leaf(s"Posição: ${ac.previousPosition.signedFormat} -> ${ac.postEventPosition.signedFormat}")
-              },
-              tradeResultDetailsOpt(ac.eventTradeResult),
-            ),
-            printer.hierarchy.optionalTree("[Day-Trade]")(
-              tradeResultDetailsOpt(ac.dayTradeResult),
-            ),
-            Option.when(ac.operationsTradeResult.quantity > 0) {
-              printer.hierarchy.tree("[Operação Comum]")(
-                printer.hierarchy.leaf(
-                  formatPositionChange(
-                    from = ac.postEventPosition,
-                    change = ac.nonDayTradeOperationsAmount.withQuantity(ac.operationsTradeResult.quantity),
-                    to = ac.postOperationsTradePosition,
-                  )
-                ),
-                printer.hierarchy.leaf(ac.operationsTradeResult.format),
+            ac.eventEffect.flatMap {
+              case EventEffect.SetPosition(pos) =>
+                printer.hierarchy.optionalTree("[Evento]")(
+                  Some(formatPositionConversion(ac.previousPosition, pos))
+                )
+              case EventEffect.AddToPosition(_, _) =>
+                printer.hierarchy.optionalTree("[Evento]")(
+                  Some(
+                    if (oppositeSignals(ac.previousPosition, ac.postEventPosition)) {
+                      formatPositionChange(ac.previousPosition, AmountWithCost.Zero)
+                    } else {
+                      formatPositionChange(ac.previousPosition, ac.postEventPosition)
+                    }
+                  ),
+                  Option.when(ac.eventTradeResult.quantity > 0) {
+                    formatTradeResult(ac.eventTradeResult)
+                  },
+                  Option.when(oppositeSignals(ac.previousPosition, ac.postEventPosition)) {
+                    formatPositionChange(AmountWithCost.Zero, ac.postEventPosition)
+                  },
+                )
+            },
+            Option.when(ac.dayTradeResult.quantity > 0) {
+              printer.hierarchy.tree("[Day-Trade]")(
+                formatTradeResult(ac.dayTradeResult),
               )
             },
-            Option.when(ac.resultingPosition.quantity != ac.postOperationsTradePosition.quantity) {
+            Option.when(ac.postEventPosition.signedQuantity != ac.resultingPosition.signedQuantity) {
               printer.hierarchy.tree("[Carteira]")(
-                printer.hierarchy.leaf(
-                  formatPositionChange(
-                    from = ac.postOperationsTradePosition,
-                    change = ac.nonTradeOperationsAmount,
-                    to = ac.resultingPosition,
-                  )
-                )
+                formatPositionChange(ac.postEventPosition, ac.resultingPosition),
               )
-            }
+            },
+            Option.when(ac.operationsTradeResult.quantity > 0) {
+              printer.hierarchy.tree("[Operação Comum]")(
+                formatTradeResult(ac.operationsTradeResult),
+              )
+            },
           )
-          for (detailsNode <- detailsOpt) {
-            printer.hierarchy.print(detailsNode)
+
+          for (details <- detailsOpt) {
+            printer.hierarchy.print(details)
           }
 
           typeResolver(ac.asset).taxation match {
@@ -313,7 +337,4 @@ class Main(showDetails: Boolean) extends LocalDateSupport {
         }
         .reduce(_ + _)
     }
-
-  private def formatPositionChange(from: AmountWithCost, change: AmountWithCost, to: AmountWithCost): String =
-    s"Posição: ${formatPositionChangeRaw(from, change, to)}"
 }

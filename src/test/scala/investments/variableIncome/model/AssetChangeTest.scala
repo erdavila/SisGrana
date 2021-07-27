@@ -6,7 +6,7 @@ import java.time.LocalDate
 class AssetChangeTest extends TestBase {
   private val ZeroAssetChange = AssetChange.withZeroes("asset", "stockbroker", LocalDate.now())
 
-  test("withPreviousPosition(), previousPosition, and fields") {
+  test("previousPosition, withPreviousPosition(), and fields") {
     val cases = Table(
       "previousPosition",
       PurchaseAmountWithCost.Zero,
@@ -24,45 +24,160 @@ class AssetChangeTest extends TestBase {
     }
   }
 
-  test("withEventTradeResult(), eventTradeResult, and fields") {
+  test("None: eventEffect, withEventEffect(), and fields") {
+    val assetChange = ZeroAssetChange.withEventEffect(None)
+
+    assetChange.eventEffect shouldBe empty
+    assetChange.eventSetPosition should equal (PurchaseAmountWithCost.Zero)
+    assetChange.eventIncreaseAmount should equal (PurchaseAmountWithCost.Zero)
+    assetChange.eventDecreaseAmount should equal (SaleAmountWithCost.Zero)
+    assetChange.eventEffectType shouldBe empty
+    assetChange.eventSetPositionQuantity should equal (0)
+    assetChange.eventSetPositionAveragePrice should equal (0.0)
+    assetChange.eventSetPositionAverageCost should equal (0.0)
+    assetChange.eventIncreaseQuantity should equal (0)
+    assetChange.eventIncreaseAveragePrice should equal (0.0)
+    assetChange.eventIncreaseAverageCost should equal (0.0)
+    assetChange.eventDecreaseQuantity should equal (0)
+    assetChange.eventDecreaseAveragePrice should equal (0.0)
+    assetChange.eventDecreaseAverageCost should equal (0.0)
+  }
+
+  test("eventSetPosition, eventEffect, withEventEffect(), and fields") {
     val cases = Table(
-      "eventTradeResult",
-      TradeResult.Zero,
-      TradeResult.fromTotals(10, 20.00, 0.20, 30.00, 0.30),
-      TradeResult.fromTotals(10, 30.00, 0.30, 20.00, 0.20),
+      "eventEffect",
+      EventEffect.SetPosition(PurchaseAmountWithCost.Zero),
+      EventEffect.SetPosition(PurchaseAmountWithCost.fromAverages(10, 10.00, 0.10)),
+      EventEffect.SetPosition(SaleAmountWithCost.fromAverages(10, 10.00, 0.10)),
     )
 
-    forAll(cases) { eventTradeResult =>
-      val assetChange = ZeroAssetChange.withEventTradeResult(eventTradeResult)
+    forAll(cases) { eventEffect =>
+      val assetChange = ZeroAssetChange.withEventEffect(Some(eventEffect))
 
-      assetChange.eventTradeResult should equal (eventTradeResult)
-      assetChange.eventTradeQuantity should equal (eventTradeResult.quantity)
-      assetChange.eventTradeTotalPurchaseValue should equal (eventTradeResult.totalPurchaseValue)
-      assetChange.eventTradeTotalPurchaseCost should equal (eventTradeResult.totalPurchaseCost)
-      assetChange.eventTradeTotalSaleValue should equal (eventTradeResult.totalSaleValue)
-      assetChange.eventTradeTotalSaleCost should equal (eventTradeResult.totalSaleCost)
+      assetChange.eventEffect should contain (eventEffect)
+      assetChange.eventSetPosition should equal (eventEffect.position)
+      assetChange.eventEffectType should contain (EventEffect.SetPosition.Type)
+      assetChange.eventSetPositionQuantity should equal (eventEffect.position.signedQuantity)
+      assetChange.eventSetPositionAveragePrice should equal (eventEffect.position.averagePrice)
+      assetChange.eventSetPositionAverageCost should equal (eventEffect.position.averageCost)
     }
   }
 
-  test("withPostEventPosition, postEventPosition, and fields") {
+  test("eventIncreaseAmount, eventDecreaseAmount, eventEffect, withEventEffect(), and fields") {
     val cases = Table(
-      "postEventPosition",
-      PurchaseAmountWithCost.Zero,
-      PurchaseAmountWithCost.fromAverages(10, 20.00, 0.10),
-      SaleAmountWithCost.fromAverages(10, 20.00, 0.10),
+      "eventEffect",
+      EventEffect.AddToPosition(
+        PurchaseAmountWithCost.Zero,
+        SaleAmountWithCost.Zero,
+      ),
+      EventEffect.AddToPosition(
+        PurchaseAmountWithCost.fromAverages(10, 10.00, 0.10),
+        SaleAmountWithCost.fromAverages(7, 7.00, 0.70),
+      ),
     )
 
-    forAll(cases) { postEventPosition =>
-      val assetChange = ZeroAssetChange.withPostEventPosition(postEventPosition)
+    forAll(cases) { eventEffect =>
+      val assetChange = ZeroAssetChange.withEventEffect(Some(eventEffect))
 
-      assetChange.postEventPosition should equal (postEventPosition)
-      assetChange.postEventPositionQuantity should equal (postEventPosition.signedQuantity)
-      assetChange.postEventPositionAveragePrice should equal (postEventPosition.averagePrice)
-      assetChange.postEventPositionAverageCost should equal (postEventPosition.averageCost)
+      assetChange.eventEffect should contain (eventEffect)
+      assetChange.eventIncreaseAmount should equal (eventEffect.increaseAmount)
+      assetChange.eventDecreaseAmount should equal (eventEffect.decreaseAmount)
+      assetChange.eventEffectType should contain (EventEffect.AddToPosition.Type)
+      assetChange.eventIncreaseQuantity should equal (eventEffect.increaseAmount.quantity)
+      assetChange.eventIncreaseAveragePrice should equal (eventEffect.increaseAmount.averagePrice)
+      assetChange.eventIncreaseAverageCost should equal (eventEffect.increaseAmount.averageCost)
+      assetChange.eventDecreaseQuantity should equal (eventEffect.decreaseAmount.quantity)
+      assetChange.eventDecreaseAveragePrice should equal (eventEffect.decreaseAmount.averagePrice)
+      assetChange.eventDecreaseAverageCost should equal (eventEffect.decreaseAmount.averageCost)
     }
   }
 
-  test("withPurchaseAmount, purchaseAmount, and fields") {
+  test("eventTradeResult and nonTradeEventPosition") {
+    val cases = Table(
+      (
+        "previousPosition",
+        "eventIncreaseAmount",
+        "eventDecreaseAmount",
+        "expected eventTradeResult",
+        "expected nonTradeEventPosition",
+      ),
+      (
+        AmountWithCost.Zero,
+        PurchaseAmountWithCost.Zero,
+        SaleAmountWithCost.Zero,
+        TradeResult.Zero,
+        AmountWithCost.Zero,
+      ),
+      (
+        AmountWithCost.fromSignedQuantityAndAverages(10, 10.00, 0.10),
+        PurchaseAmountWithCost.Zero,
+        SaleAmountWithCost.Zero,
+        TradeResult.Zero,
+        AmountWithCost.fromSignedQuantityAndAverages(10, 10.00, 0.10),
+      ),
+      (
+        AmountWithCost.fromSignedQuantityAndAverages(3, 4.00, 0.04),
+        PurchaseAmountWithCost.fromAverages(7, 2.00, 0.02),
+        SaleAmountWithCost.fromAverages(5, 3.00, 0.03),
+        TradeResult.fromTotals(5, 13.00, 0.13, 15.00, 0.15),
+        AmountWithCost.fromSignedQuantityAndTotals(5, 13.00, 0.13),
+      ),
+      (
+        AmountWithCost.fromSignedQuantityAndAverages(-1, 1.00, 0.01),
+        PurchaseAmountWithCost.fromAverages(5, 5.00, 0.05),
+        SaleAmountWithCost.fromAverages(4, 4.00, 0.04),
+        TradeResult.fromTotals(5, 25.00, 0.25, 17.00, 0.17),
+        AmountWithCost.Zero,
+      ),
+    )
+
+    forAll(cases) { case (previousPosition, eventIncreaseAmount, eventDecreaseAmount, expectedEventTradeResult, expectedNonTradeEventPosition) =>
+      val assetChange = ZeroAssetChange
+        .withPreviousPosition(previousPosition)
+        .withEventEffect(Some(EventEffect.AddToPosition(eventIncreaseAmount, eventDecreaseAmount)))
+
+      assetChange.eventTradeResult should equal (expectedEventTradeResult)
+      assetChange.nonTradeEventPosition should equal (expectedNonTradeEventPosition)
+    }
+  }
+
+  test("postEventPosition, and fields") {
+    val cases = Table(
+      (
+        "previousPosition",
+        "eventEffect",
+        "expected postEventPosition",
+      ),
+      (
+        AmountWithCost.fromSignedQuantityAndAverages(10, 10.0, 0.10),
+        None,
+        AmountWithCost.fromSignedQuantityAndAverages(10, 10.0, 0.10),
+      ),
+      (
+        AmountWithCost.fromSignedQuantityAndAverages(10, 10.0, 0.10),
+        Some(EventEffect.SetPosition(AmountWithCost.fromSignedQuantityAndAverages(3, 3.33, 0.33))),
+        AmountWithCost.fromSignedQuantityAndAverages(3, 3.33, 0.33),
+      ),
+      (
+        AmountWithCost.fromSignedQuantityAndAverages(10, 1.00, 0.10),
+        Some(EventEffect.AddToPosition(
+          PurchaseAmountWithCost.fromAverages(1, 1.00, 0.10),
+          SaleAmountWithCost.fromAverages(7, 1.00, 0.10),
+        )),
+        AmountWithCost.fromSignedQuantityAndAverages(4, 1.00, 0.10),
+      ),
+    )
+
+    forAll(cases) { case (previousPosition, eventEffect, expectedPostEventPosition) =>
+      val assetChange = ZeroAssetChange
+        .withPreviousPosition(previousPosition)
+        .withEventEffect(eventEffect)
+
+      assetChange.postEventPosition should equal (expectedPostEventPosition)
+    }
+  }
+
+  test("purchaseAmount, withPurchaseAmount(), and fields") {
     val cases = Table(
       "purchaseAmount",
       PurchaseAmountWithCost.Zero,
@@ -79,7 +194,7 @@ class AssetChangeTest extends TestBase {
     }
   }
 
-  test("withSaleAmount, saleAmount, and fields") {
+  test("saleAmount, withSaleAmount(), and fields") {
     val cases = Table(
       "saleAmount",
       SaleAmountWithCost.Zero,
@@ -183,7 +298,7 @@ class AssetChangeTest extends TestBase {
     )
 
     forAll(cases) { case (postEventPosition, nonDayTradeOperationsAmount, expectedResultingPosition, expectedOperationsTradeResult) =>
-      val ac0 = ZeroAssetChange.withPostEventPosition(postEventPosition)
+      val ac0 = ZeroAssetChange.withEventEffect(Some(EventEffect.SetPosition(postEventPosition)))
       val assetChange =
         (nonDayTradeOperationsAmount: AmountWithCost) match {
           case p@PurchaseAmountWithCost(_, _, _) => ac0.withPurchaseAmount(p)

@@ -2,9 +2,8 @@ package sisgrana
 package investments.variableIncome.importAssets
 
 import com.softwaremill.quicklens._
-import investments.variableIncome.importAssets.EventProcessor.EventOutcome
-import investments.variableIncome.model.ctx._
 import investments.variableIncome.model._
+import investments.variableIncome.model.ctx._
 import java.io.File
 import java.time.LocalDate
 
@@ -40,7 +39,7 @@ object Main extends LocalDateSupport {
     println(s"Processando dados de $date")
 
     val (eventsArray, brokerageNotes) = importedFileNames.partitionMap {
-      case ImportedFileName(_, "EVENTS", file) => Left(Events.fromFile(file))
+      case ImportedFileName(_, "EVENTS", file) => Left(Event.fromFile(file))
       case ImportedFileName(_, stockbroker, file) => Right(BrokerageNote.fromFile(date, stockbroker, nameNormalizer)(file))
     }
     assert(eventsArray.lengthIs <= 1)
@@ -65,7 +64,7 @@ object Main extends LocalDateSupport {
         if latestPosition.position.quantity != 0
       } yield stockbrokerAsset -> latestPosition.position
 
-    val eventOutcomeByAsset = processEvents(previousPositionByAsset, events)
+    val eventEffectByAsset = processEvents(previousPositionByAsset, events)
     val operationsAmountsByAsset = brokerageNotes
           .map(processBrokerageNote)
           .reduceOption(_ ++ _)
@@ -73,29 +72,20 @@ object Main extends LocalDateSupport {
 
     val assetChanges =
       for {
-        stockbrokerAsset <- (eventOutcomeByAsset.keySet ++ operationsAmountsByAsset.keySet).toSeq
+        stockbrokerAsset <- (eventEffectByAsset.keySet ++ operationsAmountsByAsset.keySet).toSeq
 
         initialAssetChange = AssetChange
           .withZeroes(stockbrokerAsset, date)
           .withPreviousPosition(previousPositionByAsset.getOrElse(stockbrokerAsset, PurchaseAmountWithCost.Zero))
-
-        postEventAssetChange = eventOutcomeByAsset.get(stockbrokerAsset) match {
-          case Some(eventOutcome) =>
-            initialAssetChange
-              .withEventTradeResult(eventOutcome.tradeResult)
-              .withPostEventPosition(eventOutcome.position)
-          case None =>
-            initialAssetChange
-              .withPostEventPosition(initialAssetChange.previousPosition)
-        }
+          .withEventEffect(eventEffectByAsset.get(stockbrokerAsset))
 
         assetChange = operationsAmountsByAsset.get(stockbrokerAsset) match {
           case Some(operationsAmount) =>
-            postEventAssetChange
+            initialAssetChange
               .withPurchaseAmount(operationsAmount.purchase)
               .withSaleAmount(operationsAmount.sale)
           case None =>
-            postEventAssetChange
+            initialAssetChange
         }
       } yield assetChange
 
@@ -121,19 +111,13 @@ object Main extends LocalDateSupport {
   private def processEvents(
     positionByAsset: Map[StockbrokerAsset, AmountWithCost],
     events: Seq[Event],
-  ): Map[StockbrokerAsset, EventOutcome] =
+  ): Map[StockbrokerAsset, EventEffect] =
     events
-      .flatMap { event =>
+      .map { event =>
         val processor = new EventProcessor(event)
         processor.process(positionByAsset)
       }
-      .reduceOption { (map1, map2) =>
-        val intersection = map1.keySet `intersect` map2.keySet
-        if (intersection.nonEmpty) {
-          throw new Exception(s"Mais de um evento foram aplicados aos ativo $intersection")
-        }
-        map1 ++ map2
-      }
+      .reduceOption(EventProcessor.mergeEffectsByAsset)
       .getOrElse(Map.empty)
 
   private def processBrokerageNote(brokerageNote: BrokerageNote): Map[StockbrokerAsset, OperationsAmounts.WithCost] = {

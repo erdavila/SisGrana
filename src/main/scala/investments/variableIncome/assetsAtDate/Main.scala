@@ -22,7 +22,11 @@ object Main extends LocalDateSupport {
         .filter(_.resultingPositionQuantity != 0)
     )
 
-    printer.context(s"Ativos em $date") {
+    val text =
+      if (date.isAfter(LocalDate.now())) "Ativos até o momento"
+      else s"Ativos em $date"
+
+    printer.context(text) {
       for ((stockbroker, assetChanges) <- result.groupBy(_.stockbroker).toIndexedSeq.sortBy(_._1)) {
         printer.context(stockbroker) {
           for (ac <- assetChanges.sortBy(_.asset)) {

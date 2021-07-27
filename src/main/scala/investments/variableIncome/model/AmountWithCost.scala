@@ -39,6 +39,8 @@ sealed trait AmountWithCost {
 }
 
 object AmountWithCost {
+  val Zero: AmountWithCost = PurchaseAmountWithCost.Zero
+
   def fromSignedQuantityAndAverages(signedQuantity: Int, averagePrice: Double, averageCost: Double): AmountWithCost =
     if (signedQuantity >= 0) {
       PurchaseAmountWithCost.fromAverages(signedQuantity, averagePrice, averageCost)
@@ -55,7 +57,7 @@ object AmountWithCost {
       fromSignedQuantityAndAverages(
         signedQuantity,
         totalValue / signedQuantity,
-        totalCost / signedQuantity,
+        totalCost / math.abs(signedQuantity),
       )
     }
 
