@@ -58,40 +58,22 @@ object Main extends LocalDateSupport {
     )
 
     val latestPositions = latestPositionByAsset(subjectAssets.distinct)
+    for {
+      (stockbrokerAsset, latestPosition) <- latestPositions
+      if latestPosition.date `isAfter` date
+    } throw new Exception(s"Encontrado registro referente a $stockbrokerAsset com data ${latestPosition.date}, que é posterior a $date")
+
     val previousPositionByAsset =
       for {
         (stockbrokerAsset, latestPosition) <- latestPositions
         if latestPosition.position.quantity != 0
       } yield stockbrokerAsset -> latestPosition.position
 
-    val eventEffectByAsset = processEvents(previousPositionByAsset, events)
-    val operationsAmountsByAsset = brokerageNotes
-          .map(processBrokerageNote)
-          .reduceOption(_ ++ _)
-          .getOrElse(Map.empty)
-
-    val assetChanges =
-      for {
-        stockbrokerAsset <- (eventEffectByAsset.keySet ++ operationsAmountsByAsset.keySet).toSeq
-
-        initialAssetChange = AssetChange
-          .withZeroes(stockbrokerAsset, date)
-          .withPreviousPosition(previousPositionByAsset.getOrElse(stockbrokerAsset, PurchaseAmountWithCost.Zero))
-          .withEventEffect(eventEffectByAsset.get(stockbrokerAsset))
-
-        assetChange = operationsAmountsByAsset.get(stockbrokerAsset) match {
-          case Some(operationsAmount) =>
-            initialAssetChange
-              .withPurchaseAmount(operationsAmount.purchase)
-              .withSaleAmount(operationsAmount.sale)
-          case None =>
-            initialAssetChange
-        }
-      } yield assetChange
+    val assetChanges = processDateChanges(date, previousPositionByAsset, events, brokerageNotes)
 
     for (ac <- assetChanges) {
-      latestPositions.get(ac.stockbrokerAsset).filterNot(_.date `isBefore` date).foreach(existingAC =>
-        throw new Exception(s"Encontrado registro referente a ${ac.stockbrokerAsset} com data ${existingAC.date}, que é igual ou posterior a $date")
+      latestPositions.get(ac.stockbrokerAsset).filterNot(_.date `isBefore` date).foreach(position =>
+        throw new Exception(s"Encontrado registro referente a ${ac.stockbrokerAsset} com data ${position.date}, que é igual ou posterior a $date")
       )
       ctx.run(query[AssetChange].insert(lift(ac)))
     }
@@ -106,6 +88,37 @@ object Main extends LocalDateSupport {
     result
       .map(ac => ac.stockbrokerAsset -> LatestPosition(ac.date, ac.resultingPosition))
       .toMap
+  }
+
+  private[importAssets] def processDateChanges(
+    date: LocalDate,
+    previousPositionByAsset: Map[StockbrokerAsset, AmountWithCost],
+    events: Seq[Event],
+    brokerageNotes: Seq[BrokerageNote],
+  ): Seq[AssetChange] = {
+    val eventEffectByAsset = processEvents(previousPositionByAsset, events)
+    val operationsAmountsByAsset = brokerageNotes
+      .map(processBrokerageNote)
+      .reduceOption(_ ++ _)
+      .getOrElse(Map.empty)
+
+    for {
+      stockbrokerAsset <- (eventEffectByAsset.keySet ++ operationsAmountsByAsset.keySet).toSeq
+
+      initialAssetChange = AssetChange
+        .withZeroes(stockbrokerAsset, date)
+        .withPreviousPosition(previousPositionByAsset.getOrElse(stockbrokerAsset, PurchaseAmountWithCost.Zero))
+        .withEventEffect(eventEffectByAsset.get(stockbrokerAsset))
+
+      assetChange = operationsAmountsByAsset.get(stockbrokerAsset) match {
+        case Some(operationsAmount) =>
+          initialAssetChange
+            .withPurchaseAmount(operationsAmount.purchase)
+            .withSaleAmount(operationsAmount.sale)
+        case None =>
+          initialAssetChange
+      }
+    } yield assetChange
   }
 
   private def processEvents(
