@@ -53,8 +53,10 @@ CONTEÚDO :=
     LINHA-DE-CUSTO*
     LINHA-EM-BRANCO
     LINHA-DE-VALOR-DA-NOTA
-LINHA-DE-NEGOCIAÇÃO := [OPERAÇÃO]  [NOME:s]  [QUANTIA:i]  [PREÇO:n]
-OPERAÇÃO := 'C' /* compra */ | 'V' /* venda */
+LINHA-DE-NEGOCIAÇÃO := [OPERAÇÃO-COMUM]  [NOME:s]  [QUANTIA:i]  [PREÇO:n]
+                     | [OPERAÇÃO-EXERCÍCIO]  [OPÇÃO:s]  [NOME:s]  [QUANTIA:i]  [PREÇO:n]
+OPERAÇÃO-COMUM := 'C' /* compra */ | 'V' /* venda */
+OPERAÇÃO-EXERCÍCIO := 'EC' /* compra */ | 'EV' /* venda */
 LINHA-DE-CUSTO := [DESCRIÇÃO:s] /* ignorada */  [CUSTO:n]  /* não incluir IRRF! */
 LINHA-DE-VALOR-DA-NOTA := [VALOR:sn] /* positivo se houve mais vendas, negativo se houve mais compras */
 ```

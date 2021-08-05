@@ -7,7 +7,7 @@ sealed trait AmountWithCost {
     require(averagePrice == 0.0)
     require(averageCost == 0.0)
   } else {
-    require(averagePrice > 0.0)
+    require(averagePrice >= 0.0)
     require(averageCost >= 0.0)
   }
 
@@ -15,14 +15,15 @@ sealed trait AmountWithCost {
   def averagePrice: Double
   def averageCost: Double
 
-  lazy val totalValue: Double = averagePrice * quantity
-  lazy val totalCost: Double = averageCost * quantity
-  lazy val totalValueWithCost: Double = averagePriceWithCost * quantity
+  final lazy val totalValue: Double = averagePrice * quantity
+  final lazy val totalCost: Double = averageCost * quantity
+  final lazy val totalValueWithCost: Double = averagePriceWithCost * quantity
   def averagePriceWithCost: Double
 
-  def signedQuantity: Int = sign * quantity
-  def signedTotalValue: Double = sign * totalValue
-  def signedTotalValueWithCost: Double = sign * totalValueWithCost
+  final def signedQuantity: Int = sign * quantity
+  final def signedTotalValue: Double = sign * totalValue
+  final def signedTotalValueWithCost: Double = sign * totalValueWithCost
+  final def signedAveragePrice: Double = signedTotalValue / quantity
   protected def sign: Int
 
   def withQuantity(quantity: Int): AmountWithCost

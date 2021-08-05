@@ -3,6 +3,7 @@ package investments.variableIncome.model
 
 import investments.variableIncome.model.ctx._
 import java.time.LocalDate
+import utils.oppositeSigns
 
 case class AssetChange(
   asset: String,
@@ -34,6 +35,8 @@ case class AssetChange(
   saleQuantity: Int,
   saleAveragePrice: Double,
   saleAverageCost: Double,
+
+  exercisedQuantity: Int,
 
   resultingPositionQuantity: Int,
   resultingPositionAveragePrice: Double,
@@ -115,8 +118,23 @@ case class AssetChange(
   lazy val (dayTradeResult: TradeResult, nonDayTradeOperationsAmount: AmountWithCost) =
     TradeResult.from(purchaseAmount, saleAmount)
 
-  lazy val (resultingPosition: AmountWithCost, operationsTradeResult: TradeResult) =
-    AmountWithCost.combine(postEventPosition, nonDayTradeOperationsAmount)
+  lazy val (resultingPosition: AmountWithCost, operationsTradeResult: TradeResult) = {
+    val postExerciseQuantity = {
+      require(!oppositeSigns(postEventPosition.signedQuantity, exercisedQuantity))
+      val quantity = postEventPosition.signedQuantity - exercisedQuantity
+      if (quantity == 0) {
+        AmountWithCost.Zero
+      } else {
+        AmountWithCost.fromSignedQuantityAndAverages(
+          quantity,
+          postEventPosition.averagePrice,
+          postEventPosition.averageCost,
+        )
+      }
+    }
+
+    AmountWithCost.combine(postExerciseQuantity, nonDayTradeOperationsAmount)
+  }
 
   lazy val swingTradeResult: TradeResult =
     eventTradeResult + operationsTradeResult
@@ -185,6 +203,11 @@ case class AssetChange(
       saleAverageCost = saleAmount.averageCost,
     ).withSyncedResultingPositionFields()
 
+  def withExercisedQuantity(exercisedQuantity: Int): AssetChange =
+    this.copy(
+      exercisedQuantity = exercisedQuantity,
+    ).withSyncedResultingPositionFields()
+
   private def withSyncedResultingPositionFields() =
     this.copy(
       resultingPositionQuantity = resultingPosition.signedQuantity,
@@ -207,6 +230,7 @@ object AssetChange extends LocalDateSupport {
       eventDecreaseQuantity = 0, eventDecreaseAveragePrice = 0.0, eventDecreaseAverageCost = 0.0,
       purchaseQuantity = 0, purchaseAveragePrice = 0.0, purchaseAverageCost = 0.0,
       saleQuantity = 0, saleAveragePrice = 0.0, saleAverageCost = 0.0,
+      exercisedQuantity = 0,
       resultingPositionQuantity = 0, resultingPositionAveragePrice = 0.0, resultingPositionAverageCost = 0.0,
     )
 

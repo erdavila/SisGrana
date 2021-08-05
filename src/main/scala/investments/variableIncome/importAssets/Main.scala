@@ -1,7 +1,7 @@
 package sisgrana
 package investments.variableIncome.importAssets
 
-import com.softwaremill.quicklens._
+import investments.variableIncome.AssetType
 import investments.variableIncome.model._
 import investments.variableIncome.model.ctx._
 import java.io.File
@@ -53,8 +53,8 @@ object Main extends LocalDateSupport {
     ) ++ (
       for {
         brokerageNote <- brokerageNotes
-        negotiation <- brokerageNote.negotiations
-      } yield negotiation.asset
+        asset <- brokerageNote.subjectAssets
+      } yield asset
     )
 
     val latestPositions = latestPositionByAsset(subjectAssets.distinct)
@@ -96,29 +96,39 @@ object Main extends LocalDateSupport {
     events: Seq[Event],
     brokerageNotes: Seq[BrokerageNote],
   ): Seq[AssetChange] = {
+    def initializeAssetChange(stockbrokerAsset: StockbrokerAsset) =
+      AssetChange
+        .withZeroes(stockbrokerAsset, date)
+        .withPreviousPosition(previousPositionByAsset.getOrElse(stockbrokerAsset, AmountWithCost.Zero))
+
     val eventEffectByAsset = processEvents(previousPositionByAsset, events)
-    val operationsAmountsByAsset = brokerageNotes
-      .map(processBrokerageNote)
-      .reduceOption(_ ++ _)
+    val postEventAssetChangesByAsset =
+      for ((stockbrokerAsset, eventEffect) <- eventEffectByAsset)
+        yield stockbrokerAsset -> initializeAssetChange(stockbrokerAsset).withEventEffect(Some(eventEffect))
+
+    def postEventPosition(stockbrokerAsset: StockbrokerAsset): Option[AmountWithCost] =
+      postEventAssetChangesByAsset.get(stockbrokerAsset).map(_.postEventPosition)
+        .orElse(previousPositionByAsset.get(stockbrokerAsset))
+    val operationsByAsset = brokerageNotes
+      .map(processBrokerageNote(postEventPosition, _))
+      .reduceOption(_ ++ _) // Assumes that same StockbrokerAsset does not repeat in different BrokerageNotes
       .getOrElse(Map.empty)
 
-    for {
-      stockbrokerAsset <- (eventEffectByAsset.keySet ++ operationsAmountsByAsset.keySet).toSeq
+    val postOperationsAssetChangesByAsset =
+      operationsByAsset.foldLeft(postEventAssetChangesByAsset) { case (assetChanges, (stockbrokerAsset, operations)) =>
+        assetChanges.updatedWith(stockbrokerAsset) { postEventAssetChangeOpt =>
+          val assetChange = postEventAssetChangeOpt.getOrElse(initializeAssetChange(stockbrokerAsset))
 
-      initialAssetChange = AssetChange
-        .withZeroes(stockbrokerAsset, date)
-        .withPreviousPosition(previousPositionByAsset.getOrElse(stockbrokerAsset, PurchaseAmountWithCost.Zero))
-        .withEventEffect(eventEffectByAsset.get(stockbrokerAsset))
-
-      assetChange = operationsAmountsByAsset.get(stockbrokerAsset) match {
-        case Some(operationsAmount) =>
-          initialAssetChange
-            .withPurchaseAmount(operationsAmount.purchase)
-            .withSaleAmount(operationsAmount.sale)
-        case None =>
-          initialAssetChange
+          Some(
+            assetChange
+              .withPurchaseAmount(operations.purchase)
+              .withSaleAmount(operations.sale)
+              .withExercisedQuantity(operations.exercisedQuantity)
+          )
+        }
       }
-    } yield assetChange
+
+    postOperationsAssetChangesByAsset.values.toSeq
   }
 
   private def processEvents(
@@ -133,51 +143,58 @@ object Main extends LocalDateSupport {
       .reduceOption(EventProcessor.mergeEffectsByAsset)
       .getOrElse(Map.empty)
 
-  private def processBrokerageNote(brokerageNote: BrokerageNote): Map[StockbrokerAsset, OperationsAmounts.WithCost] = {
-    val assetsOpsAmounts = aggregateAssetOperations(brokerageNote)
+  private def processBrokerageNote(
+    positionByAsset: StockbrokerAsset => Option[AmountWithCost],
+    brokerageNote: BrokerageNote,
+  ): Map[StockbrokerAsset, AggregatedNegotiations] = {
+    val totalNegotiationsValue = brokerageNote.negotiations.map(_.totalValue).sum
+    val totalCosts = brokerageNote.totalCosts
 
-    val (includeCostToPurchaseAmount, includeCostToSaleAmount) = {
-      val allAssetsOpsTotalValue = assetsOpsAmounts
-        .valuesIterator
-        .map(oa => oa.purchase.totalValue + oa.sale.totalValue)
-        .sum
-
-      val allAssetsOpsTotalCost = brokerageNote.totalCosts
-
-      def includeTo[A <: AmountWithCost](fromTotals: (Int, Double, Double) => A)(opAmount: Amount): A = {
-        val opRatio = opAmount.totalValue / allAssetsOpsTotalValue
-        val totalCost = allAssetsOpsTotalCost * opRatio
-        fromTotals(opAmount.quantity, opAmount.totalValue, totalCost)
-      }
-
-      val includeToPurchase = includeTo(PurchaseAmountWithCost.fromTotals)(_)
-      val includeToSale = includeTo(SaleAmountWithCost.fromTotals)(_)
-      (includeToPurchase, includeToSale)
-    }
-
-    (
-      for {
-        (asset, opsAmounts) <- assetsOpsAmounts
-        stockbrokerAsset = StockbrokerAsset(brokerageNote.stockbroker, asset)
-        opsAmountsWithCost = OperationsAmounts.WithCost(
-          includeCostToPurchaseAmount(opsAmounts.purchase),
-          includeCostToSaleAmount(opsAmounts.sale),
-        )
-      } yield stockbrokerAsset -> opsAmountsWithCost
-    ).toMap
-  }
-
-  private def aggregateAssetOperations(brokerageNote: BrokerageNote): Map[String, OperationsAmounts] = {
-    lazy val zeroOperationsAmounts = OperationsAmounts(Amount.Zero, Amount.Zero)
-    brokerageNote.negotiations.foldLeft(Map.empty[String, OperationsAmounts]) { (operationsAmounts, negotiation) =>
-      operationsAmounts.updatedWith(negotiation.asset) { existingOpsAmountsOpt =>
-        val existingOpsAmounts = existingOpsAmountsOpt.getOrElse(zeroOperationsAmounts)
-        val newOpsAmounts = negotiation.operation match {
-          case Operation.Purchase => existingOpsAmounts.modify(_.purchase).using(_ + negotiation.amount)
-          case Operation.Sale => existingOpsAmounts.modify(_.sale).using(_ + negotiation.amount)
+    val assetAggNegsList = brokerageNote.negotiations
+      .flatMap { negotiation =>
+        val negotiationAverageCost = {
+          val valuePercentage = negotiation.totalValue / totalNegotiationsValue
+          val cost = valuePercentage * totalCosts
+          cost / negotiation.quantity
         }
-        Some(newOpsAmounts)
+
+        val (optionSignedAvgPrice, optionAvgCost, optionAggNegsOpt) = negotiation.optionAsset match {
+          case Some(optionAsset) =>
+            val optionStockbrokerAsset = StockbrokerAsset(brokerageNote.stockbroker, optionAsset)
+            val optionPosition = positionByAsset(optionStockbrokerAsset).getOrElse(AmountWithCost.Zero)
+
+            val requiredOptionQuantitySign = (AssetType.Option.typeOf(optionAsset), negotiation.operation) match {
+              case (AssetType.Option.Type.Call, Operation.Purchase) => +1
+              case (AssetType.Option.Type.Call, Operation.Sale) => -1
+              case (AssetType.Option.Type.Put, Operation.Purchase) => -1
+              case (AssetType.Option.Type.Put, Operation.Sale) => +1
+            }
+            val exercisedQuantity = requiredOptionQuantitySign * negotiation.quantity
+
+            def notEnoughQuantityMessage = s"Opção $optionAsset tem quantia insuficiente (${optionPosition.signedQuantity}) para ser exercida (necessita $exercisedQuantity)"
+            require(optionPosition.quantity >= negotiation.quantity, notEnoughQuantityMessage)
+            require(math.signum(optionPosition.signedQuantity) == requiredOptionQuantitySign, notEnoughQuantityMessage)
+
+            val optionAggNegs = AggregatedNegotiations(optionStockbrokerAsset, exercisedQuantity)
+
+            (optionPosition.signedAveragePrice, optionPosition.averageCost, Some(optionAggNegs))
+          case None => (0.0, 0.0, None)
+        }
+
+        val negotiationAmount =
+          (
+            negotiation.operation match {
+              case Operation.Purchase => (q: Int, p: Double, c: Double) => PurchaseAmountWithCost.fromAverages(q, p + optionSignedAvgPrice, c + optionAvgCost)
+              case Operation.Sale => (q: Int, p: Double, c: Double) => SaleAmountWithCost.fromAverages(q, p - optionSignedAvgPrice, c + optionAvgCost)
+            }
+          )(negotiation.quantity, negotiation.price, negotiationAverageCost)
+
+        val stockbrokerAsset = StockbrokerAsset(brokerageNote.stockbroker, negotiation.asset)
+        val assetAggNegs = AggregatedNegotiations(stockbrokerAsset, negotiationAmount)
+
+        assetAggNegs +: optionAggNegsOpt.toSeq
       }
-    }
+
+    assetAggNegsList.groupMapReduce(_.stockbrokerAsset)(identity)(_ + _)
   }
 }

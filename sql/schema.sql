@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS asset_change(
     sale_average_price NUMERIC NOT NULL,
     sale_average_cost NUMERIC NOT NULL,
 
+    exercised_quantity NUMERIC NOT NULL,
+
     resulting_position_quantity INTEGER NOT NULL,
     resulting_position_average_price NUMERIC NOT NULL,
     resulting_position_average_cost NUMERIC NOT NULL,

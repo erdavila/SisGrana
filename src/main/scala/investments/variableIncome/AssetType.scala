@@ -3,6 +3,7 @@ package investments.variableIncome
 
 import investments.variableIncome.importAssets.SSV
 import java.io.File
+import utils.quoted
 
 sealed abstract class AssetType(val code: String) {
   def taxation: Taxation
@@ -27,6 +28,24 @@ object AssetType {
 
   case object Option extends AssetType("option") {
     override def taxation: Taxation = Taxation.NonExemptableSwingTrade
+
+    sealed trait Type
+
+    object Type {
+      case object Call extends Type
+      case object Put extends Type
+    }
+
+    def typeOf(option: String): Type = {
+      val typeChar = option(4)
+      if (('A' to 'L') `contains` typeChar) {
+        Type.Call
+      } else if (('M' to 'X') `contains` typeChar) {
+        Type.Put
+      } else {
+        throw new Exception(s"Código inválido para opção ${quoted(option)}: $typeChar")
+      }
+    }
   }
 
   val ByCode: Map[String, AssetType] = Set(Stock, ETF, EtfRendaFixa, FII)

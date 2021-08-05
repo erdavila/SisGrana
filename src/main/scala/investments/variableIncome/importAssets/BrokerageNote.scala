@@ -2,10 +2,10 @@ package sisgrana
 package investments.variableIncome.importAssets
 
 import investments.utils.BrNumber
-import investments.variableIncome.model.Amount
+import investments.variableIncome.AssetType
 import java.io.File
 import java.time.LocalDate
-import utils.DoubleOps
+import utils.{DoubleOps, quoted}
 
 sealed trait Operation
 
@@ -26,26 +26,46 @@ object Cost {
     }
 }
 
-case class Negotiation(operation: Operation, asset: String, quantity: Int, price: Double) {
+case class Negotiation(operation: Operation, asset: String, quantity: Int, price: Double, optionAsset: Option[String]) {
   require(quantity > 0)
   require(price >= 0.0)
 
   lazy val totalValue: Double = quantity * price
-  lazy val amount: Amount = Amount.fromAveragePrice(quantity, price)
 }
 
 object Negotiation {
-  def parseLineValues(nameNormalizer: NameNormalizer)(lineValues: Seq[String]): Negotiation =
-    SSV.matchValues(lineValues) { case Seq(operationString, asset, qtyString, priceString) =>
-      val operation = operationString match {
-        case "C" => Operation.Purchase
-        case "V" => Operation.Sale
-      }
-      val qty = qtyString.toInt
-      val price = BrNumber.parse(priceString)
+  def parseLineValues(nameNormalizer: NameNormalizer)(lineValues: Seq[String]): Negotiation = {
+    def negotiationFrom(
+      operationString: String,
+      asset: String,
+      quantityString: String,
+      priceString: String,
+      optionAssetOpt: Option[String],
+    ): Negotiation = {
+      for {
+        optionAsset <- optionAssetOpt
+        if !AssetType.Resolver.isOption(optionAsset)
+      } throw new Exception(s"Não é uma opção: ${quoted(optionAsset)}")
 
-      Negotiation(operation, nameNormalizer.normalize(asset), qty, price)
+      Negotiation(
+        operation = operationString match {
+          case "C" => Operation.Purchase
+          case "V" => Operation.Sale
+        },
+        asset = nameNormalizer.normalize(asset),
+        quantity = quantityString.toInt,
+        price = BrNumber.parse(priceString),
+        optionAsset = optionAssetOpt,
+      )
     }
+
+    SSV.matchValues(lineValues) {
+      case Seq(operationString, asset, qtyString, priceString) =>
+        negotiationFrom(operationString, asset, qtyString, priceString, None)
+      case Seq(s"E${operationString}", optionAsset, objectAsset, qtyString, priceString) =>
+        negotiationFrom(operationString, objectAsset, qtyString, priceString, Some(optionAsset))
+    }
+  }
 }
 
 case class BrokerageNote(
@@ -57,6 +77,9 @@ case class BrokerageNote(
 ) {
 
   lazy val totalCosts: Double = costs.map(_.value).sum
+
+  def subjectAssets: Set[String] =
+    negotiations.flatMap(n => n.asset +: n.optionAsset.toSeq).toSet
 
   def checkTotalValue(): Unit = {
     val expectedTotalValue = -totalCosts +

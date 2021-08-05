@@ -13,6 +13,12 @@ package object utils {
       a.close()
     }
 
+  def sameNonZeroSigns(x: Double, y: Double): Boolean =
+    math.signum(x) * math.signum(y) == +1
+
+  def oppositeSigns(x: Double, y: Double): Boolean =
+    math.signum(x) * math.signum(y) == -1
+
   def quoted(any: Any): String =
     '"'.toString + any.toString + '"'.toString
 }

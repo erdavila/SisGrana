@@ -6,7 +6,7 @@ import investments.variableIncome.model._
 import investments.variableIncome.model.ctx._
 import investments.variableIncome.{AssetType, Taxation, assetsAtDate}
 import java.time.{LocalDate, Month, Year, YearMonth}
-import utils.IndentedPrinter
+import utils.{IndentedPrinter, oppositeSigns, sameNonZeroSigns}
 
 object Main {
   private val SwingTradeExemptableLimit = 20_000.00
@@ -32,9 +32,6 @@ object Main {
       }
     }
 
-  private def oppositeSignals(pos1: AmountWithCost, pos2: AmountWithCost): Boolean =
-    math.signum(pos1.signedQuantity) * math.signum(pos2.signedQuantity) == -1
-
   private def formatPositionConversion(posBefore: AmountWithCost, posAfter: AmountWithCost, withLabel: Boolean = true): String = {
     val formatted = s"${posBefore.signedFormatParens0} -> ${posAfter.signedFormatParens0}"
     s"${positionLabel(withLabel)}$formatted"
@@ -48,23 +45,24 @@ object Main {
         s"${posBefore.signedFormatParens0} $signal $quantityDelta unidades = ${posAfter.signedFormatParens0}"
       }
 
-      math.signum(posBefore.signedQuantity) * math.signum(posAfter.signedQuantity) match {
-        case 1 =>
-          if (math.abs(posBefore.signedQuantity) < math.abs(posAfter.signedQuantity)) {
-            val signal = if (posBefore.signedQuantity > 0) '+' else '-'
-            val delta = AmountWithCost.fromSignedQuantityAndTotals(
-              posAfter.signedQuantity - posBefore.signedQuantity,
-              posAfter.signedTotalValue - posBefore.signedTotalValue,
-              posAfter.totalCost - posBefore.totalCost,
-            )
-            s"${posBefore.signedFormatParens0} $signal ${delta.formatParens0} = ${posAfter.signedFormatParens0}"
-          } else if (math.abs(posBefore.signedQuantity) > math.abs(posAfter.signedQuantity)) {
-            formattedChangeInOppositeDirection
-          } else {
-            formatPositionConversion(posBefore, posAfter, withLabel = false)
-          }
-        case -1 => formattedChangeInOppositeDirection
-        case _ => formatPositionConversion(posBefore, posAfter, withLabel = false)
+      if (sameNonZeroSigns(posBefore.signedQuantity, posAfter.signedQuantity)) {
+        if (math.abs(posBefore.signedQuantity) < math.abs(posAfter.signedQuantity)) {
+          val signal = if (posBefore.signedQuantity > 0) '+' else '-'
+          val delta = AmountWithCost.fromSignedQuantityAndTotals(
+            posAfter.signedQuantity - posBefore.signedQuantity,
+            posAfter.signedTotalValue - posBefore.signedTotalValue,
+            posAfter.totalCost - posBefore.totalCost,
+          )
+          s"${posBefore.signedFormatParens0} $signal ${delta.formatParens0} = ${posAfter.signedFormatParens0}"
+        } else if (math.abs(posBefore.signedQuantity) > math.abs(posAfter.signedQuantity)) {
+          formattedChangeInOppositeDirection
+        } else {
+          formatPositionConversion(posBefore, posAfter, withLabel = false)
+        }
+      } else if (oppositeSigns(posBefore.signedQuantity, posAfter.signedQuantity)) {
+        formattedChangeInOppositeDirection
+      } else {
+        formatPositionConversion(posBefore, posAfter, withLabel = false)
       }
     }
 
@@ -272,7 +270,7 @@ class Main(showDetails: Boolean) extends LocalDateSupport {
               case EventEffect.AddToPosition(_, _) =>
                 printer.hierarchy.optionalTree("[Evento]")(
                   Some(
-                    if (oppositeSignals(ac.previousPosition, ac.postEventPosition)) {
+                    if (oppositeSigns(ac.previousPosition.signedQuantity, ac.postEventPosition.signedQuantity)) {
                       formatPositionChange(ac.previousPosition, AmountWithCost.Zero)
                     } else {
                       formatPositionChange(ac.previousPosition, ac.postEventPosition)
@@ -281,7 +279,7 @@ class Main(showDetails: Boolean) extends LocalDateSupport {
                   Option.when(ac.eventTradeResult.quantity > 0) {
                     formatTradeResult(ac.eventTradeResult)
                   },
-                  Option.when(oppositeSignals(ac.previousPosition, ac.postEventPosition)) {
+                  Option.when(oppositeSigns(ac.previousPosition.signedQuantity, ac.postEventPosition.signedQuantity)) {
                     formatPositionChange(AmountWithCost.Zero, ac.postEventPosition)
                   },
                 )
