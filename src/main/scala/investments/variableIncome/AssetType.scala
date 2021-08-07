@@ -65,7 +65,7 @@ object AssetType {
   object Resolver {
     private val TypesFileName = "types.ssv"
 
-    private val OptionRegex = """^[A-Z0-9]{4}[A-X]\d{3}$""".r
+    private val OptionRegex = """^[A-Z0-9]{4}[A-X]\d{2,3}$""".r
 
     lazy val instance: Resolver = fromFile(new File(DataPath, TypesFileName))
 
