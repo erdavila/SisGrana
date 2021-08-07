@@ -5,6 +5,7 @@ import investments.utils.BrNumber
 import investments.variableIncome.AssetType
 import java.io.File
 import java.time.LocalDate
+import scala.annotation.tailrec
 import utils.{DoubleOps, quoted}
 
 sealed trait Operation
@@ -97,23 +98,22 @@ case class BrokerageNote(
 }
 
 object BrokerageNote {
-  def fromFile(date: LocalDate, stockbroker: String, nameNormalizer: NameNormalizer)(file: File): BrokerageNote =
+  def fromFile(date: LocalDate, stockbroker: String, nameNormalizer: NameNormalizer)(file: File): Seq[BrokerageNote] =
     try {
       val linesValues = SSV.readFile(file)
+      fromLinesValues(date, stockbroker, nameNormalizer)(linesValues)
+    } catch {
+      case t: Throwable => throw new Exception(s"An exception was thrown while reading file $file", t)
+    }
 
+  private[importAssets] def fromLinesValues(date: LocalDate, stockbroker: String, nameNormalizer: NameNormalizer)(linesValues: Seq[Seq[String]]): Seq[BrokerageNote] = {
+    @tailrec
+    def loop(linesValues: Seq[Seq[String]], accumulator: Seq[BrokerageNote]): Seq[BrokerageNote] = {
       val (negotiationsLinesValues, remaining1) = linesValues.span(_.nonEmpty)
       val (costsLinesValues, remaining2) = remaining1.drop(1).span(_.nonEmpty)
-      val totalString = remaining2.drop(1) match {
-        case Seq(totalLineValues, remaining3@_*) =>
-          def singleValue(lineValues: Seq[String], name: String): String =
-            lineValues match {
-              case Seq(value) => value
-              case _ => throw new Exception(s"Invalid values for $name: $lineValues")
-            }
-          val totalString = singleValue(totalLineValues, "total")
-
-          if (remaining3.isEmpty) totalString
-          else throw new Exception(s"Exceeding data: $remaining3")
+      val (totalString, remaining3) = remaining2.drop(1) match {
+        case Seq(Seq(totalString), remaining3@_*) => (totalString, remaining3)
+        case Seq(totalLineValues, _@_*) => throw new Exception(s"Invalid values for total: $totalLineValues")
         case _ => throw new Exception("Missing data")
       }
 
@@ -123,8 +123,15 @@ object BrokerageNote {
 
       val note = BrokerageNote(stockbroker, date, negotiations.toList, costs.toList, total)
       note.checkTotalValue()
-      note
-    } catch {
-      case t: Throwable => throw new Exception(s"An exception was thrown while reading file $file", t)
+      val newAccumulator = accumulator :+ note
+
+      remaining3 match {
+        case Seq(Seq(), remaining4@_*) => loop(remaining4, newAccumulator)
+        case Seq() => newAccumulator
+        case _ => throw new Exception(s"Exceeding data: $remaining3")
+      }
     }
+
+    loop(linesValues, Vector.empty)
+  }
 }

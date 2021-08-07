@@ -47,7 +47,8 @@ TIPO := 'ETF' /* ETF de renda variável */
 **Caminho:** data/`ANO`/`DATA` - `CORRETORA`.ssv
 
 ```
-CONTEÚDO :=
+CONTEÚDO := NOTA-DE-CORRETAGEM  MAIS-NOTAS-DE-CORRETAGEM*
+NOTA-DE-CORRETAGEM :=
     LINHA-DE-NEGOCIAÇÃO*
     LINHA-EM-BRANCO
     LINHA-DE-CUSTO*
@@ -59,6 +60,9 @@ OPERAÇÃO-COMUM := 'C' /* compra */ | 'V' /* venda */
 OPERAÇÃO-EXERCÍCIO := 'EC' /* compra */ | 'EV' /* venda */
 LINHA-DE-CUSTO := [DESCRIÇÃO:s] /* ignorada */  [CUSTO:n]  /* não incluir IRRF! */
 LINHA-DE-VALOR-DA-NOTA := [VALOR:sn] /* positivo se houve mais vendas, negativo se houve mais compras */
+MAIS-NOTAS-DE-CORRETAGEM :=
+    LINHA-EM-BRANCO
+    NOTA-DE-CORRETAGEM
 ```
 
 # Eventos

@@ -38,12 +38,13 @@ object Main extends LocalDateSupport {
   private def processDate(date: LocalDate, importedFileNames: Seq[ImportedFileName]): Unit = {
     println(s"Processando dados de $date")
 
-    val (eventsArray, brokerageNotes) = importedFileNames.partitionMap {
+    val (eventsSeq, brokerageNotesSeq) = importedFileNames.partitionMap {
       case ImportedFileName(_, "EVENTS", file) => Left(Event.fromFile(file))
       case ImportedFileName(_, stockbroker, file) => Right(BrokerageNote.fromFile(date, stockbroker, nameNormalizer)(file))
     }
-    assert(eventsArray.lengthIs <= 1)
-    val events = eventsArray.headOption.getOrElse(Seq.empty)
+    assert(eventsSeq.lengthIs <= 1)
+    val events = eventsSeq.headOption.getOrElse(Seq.empty)
+    val brokerageNotes = brokerageNotesSeq.flatten
 
     val subjectAssets = (
       for {
