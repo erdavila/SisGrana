@@ -15,18 +15,20 @@ sealed trait Amount {
   def averagePrice: Double
   def averageCost: Double
 
+  protected def sign: Int
+
+  final lazy val averagePriceWithCost: Double = averagePrice + sign * averageCost
+
   final lazy val grossValue: Double = averagePrice * quantity
   final lazy val totalCost: Double = averageCost * quantity
   final lazy val netValue: Double = averagePriceWithCost * quantity
 
-  final lazy val averagePriceWithCost: Double = averagePrice + sign * averageCost
-
   final def signedQuantity: Int = sign * quantity
+  final def signedAveragePrice: Double = sign * averagePrice
+  final def signedAveragePriceWithCost: Double = sign * averagePriceWithCost
+
   final def signedGrossValue: Double = sign * grossValue
   final def signedNetValue: Double = sign * netValue
-  final def signedAveragePrice: Double = sign * averagePrice
-
-  protected def sign: Int
 
   def withQuantity(quantity: Int): Amount
 
