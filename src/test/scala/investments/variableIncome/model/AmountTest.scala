@@ -101,6 +101,20 @@ class AmountTest extends TestBase {
       updatedPositionAmount should equal (expectedUpdatedPositionAmount)
     }
   }
+
+  test("PurchaseAmount accessors") {
+    val amount = PurchaseAmount.fromAverages(2, 3.0, 0.5)
+
+    amount.averagePriceWithCost should equal (3.5)
+    amount.signedAveragePrice should equal (3.0)
+  }
+
+  test("SaleAmount accessors") {
+    val amount = SaleAmount.fromAverages(2, 3.0, 0.5)
+
+    amount.averagePriceWithCost should equal (2.5)
+    amount.signedAveragePrice should equal (-3.0)
+  }
 }
 
 object AmountTest {

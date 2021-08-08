@@ -18,15 +18,18 @@ sealed trait Amount {
   final lazy val grossValue: Double = averagePrice * quantity
   final lazy val totalCost: Double = averageCost * quantity
   final lazy val netValue: Double = averagePriceWithCost * quantity
-  def averagePriceWithCost: Double
+
+  final lazy val averagePriceWithCost: Double = averagePrice + sign * averageCost
 
   final def signedQuantity: Int = sign * quantity
   final def signedGrossValue: Double = sign * grossValue
   final def signedNetValue: Double = sign * netValue
-  final def signedAveragePrice: Double = signedGrossValue / quantity
+  final def signedAveragePrice: Double = sign * averagePrice
+
   protected def sign: Int
 
   def withQuantity(quantity: Int): Amount
+
   protected final def withQuantity[A <: Amount](quantity: Int, zero: => A, fromAverages: (Int, Double, Double) => A): A = {
     if (this.quantity == 0) require(quantity == 0)
     if (quantity == 0) {
@@ -70,8 +73,6 @@ object Amount {
 }
 
 case class PurchaseAmount(quantity: Int, averagePrice: Double, averageCost: Double) extends Amount {
-  override lazy val averagePriceWithCost: Double = averagePrice + averageCost
-
   override protected def sign: Int = +1
 
   override def withQuantity(quantity: Int): PurchaseAmount =
@@ -109,8 +110,6 @@ object PurchaseAmount {
 }
 
 case class SaleAmount(quantity: Int, averagePrice: Double, averageCost: Double) extends Amount {
-  override lazy val averagePriceWithCost: Double = averagePrice - averageCost
-
   override protected def sign: Int = -1
 
   override def withQuantity(quantity: Int): SaleAmount =
