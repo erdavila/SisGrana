@@ -206,7 +206,7 @@ class MainTest extends TestBase {
           asset("zzzzA110") -> Amount.Zero,
           asset("zzzz3") -> Amount.fromSignedQuantityAndTotals(
             signedQuantity = 3 + 4,
-            totalValue = 3 * (10.00 + 1.00) + 4 * (11.00 + 1.10),
+            grossValue = 3 * (10.00 + 1.00) + 4 * (11.00 + 1.10),
             totalCost = 3 * (0.10 + 0.10) + 4 * (0.11 + 0.11),
           ),
         ),

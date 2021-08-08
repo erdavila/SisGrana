@@ -50,7 +50,7 @@ object Main {
           val signal = if (posBefore.signedQuantity > 0) '+' else '-'
           val delta = Amount.fromSignedQuantityAndTotals(
             posAfter.signedQuantity - posBefore.signedQuantity,
-            posAfter.signedTotalValue - posBefore.signedTotalValue,
+            posAfter.signedGrossValue - posBefore.signedGrossValue,
             posAfter.totalCost - posBefore.totalCost,
           )
           s"${posBefore.signedFormatParens0} $signal ${delta.formatParens0} = ${posAfter.signedFormatParens0}"
@@ -92,9 +92,9 @@ object Main {
       } else {
         val (qty, total) =
           if (signed) {
-            (amount.signedQuantity, amount.signedTotalValueWithCost)
+            (amount.signedQuantity, amount.signedNetValue)
           } else {
-            (amount.quantity, amount.totalValueWithCost)
+            (amount.quantity, amount.netValue)
           }
         s"($qty x ${amount.averagePriceWithCost.format} = ${total.format})"
       }

@@ -15,15 +15,15 @@ sealed trait Amount {
   def averagePrice: Double
   def averageCost: Double
 
-  final lazy val totalValue: Double = averagePrice * quantity
+  final lazy val grossValue: Double = averagePrice * quantity
   final lazy val totalCost: Double = averageCost * quantity
-  final lazy val totalValueWithCost: Double = averagePriceWithCost * quantity
+  final lazy val netValue: Double = averagePriceWithCost * quantity
   def averagePriceWithCost: Double
 
   final def signedQuantity: Int = sign * quantity
-  final def signedTotalValue: Double = sign * totalValue
-  final def signedTotalValueWithCost: Double = sign * totalValueWithCost
-  final def signedAveragePrice: Double = signedTotalValue / quantity
+  final def signedGrossValue: Double = sign * grossValue
+  final def signedNetValue: Double = sign * netValue
+  final def signedAveragePrice: Double = signedGrossValue / quantity
   protected def sign: Int
 
   def withQuantity(quantity: Int): Amount
@@ -49,15 +49,15 @@ object Amount {
       SaleAmount.fromAverages(-signedQuantity, averagePrice, averageCost)
     }
 
-  def fromSignedQuantityAndTotals(signedQuantity: Int, totalValue: Double, totalCost: Double): Amount =
+  def fromSignedQuantityAndTotals(signedQuantity: Int, grossValue: Double, totalCost: Double): Amount =
     if (signedQuantity == 0) {
-      require(totalValue == 0.0)
+      require(grossValue == 0.0)
       require(totalCost == 0.0)
       PurchaseAmount.Zero
     } else {
       fromSignedQuantityAndAverages(
         signedQuantity,
-        totalValue / signedQuantity,
+        grossValue / signedQuantity,
         totalCost / math.abs(signedQuantity),
       )
     }
@@ -85,7 +85,7 @@ case class PurchaseAmount(quantity: Int, averagePrice: Double, averageCost: Doub
   def +(other: PurchaseAmount): PurchaseAmount =
     PurchaseAmount.fromTotals(
       quantity = this.quantity + other.quantity,
-      totalValue = this.totalValue + other.totalValue,
+      grossValue = this.grossValue + other.grossValue,
       totalCost = this.totalCost + other.totalCost,
     )
 }
@@ -99,15 +99,15 @@ object PurchaseAmount {
   def fromAverages(quantity: Int, averagePrice: Double, averageCost: Double): PurchaseAmount =
     PurchaseAmount(quantity, averagePrice, averageCost)
 
-  def fromTotals(quantity: Int, totalValue: Double, totalCost: Double): PurchaseAmount =
+  def fromTotals(quantity: Int, grossValue: Double, totalCost: Double): PurchaseAmount =
     if (quantity == 0) {
-      require(totalValue == 0.0)
+      require(grossValue == 0.0)
       require(totalCost == 0.0)
       Zero
     } else {
       fromAverages(
         quantity,
-        totalValue / quantity,
+        grossValue / quantity,
         totalCost / quantity,
       )
     }
@@ -122,12 +122,12 @@ case class SaleAmount(quantity: Int, averagePrice: Double, averageCost: Double) 
     withQuantity(quantity, SaleAmount.Zero, SaleAmount.fromAverages)
 
   override def withSameOperation(quantity: Int, totalValue: Double, totalCost: Double): SaleAmount =
-    SaleAmount(quantity, totalValueWithCost, totalCost)
+    SaleAmount(quantity, netValue, totalCost)
 
   def +(other: SaleAmount): SaleAmount =
     SaleAmount.fromTotals(
       quantity = this.quantity + other.quantity,
-      totalValue = this.totalValue + other.totalValue,
+      grossValue = this.grossValue + other.grossValue,
       totalCost = this.totalCost + other.totalCost,
     )
 }
@@ -141,15 +141,15 @@ object SaleAmount {
   def fromAverages(quantity: Int, averagePrice: Double, averageCost: Double): SaleAmount =
     SaleAmount(quantity, averagePrice, averageCost)
 
-  def fromTotals(quantity: Int, totalValue: Double, totalCost: Double): SaleAmount =
+  def fromTotals(quantity: Int, grossValue: Double, totalCost: Double): SaleAmount =
     if (quantity == 0) {
-      require(totalValue == 0.0)
+      require(grossValue == 0.0)
       require(totalCost == 0.0)
       Zero
     } else {
       fromAverages(
         quantity,
-        totalValue / quantity,
+        grossValue / quantity,
         totalCost / quantity,
       )
     }

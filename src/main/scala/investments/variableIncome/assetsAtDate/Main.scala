@@ -32,7 +32,7 @@ object Main extends LocalDateSupport {
           for (ac <- assetChanges.sortBy(_.asset)) {
             val position = ac.resultingPosition
             val tag = typeTag(ac.asset).fold("")(text => s" [$text]")
-            printer.println(s"${ac.asset}: ${position.signedQuantity} x ${BrNumber.formatMoney(position.averagePriceWithCost)} = ${BrNumber.formatMoney(position.signedTotalValueWithCost)}$tag")
+            printer.println(s"${ac.asset}: ${position.signedQuantity} x ${BrNumber.formatMoney(position.averagePriceWithCost)} = ${BrNumber.formatMoney(position.signedNetValue)}$tag")
           }
         }
       }
