@@ -35,8 +35,6 @@ sealed trait Amount {
       fromAverages(quantity, averagePrice, averageCost)
     }
   }
-
-  def withSameOperation(quantity: Int, totalValue: Double, totalCost: Double): Amount
 }
 
 object Amount {
@@ -79,9 +77,6 @@ case class PurchaseAmount(quantity: Int, averagePrice: Double, averageCost: Doub
   override def withQuantity(quantity: Int): PurchaseAmount =
     withQuantity(quantity, PurchaseAmount.Zero, PurchaseAmount.fromAverages)
 
-  override def withSameOperation(quantity: Int, totalValue: Double, totalCost: Double): PurchaseAmount =
-    PurchaseAmount(quantity, totalValue, totalCost)
-
   def +(other: PurchaseAmount): PurchaseAmount =
     PurchaseAmount.fromTotals(
       quantity = this.quantity + other.quantity,
@@ -120,9 +115,6 @@ case class SaleAmount(quantity: Int, averagePrice: Double, averageCost: Double) 
 
   override def withQuantity(quantity: Int): SaleAmount =
     withQuantity(quantity, SaleAmount.Zero, SaleAmount.fromAverages)
-
-  override def withSameOperation(quantity: Int, totalValue: Double, totalCost: Double): SaleAmount =
-    SaleAmount(quantity, netValue, totalCost)
 
   def +(other: SaleAmount): SaleAmount =
     SaleAmount.fromTotals(
