@@ -9,9 +9,9 @@ class AssetChangeTest extends TestBase {
   test("previousPosition, withPreviousPosition(), and fields") {
     val cases = Table(
       "previousPosition",
-      PurchaseAmountWithCost.Zero,
-      PurchaseAmountWithCost.fromAverages(10, 20.00, 0.10),
-      SaleAmountWithCost.fromAverages(10, 20.00, 0.10),
+      PurchaseAmount.Zero,
+      PurchaseAmount.fromAverages(10, 20.00, 0.10),
+      SaleAmount.fromAverages(10, 20.00, 0.10),
     )
 
     forAll(cases) { previousPosition =>
@@ -28,9 +28,9 @@ class AssetChangeTest extends TestBase {
     val assetChange = ZeroAssetChange.withEventEffect(None)
 
     assetChange.eventEffect shouldBe empty
-    assetChange.eventSetPosition should equal (PurchaseAmountWithCost.Zero)
-    assetChange.eventIncreaseAmount should equal (PurchaseAmountWithCost.Zero)
-    assetChange.eventDecreaseAmount should equal (SaleAmountWithCost.Zero)
+    assetChange.eventSetPosition should equal (PurchaseAmount.Zero)
+    assetChange.eventIncreaseAmount should equal (PurchaseAmount.Zero)
+    assetChange.eventDecreaseAmount should equal (SaleAmount.Zero)
     assetChange.eventEffectType shouldBe empty
     assetChange.eventSetPositionQuantity should equal (0)
     assetChange.eventSetPositionAveragePrice should equal (0.0)
@@ -46,9 +46,9 @@ class AssetChangeTest extends TestBase {
   test("eventSetPosition, eventEffect, withEventEffect(), and fields") {
     val cases = Table(
       "eventEffect",
-      EventEffect.SetPosition(PurchaseAmountWithCost.Zero),
-      EventEffect.SetPosition(PurchaseAmountWithCost.fromAverages(10, 10.00, 0.10)),
-      EventEffect.SetPosition(SaleAmountWithCost.fromAverages(10, 10.00, 0.10)),
+      EventEffect.SetPosition(PurchaseAmount.Zero),
+      EventEffect.SetPosition(PurchaseAmount.fromAverages(10, 10.00, 0.10)),
+      EventEffect.SetPosition(SaleAmount.fromAverages(10, 10.00, 0.10)),
     )
 
     forAll(cases) { eventEffect =>
@@ -67,12 +67,12 @@ class AssetChangeTest extends TestBase {
     val cases = Table(
       "eventEffect",
       EventEffect.AddToPosition(
-        PurchaseAmountWithCost.Zero,
-        SaleAmountWithCost.Zero,
+        PurchaseAmount.Zero,
+        SaleAmount.Zero,
       ),
       EventEffect.AddToPosition(
-        PurchaseAmountWithCost.fromAverages(10, 10.00, 0.10),
-        SaleAmountWithCost.fromAverages(7, 7.00, 0.70),
+        PurchaseAmount.fromAverages(10, 10.00, 0.10),
+        SaleAmount.fromAverages(7, 7.00, 0.70),
       ),
     )
 
@@ -102,32 +102,32 @@ class AssetChangeTest extends TestBase {
         "expected nonTradeEventPosition",
       ),
       (
-        AmountWithCost.Zero,
-        PurchaseAmountWithCost.Zero,
-        SaleAmountWithCost.Zero,
+        Amount.Zero,
+        PurchaseAmount.Zero,
+        SaleAmount.Zero,
         TradeResult.Zero,
-        AmountWithCost.Zero,
+        Amount.Zero,
       ),
       (
-        AmountWithCost.fromSignedQuantityAndAverages(10, 10.00, 0.10),
-        PurchaseAmountWithCost.Zero,
-        SaleAmountWithCost.Zero,
+        Amount.fromSignedQuantityAndAverages(10, 10.00, 0.10),
+        PurchaseAmount.Zero,
+        SaleAmount.Zero,
         TradeResult.Zero,
-        AmountWithCost.fromSignedQuantityAndAverages(10, 10.00, 0.10),
+        Amount.fromSignedQuantityAndAverages(10, 10.00, 0.10),
       ),
       (
-        AmountWithCost.fromSignedQuantityAndAverages(3, 4.00, 0.04),
-        PurchaseAmountWithCost.fromAverages(7, 2.00, 0.02),
-        SaleAmountWithCost.fromAverages(5, 3.00, 0.03),
+        Amount.fromSignedQuantityAndAverages(3, 4.00, 0.04),
+        PurchaseAmount.fromAverages(7, 2.00, 0.02),
+        SaleAmount.fromAverages(5, 3.00, 0.03),
         TradeResult.fromTotals(5, 13.00, 0.13, 15.00, 0.15),
-        AmountWithCost.fromSignedQuantityAndTotals(5, 13.00, 0.13),
+        Amount.fromSignedQuantityAndTotals(5, 13.00, 0.13),
       ),
       (
-        AmountWithCost.fromSignedQuantityAndAverages(-1, 1.00, 0.01),
-        PurchaseAmountWithCost.fromAverages(5, 5.00, 0.05),
-        SaleAmountWithCost.fromAverages(4, 4.00, 0.04),
+        Amount.fromSignedQuantityAndAverages(-1, 1.00, 0.01),
+        PurchaseAmount.fromAverages(5, 5.00, 0.05),
+        SaleAmount.fromAverages(4, 4.00, 0.04),
         TradeResult.fromTotals(5, 25.00, 0.25, 17.00, 0.17),
-        AmountWithCost.Zero,
+        Amount.Zero,
       ),
     )
 
@@ -149,22 +149,22 @@ class AssetChangeTest extends TestBase {
         "expected postEventPosition",
       ),
       (
-        AmountWithCost.fromSignedQuantityAndAverages(10, 10.0, 0.10),
+        Amount.fromSignedQuantityAndAverages(10, 10.0, 0.10),
         None,
-        AmountWithCost.fromSignedQuantityAndAverages(10, 10.0, 0.10),
+        Amount.fromSignedQuantityAndAverages(10, 10.0, 0.10),
       ),
       (
-        AmountWithCost.fromSignedQuantityAndAverages(10, 10.0, 0.10),
-        Some(EventEffect.SetPosition(AmountWithCost.fromSignedQuantityAndAverages(3, 3.33, 0.33))),
-        AmountWithCost.fromSignedQuantityAndAverages(3, 3.33, 0.33),
+        Amount.fromSignedQuantityAndAverages(10, 10.0, 0.10),
+        Some(EventEffect.SetPosition(Amount.fromSignedQuantityAndAverages(3, 3.33, 0.33))),
+        Amount.fromSignedQuantityAndAverages(3, 3.33, 0.33),
       ),
       (
-        AmountWithCost.fromSignedQuantityAndAverages(10, 1.00, 0.10),
+        Amount.fromSignedQuantityAndAverages(10, 1.00, 0.10),
         Some(EventEffect.AddToPosition(
-          PurchaseAmountWithCost.fromAverages(1, 1.00, 0.10),
-          SaleAmountWithCost.fromAverages(7, 1.00, 0.10),
+          PurchaseAmount.fromAverages(1, 1.00, 0.10),
+          SaleAmount.fromAverages(7, 1.00, 0.10),
         )),
-        AmountWithCost.fromSignedQuantityAndAverages(4, 1.00, 0.10),
+        Amount.fromSignedQuantityAndAverages(4, 1.00, 0.10),
       ),
     )
 
@@ -180,8 +180,8 @@ class AssetChangeTest extends TestBase {
   test("purchaseAmount, withPurchaseAmount(), and fields") {
     val cases = Table(
       "purchaseAmount",
-      PurchaseAmountWithCost.Zero,
-      PurchaseAmountWithCost.fromAverages(10, 20.00, 0.10),
+      PurchaseAmount.Zero,
+      PurchaseAmount.fromAverages(10, 20.00, 0.10),
     )
 
     forAll(cases) { purchaseAmount =>
@@ -197,8 +197,8 @@ class AssetChangeTest extends TestBase {
   test("saleAmount, withSaleAmount(), and fields") {
     val cases = Table(
       "saleAmount",
-      SaleAmountWithCost.Zero,
-      SaleAmountWithCost.fromAverages(10, 20.00, 0.10),
+      SaleAmount.Zero,
+      SaleAmount.fromAverages(10, 20.00, 0.10),
     )
 
     forAll(cases) { saleAmount =>
@@ -213,7 +213,7 @@ class AssetChangeTest extends TestBase {
 
   test("dayTradeResult and nonDayTradeOperationsAmount") {
     val expectedDayTradeResult = TradeResultTest.DSL
-    val expectedNonDayTradeOperationsAmount = AmountWithCostTest.DSL
+    val expectedNonDayTradeOperationsAmount = AmountTest.DSL
 
     val cases = Table(
       (
@@ -223,38 +223,38 @@ class AssetChangeTest extends TestBase {
         "expected nonDayTradeOperationsAmount",
       ),
       (
-        PurchaseAmountWithCost.Zero,
-        SaleAmountWithCost.Zero,
+        PurchaseAmount.Zero,
+        SaleAmount.Zero,
         expectedDayTradeResult.Zero,
         expectedNonDayTradeOperationsAmount.Zero,
       ),
       (
-        PurchaseAmountWithCost.fromAverages(10, 10.00, 0.10),
-        SaleAmountWithCost.Zero,
+        PurchaseAmount.fromAverages(10, 10.00, 0.10),
+        SaleAmount.Zero,
         expectedDayTradeResult.Zero,
         expectedNonDayTradeOperationsAmount.purchase.averages(10, 10.00, 0.10),
       ),
       (
-        PurchaseAmountWithCost.Zero,
-        SaleAmountWithCost.fromAverages(10, 10.00, 0.10),
+        PurchaseAmount.Zero,
+        SaleAmount.fromAverages(10, 10.00, 0.10),
         expectedDayTradeResult.Zero,
         expectedNonDayTradeOperationsAmount.sale.averages(10, 10.00, 0.10),
       ),
       (
-        PurchaseAmountWithCost.fromAverages(10, 10.00, 0.10),
-        SaleAmountWithCost.fromAverages(3, 11.00, 0.11),
+        PurchaseAmount.fromAverages(10, 10.00, 0.10),
+        SaleAmount.fromAverages(3, 11.00, 0.11),
         expectedDayTradeResult.averages(3, 10.00, 0.10, 11.00, 0.11),
         expectedNonDayTradeOperationsAmount.purchase.averages(7, 10.00, 0.10),
       ),
       (
-        PurchaseAmountWithCost.fromAverages(3, 11.00, 0.11),
-        SaleAmountWithCost.fromAverages(10, 10.00, 0.10),
+        PurchaseAmount.fromAverages(3, 11.00, 0.11),
+        SaleAmount.fromAverages(10, 10.00, 0.10),
         expectedDayTradeResult.averages(3, 11.00, 0.11, 10.00, 0.10),
         expectedNonDayTradeOperationsAmount.sale.averages(7, 10.00, 0.10),
       ),
       (
-        PurchaseAmountWithCost.fromAverages(10, 10.00, 0.10),
-        SaleAmountWithCost.fromAverages(10, 11.00, 0.11),
+        PurchaseAmount.fromAverages(10, 10.00, 0.10),
+        SaleAmount.fromAverages(10, 11.00, 0.11),
         expectedDayTradeResult.averages(10, 10.00, 0.10, 11.00, 0.11),
         expectedNonDayTradeOperationsAmount.Zero,
       ),
@@ -271,9 +271,9 @@ class AssetChangeTest extends TestBase {
   }
 
   test("resultingPosition and operationsTradeResult") {
-    val postEventPosition = AmountWithCostTest.DSL
-    val nonDayTradeOperationsAmount = AmountWithCostTest.DSL
-    val expectedResultingPosition = AmountWithCostTest.DSL
+    val postEventPosition = AmountTest.DSL
+    val nonDayTradeOperationsAmount = AmountTest.DSL
+    val expectedResultingPosition = AmountTest.DSL
     val expectedOperationsTradeResult = TradeResultTest.DSL
 
     val cases = Table(
@@ -300,9 +300,9 @@ class AssetChangeTest extends TestBase {
     forAll(cases) { case (postEventPosition, nonDayTradeOperationsAmount, expectedResultingPosition, expectedOperationsTradeResult) =>
       val ac0 = ZeroAssetChange.withEventEffect(Some(EventEffect.SetPosition(postEventPosition)))
       val assetChange =
-        (nonDayTradeOperationsAmount: AmountWithCost) match {
-          case p@PurchaseAmountWithCost(_, _, _) => ac0.withPurchaseAmount(p)
-          case s@SaleAmountWithCost(_, _, _) => ac0.withSaleAmount(s)
+        (nonDayTradeOperationsAmount: Amount) match {
+          case p@PurchaseAmount(_, _, _) => ac0.withPurchaseAmount(p)
+          case s@SaleAmount(_, _, _) => ac0.withSaleAmount(s)
         }
 
       assetChange.resultingPosition should equal (expectedResultingPosition)

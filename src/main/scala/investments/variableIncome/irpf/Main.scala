@@ -32,12 +32,12 @@ object Main {
       }
     }
 
-  private def formatPositionConversion(posBefore: AmountWithCost, posAfter: AmountWithCost, withLabel: Boolean = true): String = {
+  private def formatPositionConversion(posBefore: Amount, posAfter: Amount, withLabel: Boolean = true): String = {
     val formatted = s"${posBefore.signedFormatParens0} -> ${posAfter.signedFormatParens0}"
     s"${positionLabel(withLabel)}$formatted"
   }
 
-  private[irpf] def formatPositionChange(posBefore: AmountWithCost, posAfter: AmountWithCost, withLabel: Boolean = true): String = {
+  private[irpf] def formatPositionChange(posBefore: Amount, posAfter: Amount, withLabel: Boolean = true): String = {
     val formatted = {
       def formattedChangeInOppositeDirection = {
         val signal = if (posBefore.signedQuantity < 0) '+' else '-'
@@ -48,7 +48,7 @@ object Main {
       if (sameNonZeroSigns(posBefore.signedQuantity, posAfter.signedQuantity)) {
         if (math.abs(posBefore.signedQuantity) < math.abs(posAfter.signedQuantity)) {
           val signal = if (posBefore.signedQuantity > 0) '+' else '-'
-          val delta = AmountWithCost.fromSignedQuantityAndTotals(
+          val delta = Amount.fromSignedQuantityAndTotals(
             posAfter.signedQuantity - posBefore.signedQuantity,
             posAfter.signedTotalValue - posBefore.signedTotalValue,
             posAfter.totalCost - posBefore.totalCost,
@@ -79,7 +79,7 @@ object Main {
       iterable.groupBy(f).toIndexedSeq.sortBy(_._1)
   }
 
-  implicit private class AmountWithCostOps(private val amount: AmountWithCost) extends AnyVal {
+  implicit private class AmountOps(private val amount: Amount) extends AnyVal {
     def formatParens0: String =
       formatValues(signed = false)
 
@@ -271,7 +271,7 @@ class Main(showDetails: Boolean) extends LocalDateSupport {
                 printer.hierarchy.optionalTree("[Evento]")(
                   Some(
                     if (oppositeSigns(ac.previousPosition.signedQuantity, ac.postEventPosition.signedQuantity)) {
-                      formatPositionChange(ac.previousPosition, AmountWithCost.Zero)
+                      formatPositionChange(ac.previousPosition, Amount.Zero)
                     } else {
                       formatPositionChange(ac.previousPosition, ac.postEventPosition)
                     }
@@ -280,7 +280,7 @@ class Main(showDetails: Boolean) extends LocalDateSupport {
                     formatTradeResult(ac.eventTradeResult)
                   },
                   Option.when(oppositeSigns(ac.previousPosition.signedQuantity, ac.postEventPosition.signedQuantity)) {
-                    formatPositionChange(AmountWithCost.Zero, ac.postEventPosition)
+                    formatPositionChange(Amount.Zero, ac.postEventPosition)
                   },
                 )
             },

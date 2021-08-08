@@ -4,8 +4,8 @@ package investments.variableIncome.model
 sealed trait EventEffect
 
 object EventEffect {
-  case class SetPosition(position: AmountWithCost) extends EventEffect
-  case class AddToPosition(increaseAmount: PurchaseAmountWithCost, decreaseAmount: SaleAmountWithCost) extends EventEffect
+  case class SetPosition(position: Amount) extends EventEffect
+  case class AddToPosition(increaseAmount: PurchaseAmount, decreaseAmount: SaleAmount) extends EventEffect
 
   object SetPosition {
     val Type = "SetPosition"
@@ -14,10 +14,10 @@ object EventEffect {
   object AddToPosition {
     val Type = "AddToPosition"
 
-    def apply(amount: AmountWithCost): AddToPosition =
+    def apply(amount: Amount): AddToPosition =
       amount match {
-        case p@PurchaseAmountWithCost(_, _, _) => AddToPosition(p, SaleAmountWithCost.Zero)
-        case s@SaleAmountWithCost(_, _, _) => AddToPosition(PurchaseAmountWithCost.Zero, s)
+        case p@PurchaseAmount(_, _, _) => AddToPosition(p, SaleAmount.Zero)
+        case s@SaleAmount(_, _, _) => AddToPosition(PurchaseAmount.Zero, s)
       }
   }
 }

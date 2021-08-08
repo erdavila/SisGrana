@@ -1,13 +1,13 @@
 package sisgrana
 package investments.variableIncome.importAssets
 
-import investments.variableIncome.model.{AmountWithCost, PurchaseAmountWithCost, SaleAmountWithCost, StockbrokerAsset}
+import investments.variableIncome.model.{Amount, PurchaseAmount, SaleAmount, StockbrokerAsset}
 import sisgrana.utils.oppositeSigns
 
 case class AggregatedNegotiations(
   stockbrokerAsset: StockbrokerAsset,
-  purchase: PurchaseAmountWithCost,
-  sale: SaleAmountWithCost,
+  purchase: PurchaseAmount,
+  sale: SaleAmount,
   exercisedQuantity: Int,
 ) {
   def +(other: AggregatedNegotiations): AggregatedNegotiations = {
@@ -25,11 +25,11 @@ case class AggregatedNegotiations(
 
 object AggregatedNegotiations {
   def apply(stockbrokerAsset: StockbrokerAsset, exercisedQuantity: Int): AggregatedNegotiations =
-    AggregatedNegotiations(stockbrokerAsset, PurchaseAmountWithCost.Zero, SaleAmountWithCost.Zero, exercisedQuantity)
+    AggregatedNegotiations(stockbrokerAsset, PurchaseAmount.Zero, SaleAmount.Zero, exercisedQuantity)
 
-  def apply(stockbrokerAsset: StockbrokerAsset, amount: AmountWithCost): AggregatedNegotiations =
+  def apply(stockbrokerAsset: StockbrokerAsset, amount: Amount): AggregatedNegotiations =
     amount match {
-      case p@PurchaseAmountWithCost(_, _, _) => AggregatedNegotiations(stockbrokerAsset, p, SaleAmountWithCost.Zero, 0)
-      case s@SaleAmountWithCost(_, _, _) => AggregatedNegotiations(stockbrokerAsset, PurchaseAmountWithCost.Zero, s, 0)
+      case p@PurchaseAmount(_, _, _) => AggregatedNegotiations(stockbrokerAsset, p, SaleAmount.Zero, 0)
+      case s@SaleAmount(_, _, _) => AggregatedNegotiations(stockbrokerAsset, PurchaseAmount.Zero, s, 0)
     }
 }

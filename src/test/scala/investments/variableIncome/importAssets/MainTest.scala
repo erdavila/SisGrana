@@ -1,15 +1,15 @@
 package sisgrana
 package investments.variableIncome.importAssets
 
-import investments.variableIncome.model.{AmountWithCost, StockbrokerAsset, TradeResult}
+import investments.variableIncome.model.{Amount, StockbrokerAsset, TradeResult}
 import java.time.LocalDate
 
 class MainTest extends TestBase {
   test("events") {
     case class Case(
-      previousPositions: Map[StockbrokerAsset, AmountWithCost],
+      previousPositions: Map[StockbrokerAsset, Amount],
       events: Seq[Event],
-      expectedPostEventPositions: Map[StockbrokerAsset, AmountWithCost],
+      expectedPostEventPositions: Map[StockbrokerAsset, Amount],
       expectedEventTradeResults: Map[StockbrokerAsset, TradeResult],
     )
 
@@ -17,15 +17,15 @@ class MainTest extends TestBase {
       "case",
       Case(
         previousPositions = Map(
-          asset("X", "SB1") -> AmountWithCost.fromSignedQuantityAndTotals(3, 30.00, 0.30),
-          asset("X", "SB2") -> AmountWithCost.fromSignedQuantityAndTotals(4, 20.00, 0.20),
+          asset("X", "SB1") -> Amount.fromSignedQuantityAndTotals(3, 30.00, 0.30),
+          asset("X", "SB2") -> Amount.fromSignedQuantityAndTotals(4, 20.00, 0.20),
         ),
         events = Seq(
           Event.Bonus("X", 2, "X", 1, 1.00),
         ),
         expectedPostEventPositions = Map(
-          asset("X", "SB1") -> AmountWithCost.fromSignedQuantityAndTotals(4, 30.00 + 1.00, 0.30),
-          asset("X", "SB2") -> AmountWithCost.fromSignedQuantityAndTotals(6, 20.00 + 2*1.00, 0.20),
+          asset("X", "SB1") -> Amount.fromSignedQuantityAndTotals(4, 30.00 + 1.00, 0.30),
+          asset("X", "SB2") -> Amount.fromSignedQuantityAndTotals(6, 20.00 + 2*1.00, 0.20),
         ),
         expectedEventTradeResults = Map(
           asset("X", "SB1") -> TradeResult.Zero,
@@ -34,16 +34,16 @@ class MainTest extends TestBase {
       ),
       Case(
         previousPositions = Map(
-          asset("X") -> AmountWithCost.fromSignedQuantityAndAverages(-3, 2.00, 0.02),
-          asset("Y") -> AmountWithCost.fromSignedQuantityAndAverages(5, 15.00, 0.15),
+          asset("X") -> Amount.fromSignedQuantityAndAverages(-3, 2.00, 0.02),
+          asset("Y") -> Amount.fromSignedQuantityAndAverages(5, 15.00, 0.15),
         ),
         events = Seq(
           Event.Conversion("X", 1, "Z", 1),
           Event.Bonus("Y", 1, "Z", 1, 20.00),
         ),
         expectedPostEventPositions = Map(
-          asset("X") -> AmountWithCost.Zero,
-          asset("Z") -> AmountWithCost.fromSignedQuantityAndAverages(2, 20.00, 0.00),
+          asset("X") -> Amount.Zero,
+          asset("Z") -> Amount.fromSignedQuantityAndAverages(2, 20.00, 0.00),
         ),
         expectedEventTradeResults = Map(
           asset("X") -> TradeResult.Zero,
@@ -72,9 +72,9 @@ class MainTest extends TestBase {
 
   test("operations") {
     case class Case(
-      previousPositions: Map[StockbrokerAsset, AmountWithCost],
+      previousPositions: Map[StockbrokerAsset, Amount],
       brokerageNotes: Seq[BrokerageNote],
-      expectedResultingPositions: Map[StockbrokerAsset, AmountWithCost],
+      expectedResultingPositions: Map[StockbrokerAsset, Amount],
       expectedDayTradeResults: Map[StockbrokerAsset, TradeResult] = Map.empty,
       expectedOperationsTradeResults: Map[StockbrokerAsset, TradeResult] = Map.empty,
     )
@@ -83,7 +83,7 @@ class MainTest extends TestBase {
       "case",
       Case(
         previousPositions = Map(
-          asset("X") -> AmountWithCost.fromSignedQuantityAndAverages(10, 10.00, 0.10),
+          asset("X") -> Amount.fromSignedQuantityAndAverages(10, 10.00, 0.10),
         ),
         brokerageNotes = Seq(
           brokerageNote(
@@ -96,8 +96,8 @@ class MainTest extends TestBase {
           ),
         ),
         expectedResultingPositions = Map(
-          asset("X") -> AmountWithCost.fromSignedQuantityAndAverages(-5, 15.00,0.15),
-          asset("Y") -> AmountWithCost.fromSignedQuantityAndAverages(20 - 8, 3.00,0.03),
+          asset("X") -> Amount.fromSignedQuantityAndAverages(-5, 15.00,0.15),
+          asset("Y") -> Amount.fromSignedQuantityAndAverages(20 - 8, 3.00,0.03),
         ),
         expectedDayTradeResults = Map(
           asset("Y") -> TradeResult.fromAverages(8, 3.00, 0.03, 4.00, 0.04),
@@ -109,7 +109,7 @@ class MainTest extends TestBase {
       // purchased Call -> exercise is a purchase
       Case(
         previousPositions = Map(
-          asset("zzzzA100") -> AmountWithCost.fromSignedQuantityAndAverages(4, 1.00, 0.01),
+          asset("zzzzA100") -> Amount.fromSignedQuantityAndAverages(4, 1.00, 0.01),
         ),
         brokerageNotes = Seq(
           brokerageNote(
@@ -120,15 +120,15 @@ class MainTest extends TestBase {
           ),
         ),
         expectedResultingPositions = Map(
-          asset("zzzz3") -> AmountWithCost.fromSignedQuantityAndAverages(3, 10.00 + 1.00, 0.30/3 + 0.01),
-          asset("zzzzA100") -> AmountWithCost.fromSignedQuantityAndAverages(1, 1.00, 0.01),
+          asset("zzzz3") -> Amount.fromSignedQuantityAndAverages(3, 10.00 + 1.00, 0.30/3 + 0.01),
+          asset("zzzzA100") -> Amount.fromSignedQuantityAndAverages(1, 1.00, 0.01),
         ),
       ),
       // sold Call -> exercise is a sale
       Case(
         previousPositions = Map(
-          asset("zzzz3") -> AmountWithCost.fromSignedQuantityAndAverages(5, 2.00, 0.02),
-          asset("zzzzL100") -> AmountWithCost.fromSignedQuantityAndAverages(-4, 1.00, 0.01),
+          asset("zzzz3") -> Amount.fromSignedQuantityAndAverages(5, 2.00, 0.02),
+          asset("zzzzL100") -> Amount.fromSignedQuantityAndAverages(-4, 1.00, 0.01),
         ),
         brokerageNotes = Seq(
           brokerageNote(
@@ -139,8 +139,8 @@ class MainTest extends TestBase {
           ),
         ),
         expectedResultingPositions = Map(
-          asset("zzzz3") -> AmountWithCost.fromSignedQuantityAndAverages(2, 2.00, 0.02),
-          asset("zzzzL100") -> AmountWithCost.fromSignedQuantityAndAverages(-1, 1.00, 0.01),
+          asset("zzzz3") -> Amount.fromSignedQuantityAndAverages(2, 2.00, 0.02),
+          asset("zzzzL100") -> Amount.fromSignedQuantityAndAverages(-1, 1.00, 0.01),
         ),
         expectedOperationsTradeResults = Map(
           asset("zzzz3") -> TradeResult.fromAverages(3, 2.00, 0.02, 10.00 + 1.00, 3.00 / 3 + 0.01),
@@ -149,8 +149,8 @@ class MainTest extends TestBase {
       // purchased Put -> exercise is a sale
       Case(
         previousPositions = Map(
-          asset("zzzz3") -> AmountWithCost.fromSignedQuantityAndAverages(5, 2.00, 0.02),
-          asset("zzzzM100") -> AmountWithCost.fromSignedQuantityAndAverages(4, 1.00, 0.01),
+          asset("zzzz3") -> Amount.fromSignedQuantityAndAverages(5, 2.00, 0.02),
+          asset("zzzzM100") -> Amount.fromSignedQuantityAndAverages(4, 1.00, 0.01),
         ),
         brokerageNotes = Seq(
           brokerageNote(
@@ -161,8 +161,8 @@ class MainTest extends TestBase {
           ),
         ),
         expectedResultingPositions = Map(
-          asset("zzzz3") -> AmountWithCost.fromSignedQuantityAndAverages(2, 2.00, 0.02),
-          asset("zzzzM100") -> AmountWithCost.fromSignedQuantityAndAverages(1, 1.00, 0.01),
+          asset("zzzz3") -> Amount.fromSignedQuantityAndAverages(2, 2.00, 0.02),
+          asset("zzzzM100") -> Amount.fromSignedQuantityAndAverages(1, 1.00, 0.01),
         ),
         expectedOperationsTradeResults = Map(
           asset("zzzz3") -> TradeResult.fromAverages(3, 2.00, 0.02, 10.00 - 1.00, 3.00 / 3 + 0.01),
@@ -171,7 +171,7 @@ class MainTest extends TestBase {
       // sold Put -> exercise is a purchase
       Case(
         previousPositions = Map(
-          asset("zzzzX100") -> AmountWithCost.fromSignedQuantityAndAverages(-4, 1.00, 0.01),
+          asset("zzzzX100") -> Amount.fromSignedQuantityAndAverages(-4, 1.00, 0.01),
         ),
         brokerageNotes = Seq(
           brokerageNote(
@@ -182,14 +182,14 @@ class MainTest extends TestBase {
           ),
         ),
         expectedResultingPositions = Map(
-          asset("zzzz3") -> AmountWithCost.fromSignedQuantityAndAverages(3, 10.00 - 1.00, 1.00 + 0.01),
-          asset("zzzzX100") -> AmountWithCost.fromSignedQuantityAndAverages(-1, 1.00, 0.01),
+          asset("zzzz3") -> Amount.fromSignedQuantityAndAverages(3, 10.00 - 1.00, 1.00 + 0.01),
+          asset("zzzzX100") -> Amount.fromSignedQuantityAndAverages(-1, 1.00, 0.01),
         ),
       ),
       Case(
         previousPositions = Map(
-          asset("zzzzA100") -> AmountWithCost.fromSignedQuantityAndAverages(3, 1.00, 0.10),
-          asset("zzzzA110") -> AmountWithCost.fromSignedQuantityAndAverages(8, 1.10, 0.11),
+          asset("zzzzA100") -> Amount.fromSignedQuantityAndAverages(3, 1.00, 0.10),
+          asset("zzzzA110") -> Amount.fromSignedQuantityAndAverages(8, 1.10, 0.11),
         ),
         brokerageNotes = Seq(
           brokerageNote(
@@ -202,9 +202,9 @@ class MainTest extends TestBase {
           ),
         ),
         expectedResultingPositions = Map(
-          asset("zzzzA100") -> AmountWithCost.Zero,
-          asset("zzzzA110") -> AmountWithCost.Zero,
-          asset("zzzz3") -> AmountWithCost.fromSignedQuantityAndTotals(
+          asset("zzzzA100") -> Amount.Zero,
+          asset("zzzzA110") -> Amount.Zero,
+          asset("zzzz3") -> Amount.fromSignedQuantityAndTotals(
             signedQuantity = 3 + 4,
             totalValue = 3 * (10.00 + 1.00) + 4 * (11.00 + 1.10),
             totalCost = 3 * (0.10 + 0.10) + 4 * (0.11 + 0.11),

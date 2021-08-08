@@ -2,10 +2,10 @@ package sisgrana
 package investments.variableIncome.importAssets
 
 import investments.variableIncome.importAssets.EventProcessor.{mergeEffectsByAsset, processBonus, processConversion}
-import investments.variableIncome.model.{AmountWithCost, EventEffect, PurchaseAmountWithCost, StockbrokerAsset}
+import investments.variableIncome.model.{Amount, EventEffect, PurchaseAmount, StockbrokerAsset}
 
 class EventProcessor(event: Event) {
-  def process(positionByAsset: Map[StockbrokerAsset, AmountWithCost]): Map[StockbrokerAsset, EventEffect] = {
+  def process(positionByAsset: Map[StockbrokerAsset, Amount]): Map[StockbrokerAsset, EventEffect] = {
     val assetsPositionsByStockbroker = positionByAsset
       .groupMap(_._1.stockbroker) { case (stockbrokerAsset, position) => (stockbrokerAsset.asset, position) }
 
@@ -18,7 +18,7 @@ class EventProcessor(event: Event) {
       .getOrElse(Map.empty)
   }
 
-  private def processEventOnStockbrokerAssets(positionByAsset: Map[String, AmountWithCost]): Map[String, EventEffect] =
+  private def processEventOnStockbrokerAssets(positionByAsset: Map[String, Amount]): Map[String, EventEffect] =
     event match {
       case c@Event.Conversion(_, _, _, _) => processConversion(c, positionByAsset)
       case b@Event.Bonus(_, _, _, _, _) => processBonus(b, positionByAsset)
@@ -43,11 +43,11 @@ object EventProcessor {
       case _ => throw new Exception(s"Efeitos dos tipos ${effect1.getClass} e ${effect2.getClass} não podem ser mesclados ($stockbrokerAsset)")
     }
 
-  private[importAssets] def processConversion(conversion: Event.Conversion, positionByAsset: Map[String, AmountWithCost]): Map[String, EventEffect] =
+  private[importAssets] def processConversion(conversion: Event.Conversion, positionByAsset: Map[String, Amount]): Map[String, EventEffect] =
     positionByAsset.get(conversion.fromAsset) match {
       case Some(position) =>
         val newQuantity = (position.signedQuantity * conversion.toQuantity / conversion.fromQuantity).toInt
-        val amount = AmountWithCost.fromSignedQuantityAndAverages(
+        val amount = Amount.fromSignedQuantityAndAverages(
           signedQuantity = newQuantity,
           averagePrice = position.averagePrice * conversion.fromQuantity / conversion.toQuantity,
           averageCost = position.averageCost * conversion.fromQuantity / conversion.toQuantity,
@@ -58,18 +58,18 @@ object EventProcessor {
           )
         } else {
           Map(
-            conversion.fromAsset -> EventEffect.SetPosition(PurchaseAmountWithCost.Zero),
+            conversion.fromAsset -> EventEffect.SetPosition(PurchaseAmount.Zero),
             conversion.toAsset -> EventEffect.AddToPosition(amount),
           )
         }
       case None => Map.empty
     }
 
-  private[importAssets] def processBonus(bonus: Event.Bonus, positionByAsset: Map[String, AmountWithCost]): Map[String, EventEffect] =
+  private[importAssets] def processBonus(bonus: Event.Bonus, positionByAsset: Map[String, Amount]): Map[String, EventEffect] =
     positionByAsset.get(bonus.fromAsset) match {
       case Some(position) if position.signedQuantity > 0 =>
         val newQuantity = (position.quantity * bonus.toQuantity / bonus.fromQuantity).toInt
-        val amount = AmountWithCost.fromSignedQuantityAndAverages(
+        val amount = Amount.fromSignedQuantityAndAverages(
           newQuantity,
           averagePrice = bonus.toPrice,
           averageCost = 0.0,

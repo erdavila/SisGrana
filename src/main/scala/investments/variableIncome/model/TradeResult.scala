@@ -25,11 +25,11 @@ case class TradeResult(
   lazy val totalCost: Double = totalPurchaseCost + totalSaleCost
   lazy val totalNetValue: Double = totalGrossValue - totalCost
 
-  def purchaseAmount: PurchaseAmountWithCost =
-    PurchaseAmountWithCost.fromTotals(quantity, totalPurchaseValue, totalPurchaseCost)
+  def purchaseAmount: PurchaseAmount =
+    PurchaseAmount.fromTotals(quantity, totalPurchaseValue, totalPurchaseCost)
 
-  def saleAmount: SaleAmountWithCost =
-    SaleAmountWithCost.fromTotals(quantity, totalSaleValue, totalSaleCost)
+  def saleAmount: SaleAmount =
+    SaleAmount.fromTotals(quantity, totalSaleValue, totalSaleCost)
 
   def +(other: TradeResult): TradeResult = {
     TradeResult(
@@ -45,7 +45,7 @@ case class TradeResult(
 object TradeResult {
   val Zero: TradeResult = TradeResult(0, 0.0, 0.0, 0.0, 0.0)
 
-  def from(purchase: PurchaseAmountWithCost, sale: SaleAmountWithCost): (TradeResult, AmountWithCost) = {
+  def from(purchase: PurchaseAmount, sale: SaleAmount): (TradeResult, Amount) = {
     val tradeQuantity = math.min(purchase.quantity, sale.quantity)
     val tradeResult = if (tradeQuantity == 0) {
       TradeResult.Zero

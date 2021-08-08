@@ -3,10 +3,10 @@ package investments.variableIncome.model
 
 class TradeResultTest extends TestBase {
   test("TradeResult.from()") {
-    val purchase = AmountWithCostTest.PurchaseDSL
-    val sale = AmountWithCostTest.SaleDSL
+    val purchase = AmountTest.PurchaseDSL
+    val sale = AmountTest.SaleDSL
     val expectedDayTradeResult = TradeResultTest.DSL
-    val expectedRemainingAmount = AmountWithCostTest.DSL
+    val expectedRemainingAmount = AmountTest.DSL
 
     val cases = Table(
       (

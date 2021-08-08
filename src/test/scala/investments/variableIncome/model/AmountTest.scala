@@ -1,12 +1,12 @@
 package sisgrana
 package investments.variableIncome.model
 
-class AmountWithCostTest extends TestBase {
-  test("AmountWithCost.combine()") {
-    val currentPositionAmount = AmountWithCostTest.DSL
-    val nonDayTradeAmount = AmountWithCostTest.DSL
+class AmountTest extends TestBase {
+  test("Amount.combine()") {
+    val currentPositionAmount = AmountTest.DSL
+    val nonDayTradeAmount = AmountTest.DSL
     val expectedSwingTradeResult = TradeResultTest.DSL
-    val expectedUpdatedPositionAmount = AmountWithCostTest.DSL
+    val expectedUpdatedPositionAmount = AmountTest.DSL
 
     val cases = Table(
       (
@@ -96,29 +96,29 @@ class AmountWithCostTest extends TestBase {
     )
 
     forAll(cases) { case (currentPositionAmount, nonDayTradeAmount, expectedSwingTradeResult, expectedUpdatedPositionAmount) =>
-      val (updatedPositionAmount, swingTradeResult) = AmountWithCost.combine(currentPositionAmount, nonDayTradeAmount)
+      val (updatedPositionAmount, swingTradeResult) = Amount.combine(currentPositionAmount, nonDayTradeAmount)
       swingTradeResult should equal (expectedSwingTradeResult)
       updatedPositionAmount should equal (expectedUpdatedPositionAmount)
     }
   }
 }
 
-object AmountWithCostTest {
+object AmountTest {
   object DSL {
-    val Zero: PurchaseAmountWithCost = PurchaseAmountWithCost.Zero
+    val Zero: PurchaseAmount = PurchaseAmount.Zero
     val purchase: PurchaseDSL.type = PurchaseDSL
     val sale: SaleDSL.type = SaleDSL
   }
 
   object PurchaseDSL {
-    val Zero: PurchaseAmountWithCost = PurchaseAmountWithCost.Zero
-    def averages: (Int, Double, Double) => PurchaseAmountWithCost = PurchaseAmountWithCost.fromAverages
-    def totals: (Int, Double, Double) => PurchaseAmountWithCost = PurchaseAmountWithCost.fromTotals
+    val Zero: PurchaseAmount = PurchaseAmount.Zero
+    def averages: (Int, Double, Double) => PurchaseAmount = PurchaseAmount.fromAverages
+    def totals: (Int, Double, Double) => PurchaseAmount = PurchaseAmount.fromTotals
   }
 
   object SaleDSL {
-    val Zero: SaleAmountWithCost = SaleAmountWithCost.Zero
-    def averages: (Int, Double, Double) => SaleAmountWithCost = SaleAmountWithCost.fromAverages
-    def totals: (Int, Double, Double) => SaleAmountWithCost = SaleAmountWithCost.fromTotals
+    val Zero: SaleAmount = SaleAmount.Zero
+    def averages: (Int, Double, Double) => SaleAmount = SaleAmount.fromAverages
+    def totals: (Int, Double, Double) => SaleAmount = SaleAmount.fromTotals
   }
 }

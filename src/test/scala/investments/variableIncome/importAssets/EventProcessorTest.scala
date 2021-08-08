@@ -1,7 +1,7 @@
 package sisgrana
 package investments.variableIncome.importAssets
 
-import investments.variableIncome.model.{AmountWithCost, EventEffect}
+import investments.variableIncome.model.{Amount, EventEffect}
 
 class EventProcessorTest extends TestBase {
   test("EventProcessor.processConversion()") {
@@ -14,37 +14,37 @@ class EventProcessorTest extends TestBase {
       (
         Event.Conversion("X", 1, "X", 4),
         Map(
-          "X" -> AmountWithCost.fromSignedQuantityAndTotals(10, 40.00, 0.40),
+          "X" -> Amount.fromSignedQuantityAndTotals(10, 40.00, 0.40),
         ),
         Map(
-          "X" -> EventEffect.SetPosition(AmountWithCost.fromSignedQuantityAndTotals(40, 40.00, 0.40)),
+          "X" -> EventEffect.SetPosition(Amount.fromSignedQuantityAndTotals(40, 40.00, 0.40)),
         ),
       ),
       (
         Event.Conversion("X", 1, "X", 4),
         Map(
-          "X" -> AmountWithCost.fromSignedQuantityAndTotals(-10, -40.00, 0.40),
+          "X" -> Amount.fromSignedQuantityAndTotals(-10, -40.00, 0.40),
         ),
         Map(
-          "X" -> EventEffect.SetPosition(AmountWithCost.fromSignedQuantityAndTotals(-40, -40.00, 0.40)),
-        ),
-      ),
-      (
-        Event.Conversion("X", 4, "X", 1),
-        Map(
-          "X" -> AmountWithCost.fromSignedQuantityAndTotals(16, 40.00, 0.40),
-        ),
-        Map(
-          "X" -> EventEffect.SetPosition(AmountWithCost.fromSignedQuantityAndTotals(4, 40.00, 0.40)),
+          "X" -> EventEffect.SetPosition(Amount.fromSignedQuantityAndTotals(-40, -40.00, 0.40)),
         ),
       ),
       (
         Event.Conversion("X", 4, "X", 1),
         Map(
-          "X" -> AmountWithCost.fromSignedQuantityAndAverages(15, 1.00, 0.10),
+          "X" -> Amount.fromSignedQuantityAndTotals(16, 40.00, 0.40),
         ),
         Map(
-          "X" -> EventEffect.SetPosition(AmountWithCost.fromSignedQuantityAndAverages(3, 4.00, 0.40)),
+          "X" -> EventEffect.SetPosition(Amount.fromSignedQuantityAndTotals(4, 40.00, 0.40)),
+        ),
+      ),
+      (
+        Event.Conversion("X", 4, "X", 1),
+        Map(
+          "X" -> Amount.fromSignedQuantityAndAverages(15, 1.00, 0.10),
+        ),
+        Map(
+          "X" -> EventEffect.SetPosition(Amount.fromSignedQuantityAndAverages(3, 4.00, 0.40)),
         ),
       ),
     )
@@ -66,35 +66,35 @@ class EventProcessorTest extends TestBase {
       (
         Event.Bonus("X", 10, "X", 1, 1.00),
         Map(
-          "X" -> AmountWithCost.fromSignedQuantityAndAverages(20, 2.00, 0.02),
+          "X" -> Amount.fromSignedQuantityAndAverages(20, 2.00, 0.02),
         ),
         Map(
-          "X" -> EventEffect.AddToPosition(AmountWithCost.fromSignedQuantityAndAverages(2, 1.00, 0.00))
+          "X" -> EventEffect.AddToPosition(Amount.fromSignedQuantityAndAverages(2, 1.00, 0.00))
         ),
       ),
       (
         Event.Bonus("X", 10, "X", 1, 1.00),
         Map(
-          "X" -> AmountWithCost.fromSignedQuantityAndAverages(-20, 2.00, 0.02),
+          "X" -> Amount.fromSignedQuantityAndAverages(-20, 2.00, 0.02),
         ),
         Map.empty,
       ),
       (
         Event.Bonus("X", 10, "X", 1, 1.00),
         Map(
-          "X" -> AmountWithCost.fromSignedQuantityAndAverages(21, 2.00, 0.02),
+          "X" -> Amount.fromSignedQuantityAndAverages(21, 2.00, 0.02),
         ),
         Map(
-          "X" -> EventEffect.AddToPosition(AmountWithCost.fromSignedQuantityAndAverages(2, 1.00, 0.00))
+          "X" -> EventEffect.AddToPosition(Amount.fromSignedQuantityAndAverages(2, 1.00, 0.00))
         ),
       ),
       (
         Event.Bonus("X", 10, "Y", 1, 1.00),
         Map(
-          "X" -> AmountWithCost.fromSignedQuantityAndAverages(20, 2.00, 0.02),
+          "X" -> Amount.fromSignedQuantityAndAverages(20, 2.00, 0.02),
         ),
         Map(
-          "Y" -> EventEffect.AddToPosition(AmountWithCost.fromSignedQuantityAndAverages(2, 1.00, 0.00))
+          "Y" -> EventEffect.AddToPosition(Amount.fromSignedQuantityAndAverages(2, 1.00, 0.00))
         ),
       ),
     )

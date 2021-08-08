@@ -33,7 +33,7 @@ object Main extends LocalDateSupport {
     }
   }
 
-  private case class LatestPosition(date: LocalDate, position: AmountWithCost)
+  private case class LatestPosition(date: LocalDate, position: Amount)
 
   private def processDate(date: LocalDate, importedFileNames: Seq[ImportedFileName]): Unit = {
     println(s"Processando dados de $date")
@@ -93,21 +93,21 @@ object Main extends LocalDateSupport {
 
   private[importAssets] def processDateChanges(
     date: LocalDate,
-    previousPositionByAsset: Map[StockbrokerAsset, AmountWithCost],
+    previousPositionByAsset: Map[StockbrokerAsset, Amount],
     events: Seq[Event],
     brokerageNotes: Seq[BrokerageNote],
   ): Seq[AssetChange] = {
     def initializeAssetChange(stockbrokerAsset: StockbrokerAsset) =
       AssetChange
         .withZeroes(stockbrokerAsset, date)
-        .withPreviousPosition(previousPositionByAsset.getOrElse(stockbrokerAsset, AmountWithCost.Zero))
+        .withPreviousPosition(previousPositionByAsset.getOrElse(stockbrokerAsset, Amount.Zero))
 
     val eventEffectByAsset = processEvents(previousPositionByAsset, events)
     val postEventAssetChangesByAsset =
       for ((stockbrokerAsset, eventEffect) <- eventEffectByAsset)
         yield stockbrokerAsset -> initializeAssetChange(stockbrokerAsset).withEventEffect(Some(eventEffect))
 
-    def postEventPosition(stockbrokerAsset: StockbrokerAsset): Option[AmountWithCost] =
+    def postEventPosition(stockbrokerAsset: StockbrokerAsset): Option[Amount] =
       postEventAssetChangesByAsset.get(stockbrokerAsset).map(_.postEventPosition)
         .orElse(previousPositionByAsset.get(stockbrokerAsset))
     val operationsByAsset = brokerageNotes
@@ -133,7 +133,7 @@ object Main extends LocalDateSupport {
   }
 
   private def processEvents(
-    positionByAsset: Map[StockbrokerAsset, AmountWithCost],
+    positionByAsset: Map[StockbrokerAsset, Amount],
     events: Seq[Event],
   ): Map[StockbrokerAsset, EventEffect] =
     events
@@ -145,7 +145,7 @@ object Main extends LocalDateSupport {
       .getOrElse(Map.empty)
 
   private def processBrokerageNote(
-    positionByAsset: StockbrokerAsset => Option[AmountWithCost],
+    positionByAsset: StockbrokerAsset => Option[Amount],
     brokerageNote: BrokerageNote,
   ): Map[StockbrokerAsset, AggregatedNegotiations] = {
     val totalNegotiationsValue = brokerageNote.negotiations.map(_.totalValue).sum
@@ -162,7 +162,7 @@ object Main extends LocalDateSupport {
         val (optionSignedAvgPrice, optionAvgCost, optionAggNegsOpt) = negotiation.optionAsset match {
           case Some(optionAsset) =>
             val optionStockbrokerAsset = StockbrokerAsset(brokerageNote.stockbroker, optionAsset)
-            val optionPosition = positionByAsset(optionStockbrokerAsset).getOrElse(AmountWithCost.Zero)
+            val optionPosition = positionByAsset(optionStockbrokerAsset).getOrElse(Amount.Zero)
 
             val requiredOptionQuantitySign = (AssetType.Option.typeOf(optionAsset), negotiation.operation) match {
               case (AssetType.Option.Type.Call, Operation.Purchase) => +1
@@ -185,8 +185,8 @@ object Main extends LocalDateSupport {
         val negotiationAmount =
           (
             negotiation.operation match {
-              case Operation.Purchase => (q: Int, p: Double, c: Double) => PurchaseAmountWithCost.fromAverages(q, p + optionSignedAvgPrice, c + optionAvgCost)
-              case Operation.Sale => (q: Int, p: Double, c: Double) => SaleAmountWithCost.fromAverages(q, p - optionSignedAvgPrice, c + optionAvgCost)
+              case Operation.Purchase => (q: Int, p: Double, c: Double) => PurchaseAmount.fromAverages(q, p + optionSignedAvgPrice, c + optionAvgCost)
+              case Operation.Sale => (q: Int, p: Double, c: Double) => SaleAmount.fromAverages(q, p - optionSignedAvgPrice, c + optionAvgCost)
             }
           )(negotiation.quantity, negotiation.price, negotiationAverageCost)
 
