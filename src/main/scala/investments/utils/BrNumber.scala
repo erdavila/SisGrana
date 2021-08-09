@@ -21,4 +21,7 @@ object BrNumber {
 
   def formatMoney(number: Double): String =
     s"R$$ ${format(number)}"
+
+  def formatPercent(number: Double): String =
+    s"${format(100 * number)}%"
 }

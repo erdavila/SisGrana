@@ -1,6 +1,7 @@
 package sisgrana
 package investments.variableIncome.model
 
+import TestBase.{DefaultAsset, DefaultStockbroker}
 import investments.variableIncome.importAssets.EventOutcome
 import investments.variableIncome.model.AssetPeriodTest.DSL._
 import java.time.LocalDate
@@ -511,7 +512,7 @@ object AssetPeriodTest {
         seqBuilder.copy(assetPeriods = seqBuilder.assetPeriods :+ assetPeriod)
     }
 
-    def assetPeriodsFor(asset: String = "asset", stockbroker: String = "stockbroker")(f: AssetPeriodsBuilder => AssetPeriodsBuilder): Seq[AssetPeriod] = {
+    def assetPeriodsFor(asset: String = DefaultAsset, stockbroker: String = DefaultStockbroker)(f: AssetPeriodsBuilder => AssetPeriodsBuilder): Seq[AssetPeriod] = {
       val initialBuilder = AssetPeriodsBuilder(asset, stockbroker, Vector.empty)
       val builder = f(initialBuilder)
       builder.assetPeriods

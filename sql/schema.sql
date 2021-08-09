@@ -55,3 +55,7 @@ CREATE TABLE IF NOT EXISTS asset_quote(
 
     PRIMARY KEY (asset, date)
 );
+
+CREATE TABLE IF NOT EXISTS non_quote_date(
+    date TEXT PRIMARY KEY
+);

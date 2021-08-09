@@ -9,6 +9,10 @@ import utils.DateRanges.removeSingleDayRangesOnDayChangeMode
 case class DateRanges private(indexedSeq: IndexedSeq[DateRange]) {
   import utils.dateOrdering._
 
+  def isEmpty: Boolean = indexedSeq.isEmpty
+
+  def nonEmpty: Boolean = !isEmpty
+
   def contains(date: LocalDate): Boolean = {
     val result = PredicateBinarySearch.search(indexedSeq) { range =>
       if (date < range.beginDate) PredicateBinarySearch.ContinueSearchingBefore

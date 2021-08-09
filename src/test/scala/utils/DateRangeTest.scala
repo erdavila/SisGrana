@@ -28,8 +28,11 @@ class DateRangeTest extends AnyFunSuite with TableDrivenPropertyChecks with Matc
 
 object DateRangeTest {
   implicit def int2Date(int: Int): LocalDate =
-    LocalDate.of(2021, 8, 20).plusDays(int)
+    LocalDate.of(2021, 8, 10).plusDays(int)
 
   implicit def int2DateRange(int: Int): DateRange =
     DateRange(int, int)
+
+  implicit def intPair2DateRange(pair: (Int, Int)): DateRange =
+    DateRange(pair._1, pair._2)
 }

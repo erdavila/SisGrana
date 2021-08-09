@@ -65,6 +65,7 @@ class FilesProcessor extends LocalDateSupport {
       case name if name.toLowerCase.endsWith(".zip") => processZipFile(multiFile, inputStream)
       case _ => printer.println(s"Ignorando arquivo $multiFile")
     }
+
   private def processYearQuotesFile(multiFile: MultiFile, year: Year, inputStream: InputStream): Unit =
     printer.context(s"Processando cotações do ano $year no arquivo $multiFile") {
       importQuotes(
@@ -91,7 +92,7 @@ class FilesProcessor extends LocalDateSupport {
   private def importQuotes(minDate: LocalDate, maxDate: LocalDate, inputStream: InputStream): Unit = {
     val assetsDateRanges = makeAssetsDateRanges(minDate, maxDate)
 
-    val quotes =
+    val quotesIterator =
       for {
         line <- Source.fromInputStream(inputStream).getLines()
         if line.startsWith("01")
@@ -107,11 +108,12 @@ class FilesProcessor extends LocalDateSupport {
         maxPrice = MaxPriceExtractor.from(line)
       } yield AssetQuote(asset, date, openPrice, closePrice, minPrice, avgPrice, maxPrice)
 
+    val quotes = quotesIterator.toSeq
     printer.println(s"${quotes.length} cotações")
 
     ctx.transaction(
       ctx.run(
-        for (quote <- liftQuery(quotes.toSeq)) {
+        for (quote <- liftQuery(quotes)) {
           query[AssetQuote]
             .insert(quote)
             .onConflictUpdate(_.asset, _.date)(
@@ -133,7 +135,7 @@ class FilesProcessor extends LocalDateSupport {
           .filter(_.resultingPositionQuantity != 0)
       )
 
-    val dateRanges = DateRanges.from(Seq(DateRange(minDate, maxDate)))
+    val dateRanges = DateRanges.single(DateRange(minDate, maxDate))
 
     assetPeriods
       .flatMap { ap =>

@@ -263,6 +263,10 @@ object AssetPeriod extends LocalDateSupport {
     )
 
   //noinspection TypeAnnotation
+  def inDateRangeQuery(dateRange: DateRange) =
+    betweenDatesQuery(dateRange.beginDate, dateRange.endDate)
+
+  //noinspection TypeAnnotation
   def betweenDatesQuery(minDate: LocalDate, maxDate: LocalDate) =
     ctx.quote(
       query[AssetPeriod]
