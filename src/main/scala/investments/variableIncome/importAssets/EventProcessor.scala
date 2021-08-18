@@ -46,19 +46,23 @@ object EventProcessor {
   private[importAssets] def processConversion(conversion: Event.Conversion, positionByAsset: Map[String, Amount]): Map[String, EventEffect] =
     positionByAsset.get(conversion.fromAsset) match {
       case Some(position) =>
-        val newQuantity = (position.signedQuantity * conversion.toQuantity / conversion.fromQuantity).toInt
+        val newQuantity = position.signedQuantity * conversion.toQuantity / conversion.fromQuantity
         val amount = Amount.fromSignedQuantityAndAverages(
-          signedQuantity = newQuantity,
+          signedQuantity = newQuantity.toInt,
           averagePrice = position.averagePrice * conversion.fromQuantity / conversion.toQuantity,
           averageCost = position.averageCost * conversion.fromQuantity / conversion.toQuantity,
         )
+
+        def setPositionEntry(amount: Amount) =
+          conversion.fromAsset -> EventEffect.SetPosition(amount, conversion.toAsset, newQuantity)
+
         if (conversion.fromAsset == conversion.toAsset) {
           Map(
-            conversion.toAsset -> EventEffect.SetPosition(amount),
+            setPositionEntry(amount),
           )
         } else {
           Map(
-            conversion.fromAsset -> EventEffect.SetPosition(PurchaseAmount.Zero),
+            setPositionEntry(PurchaseAmount.Zero),
             conversion.toAsset -> EventEffect.AddToPosition(amount),
           )
         }

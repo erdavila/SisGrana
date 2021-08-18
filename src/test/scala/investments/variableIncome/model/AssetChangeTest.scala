@@ -43,12 +43,12 @@ class AssetChangeTest extends TestBase {
     assetChange.eventDecreaseAverageCost should equal (0.0)
   }
 
-  test("eventSetPosition, eventEffect, withEventEffect(), and fields") {
+  test("eventSetPosition, eventEffect, eventConvertedTo*, withEventEffect(), and fields") {
     val cases = Table(
       "eventEffect",
-      EventEffect.SetPosition(PurchaseAmount.Zero),
-      EventEffect.SetPosition(PurchaseAmount.fromAverages(10, 10.00, 0.10)),
-      EventEffect.SetPosition(SaleAmount.fromAverages(10, 10.00, 0.10)),
+      EventEffect.SetPosition(PurchaseAmount.Zero, "X", 20.0),
+      EventEffect.SetPosition(PurchaseAmount.fromAverages(10, 10.00, 0.10), "X", 20.0),
+      EventEffect.SetPosition(SaleAmount.fromAverages(10, 10.00, 0.10), "X", -20.0),
     )
 
     forAll(cases) { eventEffect =>
@@ -60,6 +60,8 @@ class AssetChangeTest extends TestBase {
       assetChange.eventSetPositionQuantity should equal (eventEffect.position.signedQuantity)
       assetChange.eventSetPositionAveragePrice should equal (eventEffect.position.averagePrice)
       assetChange.eventSetPositionAverageCost should equal (eventEffect.position.averageCost)
+      assetChange.eventConvertedToAsset should equal (eventEffect.convertedToAsset)
+      assetChange.eventConvertedToQuantity should equal (eventEffect.convertedToQuantity)
     }
   }
 
@@ -155,7 +157,7 @@ class AssetChangeTest extends TestBase {
       ),
       (
         Amount.fromSignedQuantityAndAverages(10, 10.0, 0.10),
-        Some(EventEffect.SetPosition(Amount.fromSignedQuantityAndAverages(3, 3.33, 0.33))),
+        Some(EventEffect.SetPosition(Amount.fromSignedQuantityAndAverages(3, 3.33, 0.33), "", 0.0)),
         Amount.fromSignedQuantityAndAverages(3, 3.33, 0.33),
       ),
       (
@@ -298,7 +300,7 @@ class AssetChangeTest extends TestBase {
     )
 
     forAll(cases) { case (postEventPosition, nonDayTradeOperationsAmount, expectedResultingPosition, expectedOperationsTradeResult) =>
-      val ac0 = ZeroAssetChange.withEventEffect(Some(EventEffect.SetPosition(postEventPosition)))
+      val ac0 = ZeroAssetChange.withEventEffect(Some(EventEffect.SetPosition(postEventPosition, "", 0.0)))
       val assetChange =
         (nonDayTradeOperationsAmount: Amount) match {
           case p@PurchaseAmount(_, _, _) => ac0.withPurchaseAmount(p)

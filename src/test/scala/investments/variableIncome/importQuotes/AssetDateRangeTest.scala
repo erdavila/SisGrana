@@ -137,7 +137,7 @@ class AssetDateRangeTest extends TestBase {
   private def changes(tuple: (LocalDate, Int)*): Seq[AssetChange] =
     for ((date, positionQuantity) <- tuple)
       yield AssetChange.withZeroes("", "", date)
-        .withEventEffect(Some(EventEffect.SetPosition(PurchaseAmount.fromTotals(positionQuantity, positionQuantity.toDouble, 0.0))))
+        .withEventEffect(Some(EventEffect.SetPosition(PurchaseAmount.fromTotals(positionQuantity, positionQuantity.toDouble, 0.0), "", 0.0)))
 
   private def ranges(dates: (LocalDate, LocalDate)*): Seq[AssetDateRange] =
     for ((beginDate, endDate) <- dates)

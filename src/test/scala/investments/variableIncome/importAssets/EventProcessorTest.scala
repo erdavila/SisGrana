@@ -17,7 +17,11 @@ class EventProcessorTest extends TestBase {
           "X" -> Amount.fromSignedQuantityAndTotals(10, 40.00, 0.40),
         ),
         Map(
-          "X" -> EventEffect.SetPosition(Amount.fromSignedQuantityAndTotals(40, 40.00, 0.40)),
+          "X" -> EventEffect.SetPosition(
+            Amount.fromSignedQuantityAndTotals(40, 40.00, 0.40),
+            convertedToAsset = "X",
+            convertedToQuantity = 40.0,
+          ),
         ),
       ),
       (
@@ -26,7 +30,11 @@ class EventProcessorTest extends TestBase {
           "X" -> Amount.fromSignedQuantityAndTotals(-10, -40.00, 0.40),
         ),
         Map(
-          "X" -> EventEffect.SetPosition(Amount.fromSignedQuantityAndTotals(-40, -40.00, 0.40)),
+          "X" -> EventEffect.SetPosition(
+            Amount.fromSignedQuantityAndTotals(-40, -40.00, 0.40),
+            convertedToAsset = "X",
+            convertedToQuantity = -40.0,
+          ),
         ),
       ),
       (
@@ -35,7 +43,11 @@ class EventProcessorTest extends TestBase {
           "X" -> Amount.fromSignedQuantityAndTotals(16, 40.00, 0.40),
         ),
         Map(
-          "X" -> EventEffect.SetPosition(Amount.fromSignedQuantityAndTotals(4, 40.00, 0.40)),
+          "X" -> EventEffect.SetPosition(
+            Amount.fromSignedQuantityAndTotals(4, 40.00, 0.40),
+            convertedToAsset = "X",
+            convertedToQuantity = 4.0,
+          ),
         ),
       ),
       (
@@ -44,7 +56,39 @@ class EventProcessorTest extends TestBase {
           "X" -> Amount.fromSignedQuantityAndAverages(15, 1.00, 0.10),
         ),
         Map(
-          "X" -> EventEffect.SetPosition(Amount.fromSignedQuantityAndAverages(3, 4.00, 0.40)),
+          "X" -> EventEffect.SetPosition(
+            Amount.fromSignedQuantityAndAverages(3, 4.00, 0.40),
+            convertedToAsset = "X",
+            convertedToQuantity = 3.75,
+          ),
+        ),
+      ),
+      (
+        Event.Conversion("X", 2, "Y", 3),
+        Map(
+          "X" -> Amount.fromSignedQuantityAndAverages(14, 1.50, 0.15),
+        ),
+        Map(
+          "X" -> EventEffect.SetPosition(
+            Amount.Zero,
+            convertedToAsset = "Y",
+            convertedToQuantity = 21,
+          ),
+          "Y" -> EventEffect.AddToPosition(Amount.fromSignedQuantityAndAverages(21, 1.50 * 2 / 3, 0.15 * 2 / 3)),
+        ),
+      ),
+      (
+        Event.Conversion("X", 2, "Y", 3),
+        Map(
+          "X" -> Amount.fromSignedQuantityAndAverages(15, 1.50, 0.15),
+        ),
+        Map(
+          "X" -> EventEffect.SetPosition(
+            Amount.Zero,
+            convertedToAsset = "Y",
+            convertedToQuantity = 22.5,
+          ),
+          "Y" -> EventEffect.AddToPosition(Amount.fromSignedQuantityAndAverages(22, 1.50 * 2 / 3, 0.15 * 2 / 3)),
         ),
       ),
     )

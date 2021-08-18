@@ -4,7 +4,7 @@ package investments.variableIncome.model
 sealed trait EventEffect
 
 object EventEffect {
-  case class SetPosition(position: Amount) extends EventEffect
+  case class SetPosition(position: Amount, convertedToAsset: String, convertedToQuantity: Double) extends EventEffect
   case class AddToPosition(increaseAmount: PurchaseAmount, decreaseAmount: SaleAmount) extends EventEffect
 
   object SetPosition {
