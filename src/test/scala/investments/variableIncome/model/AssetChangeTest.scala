@@ -1,7 +1,11 @@
 package sisgrana
 package investments.variableIncome.model
 
+import investments.variableIncome.model.AssetChangeTest.DSL._
 import java.time.LocalDate
+import scala.language.implicitConversions
+import utils.DateRangeTest.int2Date
+import utils.{DateRange, sameNonZeroSigns}
 
 class AssetChangeTest extends TestBase {
   private val ZeroAssetChange = AssetChange.withZeroes("asset", "stockbroker", LocalDate.now())
@@ -310,5 +314,270 @@ class AssetChangeTest extends TestBase {
       assetChange.resultingPosition should equal (expectedResultingPosition)
       assetChange.operationsTradeResult should equal (expectedOperationsTradeResult)
     }
+  }
+
+  test(".toDateRanges()") {
+    case class Case(
+      assetChanges: Seq[AssetChange],
+      expectedDayChangeDateRanges: Seq[DateRange],
+      expectedFullDayDateRanges: Seq[DateRange],
+    )
+
+    object Case {
+      def apply(assetChanges: Seq[AssetChange], expectedAnyModeDateRanges: Seq[DateRange]): Case =
+        Case(assetChanges, expectedAnyModeDateRanges, expectedAnyModeDateRanges)
+    }
+
+    val BeforeMinDate = 1
+    val MinDate = 3
+    val MiddleDate = 5
+    val MaxDate = 7
+    val AfterMaxDate = 9
+
+    def changes(
+      beforeMinDateQuantity2: Option[Int],
+      beforeMinDateQuantity1: Option[Int],
+      minDateQuantity: Option[Int],
+      middleDateQuantity: Option[Int],
+      maxDateQuantity: Option[Int],
+      afterMaxDateQuantity1: Option[Int],
+      afterMaxDateQuantity2: Option[Int],
+    ): Seq[AssetChange] =
+      assetChangesFor()(seqBuilder =>
+        Seq(
+          (beforeMinDateQuantity2, BeforeMinDate - 1),
+          (beforeMinDateQuantity1, BeforeMinDate),
+          (minDateQuantity, MinDate),
+          (middleDateQuantity, MiddleDate),
+          (maxDateQuantity, MaxDate),
+          (afterMaxDateQuantity1, AfterMaxDate),
+          (afterMaxDateQuantity2, AfterMaxDate + 1),
+        ).foldLeft(seqBuilder) {
+          case (seqBuilder, (Some(quantity), dateOffset)) => seqBuilder.on(dateOffset).resultingQuantity(quantity)
+          case (seqBuilder, (None, _)) => seqBuilder
+        }
+      )
+
+    def ranges(pairs: (LocalDate, LocalDate)*): Seq[DateRange] =
+      for ((b, e) <- pairs)
+        yield DateRange(b, e)
+
+    val Z = Some(0)
+    val * = Some(999)
+    val - = None
+
+    val cases = Table(
+      "case",
+
+      //             min ↓     ↓ max
+      Case(changes(-, Z, -, -, -, -, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, *, -, -, -, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, Z, -, -, -, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, *, -, -, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, -, Z, -, -, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, -, *, -, -, -), expectedAnyModeDateRanges   = ranges((MiddleDate, MaxDate))),
+      Case(changes(-, -, -, -, Z, -, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, -, -, *, -, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MaxDate, MaxDate))),
+      Case(changes(-, -, -, -, -, Z, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, -, -, -, *, -), expectedAnyModeDateRanges   = ranges()),
+      //             min ↕     ↕ max
+      Case(changes(Z, Z, -, -, -, -, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(Z, *, -, -, -, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(*, Z, -, -, -, -, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(*, *, -, -, -, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, Z, Z, -, -, -, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, Z, *, -, -, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, *, Z, -, -, -, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MinDate, MinDate))),
+      Case(changes(-, *, *, -, -, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, Z, -, Z, -, -, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, Z, -, *, -, -, -), expectedAnyModeDateRanges   = ranges((MiddleDate, MaxDate))),
+      Case(changes(-, *, -, Z, -, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MiddleDate))),
+      Case(changes(-, *, -, *, -, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, Z, -, -, Z, -, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, Z, -, -, *, -, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MaxDate, MaxDate))),
+      Case(changes(-, *, -, -, Z, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, *, -, -, *, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, Z, -, -, -, Z, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, Z, -, -, -, *, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, *, -, -, -, Z, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, *, -, -, -, *, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, Z, Z, -, -, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, Z, *, -, -, -), expectedAnyModeDateRanges   = ranges((MiddleDate, MaxDate))),
+      Case(changes(-, -, *, Z, -, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MiddleDate))),
+      Case(changes(-, -, *, *, -, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, Z, -, Z, -, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, Z, -, *, -, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MaxDate, MaxDate))),
+      Case(changes(-, -, *, -, Z, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, *, -, *, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, Z, -, -, Z, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, Z, -, -, *, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, *, -, -, Z, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, *, -, -, *, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, -, Z, Z, -, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, -, Z, *, -, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MaxDate, MaxDate))),
+      Case(changes(-, -, -, *, Z, -, -), expectedAnyModeDateRanges   = ranges((MiddleDate, MaxDate))),
+      Case(changes(-, -, -, *, *, -, -), expectedAnyModeDateRanges   = ranges((MiddleDate, MaxDate))),
+      Case(changes(-, -, -, Z, -, Z, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, -, Z, -, *, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, -, *, -, Z, -), expectedAnyModeDateRanges   = ranges((MiddleDate, MaxDate))),
+      Case(changes(-, -, -, *, -, *, -), expectedAnyModeDateRanges   = ranges((MiddleDate, MaxDate))),
+      Case(changes(-, -, -, -, Z, Z, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, -, -, Z, *, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, -, -, *, Z, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MaxDate, MaxDate))),
+      Case(changes(-, -, -, -, *, *, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MaxDate, MaxDate))),
+      Case(changes(-, -, -, -, -, Z, Z), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, -, -, -, Z, *), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, -, -, -, *, Z), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, -, -, -, *, *), expectedAnyModeDateRanges   = ranges()),
+      //             min ↕     ↕ max
+      Case(changes(-, Z, Z, Z, -, -, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, Z, Z, *, -, -, -), expectedAnyModeDateRanges   = ranges((MiddleDate, MaxDate))),
+      Case(changes(-, Z, *, Z, -, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MiddleDate))),
+      Case(changes(-, Z, *, *, -, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, *, Z, Z, -, -, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MinDate, MinDate))),
+      Case(changes(-, *, Z, *, -, -, -), expectedDayChangeDateRanges = ranges((MiddleDate, MaxDate)), expectedFullDayDateRanges = ranges((MinDate, MinDate), (MiddleDate, MaxDate))),
+      Case(changes(-, *, *, Z, -, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MiddleDate))),
+      Case(changes(-, *, *, *, -, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, Z, Z, -, Z, -, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, Z, Z, -, *, -, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MaxDate, MaxDate))),
+      Case(changes(-, Z, *, -, Z, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, Z, *, -, *, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, *, Z, -, Z, -, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MinDate, MinDate))),
+      Case(changes(-, *, Z, -, *, -, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MinDate, MinDate), (MaxDate, MaxDate))),
+      Case(changes(-, *, *, -, Z, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, *, *, -, *, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, Z, Z, -, -, Z, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, Z, Z, -, -, *, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, Z, *, -, -, Z, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, Z, *, -, -, *, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, *, Z, -, -, Z, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MinDate, MinDate))),
+      Case(changes(-, *, Z, -, -, *, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MinDate, MinDate))),
+      Case(changes(-, *, *, -, -, Z, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, *, *, -, -, *, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, Z, Z, Z, -, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, Z, Z, *, -, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MaxDate, MaxDate))),
+      Case(changes(-, -, Z, *, Z, -, -), expectedAnyModeDateRanges   = ranges((MiddleDate, MaxDate))),
+      Case(changes(-, -, Z, *, *, -, -), expectedAnyModeDateRanges   = ranges((MiddleDate, MaxDate))),
+      Case(changes(-, -, *, Z, Z, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MiddleDate))),
+      Case(changes(-, -, *, Z, *, -, -), expectedDayChangeDateRanges = ranges((MinDate, MiddleDate)), expectedFullDayDateRanges = ranges((MinDate, MiddleDate), (MaxDate, MaxDate))),
+      Case(changes(-, -, *, *, Z, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, *, *, *, -, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, Z, Z, -, Z, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, Z, Z, -, *, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, Z, *, -, Z, -), expectedAnyModeDateRanges   = ranges((MiddleDate, MaxDate))),
+      Case(changes(-, -, Z, *, -, *, -), expectedAnyModeDateRanges   = ranges((MiddleDate, MaxDate))),
+      Case(changes(-, -, *, Z, -, Z, -), expectedAnyModeDateRanges   = ranges((MinDate, MiddleDate))),
+      Case(changes(-, -, *, Z, -, *, -), expectedAnyModeDateRanges   = ranges((MinDate, MiddleDate))),
+      Case(changes(-, -, *, *, -, Z, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, *, *, -, *, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, Z, -, Z, Z, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, Z, -, Z, *, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, Z, -, *, Z, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MaxDate, MaxDate))),
+      Case(changes(-, -, Z, -, *, *, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MaxDate, MaxDate))),
+      Case(changes(-, -, *, -, Z, Z, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, *, -, Z, *, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, *, -, *, Z, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, *, -, *, *, -), expectedAnyModeDateRanges   = ranges((MinDate, MaxDate))),
+      Case(changes(-, -, -, Z, Z, Z, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, -, Z, Z, *, -), expectedAnyModeDateRanges   = ranges()),
+      Case(changes(-, -, -, Z, *, Z, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MaxDate, MaxDate))),
+      Case(changes(-, -, -, Z, *, *, -), expectedDayChangeDateRanges = ranges(), expectedFullDayDateRanges = ranges((MaxDate, MaxDate))),
+      Case(changes(-, -, -, *, Z, Z, -), expectedAnyModeDateRanges   = ranges((MiddleDate, MaxDate))),
+      Case(changes(-, -, -, *, Z, *, -), expectedAnyModeDateRanges   = ranges((MiddleDate, MaxDate))),
+      Case(changes(-, -, -, *, *, Z, -), expectedAnyModeDateRanges   = ranges((MiddleDate, MaxDate))),
+      Case(changes(-, -, -, *, *, *, -), expectedAnyModeDateRanges   = ranges((MiddleDate, MaxDate))),
+      //             min ↑     ↑ max
+    )
+
+    forAll(cases) { c =>
+      def withMode(expectedDateRanges: Seq[DateRange])(implicit mode: DateRange.Mode): Unit =
+        withClue(s"$mode mode") {
+          val result = AssetChange.toDateRanges(c.assetChanges, MinDate, MaxDate)
+          result.indexedSeq should equal (expectedDateRanges)
+        }
+
+      withMode(c.expectedDayChangeDateRanges)(DateRange.Mode.DayChange)
+      withMode(c.expectedFullDayDateRanges)(DateRange.Mode.FullDay)
+    }
+  }
+}
+
+object AssetChangeTest {
+
+  object DSL {
+    val NonZero = 999
+
+    case class AssetChangesBuilder(asset: String, stockbroker: String, assetChanges: Vector[AssetChange], previousResultingQuantity: Int) {
+      def noChanges: AssetChangesBuilder = this
+
+      def on(date: LocalDate): AssetChangeBuilder = {
+        val previousPosition = Amount.fromSignedQuantityAndAverages(previousResultingQuantity, math.abs(previousResultingQuantity), math.abs(previousResultingQuantity) / 100.0)
+        val ac = AssetChange
+          .withZeroes(asset, stockbroker, date)
+          .withPreviousPosition(previousPosition)
+        AssetChangeBuilder(this, ac)
+      }
+    }
+
+    case class AssetChangeBuilder(seqBuilder: AssetChangesBuilder, assetChange: AssetChange) {
+      def eventConvertedToSame(quantity: Int): AssetChangeBuilder = {
+        require(sameNonZeroSigns(assetChange.previousPosition.signedQuantity, quantity))
+        val amount = Amount.fromSignedQuantityAndAverages(quantity, 1.00, 0.01)
+        val newAc = assetChange.withEventEffect(Some(EventEffect.SetPosition(amount, assetChange.asset, quantity)))
+        this.copy(assetChange = newAc)
+      }
+
+      def eventConvertedToOther(otherAsset: String): AssetChangeBuilder = {
+        require(otherAsset != seqBuilder.asset)
+        val quantity = assetChange.previousPosition.signedQuantity
+        val newAc = assetChange.withEventEffect(Some(EventEffect.SetPosition(Amount.Zero, otherAsset, quantity)))
+        this.copy(assetChange = newAc)
+      }
+
+      def eventIncreasedQuantity(quantity: Int): AssetChangeBuilder = {
+        require(quantity != 0)
+        val amount = Amount.fromSignedQuantityAndAverages(quantity, 1.00, 0.01)
+        val newAc = assetChange.withEventEffect(Some(EventEffect.AddToPosition(amount)))
+        this.copy(assetChange = newAc)
+      }
+
+      def resultingQuantity(quantity: Int): AssetChangeBuilder = {
+        val diff = quantity - assetChange.postEventPosition.signedQuantity
+        val newAc =
+          if (diff > 0) {
+            assetChange.withPurchaseAmount(
+              PurchaseAmount.fromAverages(diff, diff, diff / 100.0)
+            )
+          } else if (diff < 0) {
+            assetChange.withSaleAmount(
+              SaleAmount.fromAverages(-diff, -diff, -diff / 100.0)
+            )
+          } else {
+            assetChange
+          }
+        assert(newAc.resultingPosition.signedQuantity == quantity)
+        this.copy(assetChange = newAc)
+      }
+
+      def on(date: LocalDate): AssetChangeBuilder = {
+        val newSeqBuilder = done()
+        newSeqBuilder.on(date)
+      }
+
+      private[AssetChangeTest] def done(): AssetChangesBuilder =
+        seqBuilder.copy(
+          assetChanges = seqBuilder.assetChanges :+ assetChange,
+          previousResultingQuantity = assetChange.resultingPosition.signedQuantity,
+        )
+    }
+
+    def assetChangesFor(asset: String = "asset", stockbroker: String = "stockbroker")(f: AssetChangesBuilder => AssetChangesBuilder): Seq[AssetChange] = {
+      val initialBuilder = AssetChangesBuilder(asset, stockbroker, Vector.empty, 0)
+      val builder = f(initialBuilder)
+      builder.assetChanges
+    }
+
+    implicit def singleBuilder2SeqBuilder(singleBuilder: AssetChangeBuilder): AssetChangesBuilder =
+      singleBuilder.done()
   }
 }

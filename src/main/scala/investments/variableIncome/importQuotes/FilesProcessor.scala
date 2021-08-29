@@ -1,13 +1,15 @@
 package sisgrana
 package investments.variableIncome.importQuotes
 
+import investments.variableIncome.importQuotes.FilesProcessor.allAssetsChangesToDateRanges
+import investments.variableIncome.model._
 import investments.variableIncome.model.ctx._
-import investments.variableIncome.model.{AssetChange, AssetQuote, LocalDateSupport, ctx}
 import java.io.InputStream
 import java.time.{LocalDate, Month, Year, YearMonth}
 import java.util.zip.ZipInputStream
 import scala.io.Source
-import utils.{IndentedPrinter, PredicateBinarySearch}
+import utils.DateRange.Mode.FullDay
+import utils.{DateRange, DateRanges, IndentedPrinter}
 
 class FilesProcessor extends LocalDateSupport {
   private val printer = new IndentedPrinter
@@ -88,9 +90,7 @@ class FilesProcessor extends LocalDateSupport {
     }
 
   private def importQuotes(minDate: LocalDate, maxDate: LocalDate, inputStream: InputStream): Unit = {
-    val assetsDatesRange = makeAssetsDatesRanges(minDate, maxDate)
-      .view.mapValues(_.toIndexedSeq)
-      .toMap
+    val assetsDateRanges = makeAssetsDateRanges(minDate, maxDate)
 
     val quotes =
       for {
@@ -98,14 +98,9 @@ class FilesProcessor extends LocalDateSupport {
         if line.startsWith("01")
         asset = AssetExtractor.from(line)
         if AcceptedAssetVariations.contains(asset.substring(4))
-        ranges <- assetsDatesRange.get(asset)
+        dateRanges <- assetsDateRanges.get(asset)
         date = DateExtractor.from(line)
-        result = PredicateBinarySearch.search(ranges) { range =>
-          if (date.isBefore(range.beginDate)) PredicateBinarySearch.ContinueSearchingBefore
-          else if (date.isAfter(range.endDate)) PredicateBinarySearch.ContinueSearchingAfter
-          else PredicateBinarySearch.StopSearching
-        }
-        if result.found
+        if dateRanges.contains(date)
         openPrice = OpenPriceExtractor.from(line)
         closePrice = ClosePriceExtractor.from(line)
         minPrice = MinPriceExtractor.from(line)
@@ -132,20 +127,12 @@ class FilesProcessor extends LocalDateSupport {
     )
   }
 
-  private def makeAssetsDatesRanges(minDate: LocalDate, maxDate: LocalDate): Map[String, Seq[AssetDateRange]] = {
+  private def makeAssetsDateRanges(minDate: LocalDate, maxDate: LocalDate): Map[String, DateRanges] = {
     val beforeRange = ctx.run(AssetChange.latestAssetChangesAtDateQuery(minDate.minusDays(1)))
     val inRange = ctx.run(query[AssetChange].filter(ac => ac.date >= lift(minDate) && ac.date <= lift(maxDate)))
     val result = beforeRange ++ inRange
 
-    result
-      .groupBy(ac => ac.stockbrokerAsset)
-      .view.mapValues { assetChanges =>
-        AssetDateRange.seqFromAssetChanges(assetChanges.sortBy(_.date), minDate, maxDate)
-      }
-      .groupMapReduce
-        { case (stockbrokerAsset, _) => stockbrokerAsset.asset }
-        { case (_, ranges) => ranges }
-        { AssetDateRange.mergeSeqs }
+    allAssetsChangesToDateRanges(result, minDate, maxDate)
   }
 
   private def processZipFile(multiFile: MultiFile, inputStream: InputStream): Unit =
@@ -159,4 +146,41 @@ class FilesProcessor extends LocalDateSupport {
         entry = stream.getNextEntry
       }
     }
+}
+
+object FilesProcessor {
+  private[importQuotes] def allAssetsChangesToDateRanges(
+    assetChanges: Seq[AssetChange],
+    minDate: LocalDate,
+    maxDate: LocalDate,
+  ): Map[String, DateRanges] = {
+    val dateRangeByAsset = assetChanges
+      .groupBy(_.stockbrokerAsset)
+      .view.mapValues(assetChanges =>
+        AssetChange.toDateRanges(assetChanges.sortBy(_.date), minDate, maxDate)
+      )
+      .groupMapReduce
+        { case (stockbrokerAsset, _) => stockbrokerAsset.asset }
+        { case (_, dateRanges) => dateRanges }
+        { _ `union` _}
+
+    val convertedToAssets =
+      for {
+        ac <- assetChanges
+        convertedToAsset <- ac.eventEffect.collect {
+          case EventEffect.SetPosition(_, convertedToAsset, convertedToQuantity) if convertedToQuantity != 0.0 =>
+            convertedToAsset
+        }
+      } yield (convertedToAsset, ac.date)
+
+    convertedToAssets.foldLeft(dateRangeByAsset) { case (dateRangeByAsset, (asset, conversionDate)) =>
+      val conversionDateRange = DateRange(conversionDate, conversionDate)
+      val conversionDateRanges = DateRanges.from(Seq(conversionDateRange))
+
+      dateRangeByAsset.updatedWith(asset) {
+        case Some(dateRanges) => Some(dateRanges `union` conversionDateRanges)
+        case None => Some(conversionDateRanges)
+      }
+    }
+  }
 }
