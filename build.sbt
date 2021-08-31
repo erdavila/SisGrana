@@ -2,7 +2,7 @@ name := "SisGrana"
 
 version := "0.1"
 
-scalaVersion := "2.13.4"
+scalaVersion := "2.13.6"
 scalacOptions ++= Seq(
   "-deprecation",
   "-feature",
@@ -15,10 +15,10 @@ scalacOptions ++= Seq(
 idePackagePrefix := Some("sisgrana")
 
 libraryDependencies ++= Seq(
-  "org.xerial" % "sqlite-jdbc" % "3.28.0",
-  "io.getquill" %% "quill-jdbc" % "3.7.1",
+  "org.xerial" % "sqlite-jdbc" % "3.36.0",
+  "io.getquill" %% "quill-jdbc" % "3.8.0",
 
-  "com.softwaremill.quicklens" %% "quicklens" % "1.7.3",
+  "com.softwaremill.quicklens" %% "quicklens" % "1.7.4",
 
-  "org.scalatest" %% "scalatest" % "3.2.2" % "test"
+  "org.scalatest" %% "scalatest" % "3.2.9" % "test"
 )
