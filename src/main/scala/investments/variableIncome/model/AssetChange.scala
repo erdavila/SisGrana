@@ -6,10 +6,14 @@ import java.time.LocalDate
 import scala.annotation.tailrec
 import utils.{DateRange, DateRanges, oppositeSigns}
 
+// TODO: rename to AssetPeriod
+// TODO: search for and rename everything that contains "change"
 case class AssetChange(
   asset: String,
   stockbroker: String,
-  date: LocalDate,
+
+  date: LocalDate, // TODO: rename to beginDate
+  // TODO: add endDate: LocalDate,
 
   previousPositionQuantity: Int,
   previousPositionAveragePrice: Double,
@@ -20,8 +24,8 @@ case class AssetChange(
   eventSetPositionQuantity: Int,
   eventSetPositionAveragePrice: Double,
   eventSetPositionAverageCost: Double,
-  eventConvertedToAsset: String,
-  eventConvertedToQuantity: Double,
+  eventConvertedToAsset: String, // TODO: remove
+  eventConvertedToQuantity: Double, // TODO: remove
 
   eventIncreaseQuantity: Int,
   eventIncreaseAveragePrice: Double,
@@ -44,6 +48,9 @@ case class AssetChange(
   resultingPositionQuantity: Int,
   resultingPositionAveragePrice: Double,
   resultingPositionAverageCost: Double,
+
+  // TODO: add convertedToAsset: Option[String],
+  // TODO: add convertedToQuantity: Option[Double],
 ) {
   // Requirements are delegated to the other case classes requirements
 
@@ -245,6 +252,7 @@ object AssetChange extends LocalDateSupport {
     )
 
   //noinspection TypeAnnotation
+  // TODO: re-evaluate need for this method
   def latestAssetChangesAtDateQuery(maxDate: LocalDate) =
     ctx.quote {
       for {
@@ -256,6 +264,7 @@ object AssetChange extends LocalDateSupport {
       } yield ac
     }
 
+  // TODO: re-evaluate need for this method
   private def latestDateByAssetStockbroker(maxDate: LocalDate) =
     ctx.quote {
       query[AssetChange]
@@ -266,6 +275,7 @@ object AssetChange extends LocalDateSupport {
         }
     }
 
+  // TODO: re-evaluate need for this method
   def toDateRanges(
     assetChanges: Seq[AssetChange],
     minDate: LocalDate,
