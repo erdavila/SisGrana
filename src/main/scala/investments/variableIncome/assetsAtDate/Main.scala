@@ -18,12 +18,14 @@ object Main extends LocalDateSupport {
 
   def showAssetsAtDate(date: LocalDate, printer: IndentedPrinter = new IndentedPrinter): Unit = {
     val result = ctx.run(
-      AssetChange.latestAssetChangesAtDateQuery(date)
+      query[AssetChange]
+        .filter(_.date <= lift(date))
+        .filter(lift(date) < _.endDate)
         .filter(_.resultingPositionQuantity != 0)
     )
 
     val text =
-      if (date.isAfter(LocalDate.now())) "Ativos até o momento"
+      if (date `isAfter` LocalDate.now()) "Ativos até o momento"
       else s"Ativos em $date"
 
     printer.context(text) {
