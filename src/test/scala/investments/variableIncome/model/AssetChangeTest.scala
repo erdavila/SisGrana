@@ -1,6 +1,7 @@
 package sisgrana
 package investments.variableIncome.model
 
+import investments.variableIncome.importAssets.EventOutcome
 import investments.variableIncome.model.AssetChangeTest.DSL._
 import java.time.LocalDate
 import org.scalatest.Inside.inside
@@ -317,6 +318,27 @@ class AssetChangeTest extends TestBase {
     }
   }
 
+  test("convertedTo, withConvertedTo(), and fields") {
+    val cases = Table(
+      "convertedTo option",
+      Some(ConvertedTo("Y", 10.0)),
+      None
+    )
+
+    val NonZeroAssetChange = ZeroAssetChange
+      .withPurchaseAmount(PurchaseAmount.fromAverages(5, 1.00, 0.01))
+
+    forAll(cases) { convertedToOpt =>
+      val assetChange = NonZeroAssetChange.withConvertedTo(convertedToOpt)
+
+      assetChange.convertedTo should equal (convertedToOpt)
+      assetChange.convertedToAsset.isDefined should equal (convertedToOpt.isDefined)
+      assetChange.convertedToQuantity.isDefined should equal (convertedToOpt.isDefined)
+      assetChange.convertedToAsset should equal (convertedToOpt.map(_.asset))
+      assetChange.convertedToQuantity should equal (convertedToOpt.map(_.quantity))
+    }
+  }
+
   test(".toDateRanges()") {
     case class Case(
       assetChanges: Seq[AssetChange],
@@ -535,6 +557,7 @@ class AssetChangeTest extends TestBase {
       result(0).date should equal (int2Date(1))
       result(0).endDate should equal (int2Date(3))
       result(0).resultingPosition.quantity should equal (7)
+      result(0).convertedTo should contain (ConvertedTo("a1", 14.0))
 
       result(1).date should equal (int2Date(3))
       inside(result(1).eventEffect) { case Some(sp@ EventEffect.SetPosition(_, _, _)) =>
@@ -543,6 +566,7 @@ class AssetChangeTest extends TestBase {
         sp.convertedToQuantity should equal (14.0)
       }
       result(1).resultingPosition.quantity should equal (14)
+      result(1).convertedTo should be (empty)
     }
 
     {
@@ -556,6 +580,7 @@ class AssetChangeTest extends TestBase {
       result(0).date should equal (int2Date(1))
       result(0).endDate should equal (int2Date(3))
       result(0).resultingPosition.quantity should equal (7)
+      result(0).convertedTo should contain (ConvertedTo("a2", 7.0))
 
       result(1).date should equal (int2Date(3))
       result(1).previousPosition.quantity should equal (7)
@@ -565,6 +590,7 @@ class AssetChangeTest extends TestBase {
         sp.convertedToQuantity should equal (7.0)
       }
       result(1).resultingPosition.quantity should equal (0)
+      result(1).convertedTo should be (empty)
     }
 
     {
@@ -624,22 +650,35 @@ object AssetChangeTest {
     case class AssetChangeBuilder(seqBuilder: AssetChangesBuilder, assetChange: AssetChange) {
       def eventConvertedToSame(quantity: Int): AssetChangeBuilder = {
         require(sameNonZeroSigns(assetChange.previousPosition.signedQuantity, quantity))
+        require(seqBuilder.assetChanges.nonEmpty)
+
         val amount = Amount.fromSignedQuantityAndAverages(quantity, 1.00, 0.01)
-        val newAc = assetChange.withEventEffect(Some(EventEffect.SetPosition(amount, assetChange.asset, quantity)))
-        this.copy(assetChange = newAc)
+        eventConvertedTo(amount, assetChange.asset, quantity)
       }
 
       def eventConvertedToOther(otherAsset: String): AssetChangeBuilder = {
         require(otherAsset != seqBuilder.asset)
+
         val quantity = assetChange.previousPosition.signedQuantity
-        val newAc = assetChange.withEventEffect(Some(EventEffect.SetPosition(Amount.Zero, otherAsset, quantity)))
-        this.copy(assetChange = newAc)
+        eventConvertedTo(Amount.Zero, otherAsset, quantity)
+      }
+
+      private def eventConvertedTo(amount: Amount, asset: String, quantity: Double): AssetChangeBuilder = {
+        require(seqBuilder.assetChanges.nonEmpty)
+
+        val previousACs = seqBuilder.assetChanges
+        val newPreviousACs = previousACs.init :+ previousACs.last.withConvertedTo(Some(ConvertedTo(asset, quantity)))
+
+        this.copy(
+          seqBuilder = seqBuilder.copy(assetChanges = newPreviousACs),
+          assetChange = assetChange.withEventEffect(Some(EventEffect.SetPosition(amount, asset, quantity))),
+        )
       }
 
       def eventIncreasedQuantity(quantity: Int): AssetChangeBuilder = {
         require(quantity != 0)
         val amount = Amount.fromSignedQuantityAndAverages(quantity, 1.00, 0.01)
-        val newAc = assetChange.withEventEffect(Some(EventEffect.AddToPosition(amount)))
+        val newAc = assetChange.withEventEffect(Some(EventOutcome.AddToPosition(amount).toEffect))
         this.copy(assetChange = newAc)
       }
 

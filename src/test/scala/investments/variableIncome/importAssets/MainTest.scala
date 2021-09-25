@@ -1,7 +1,7 @@
 package sisgrana
 package investments.variableIncome.importAssets
 
-import investments.variableIncome.model.{Amount, StockbrokerAsset, TradeResult}
+import investments.variableIncome.model.{Amount, ConvertedTo, StockbrokerAsset, TradeResult}
 import java.time.LocalDate
 
 class MainTest extends TestBase {
@@ -11,6 +11,7 @@ class MainTest extends TestBase {
       events: Seq[Event],
       expectedPostEventPositions: Map[StockbrokerAsset, Amount],
       expectedEventTradeResults: Map[StockbrokerAsset, TradeResult],
+      expectedConversions: Map[StockbrokerAsset, ConvertedTo],
     )
 
     val cases = Table(
@@ -31,6 +32,7 @@ class MainTest extends TestBase {
           asset("X", "SB1") -> TradeResult.Zero,
           asset("X", "SB2") -> TradeResult.Zero,
         ),
+        expectedConversions = Map.empty,
       ),
       Case(
         previousPositions = Map(
@@ -48,25 +50,32 @@ class MainTest extends TestBase {
         expectedEventTradeResults = Map(
           asset("X") -> TradeResult.Zero,
           asset("Z") -> TradeResult.fromAverages(3, 20.00, 0.00, 2.00, 0.02),
-        )
+        ),
+        expectedConversions = Map(
+          asset("X") -> ConvertedTo("Z", -3.0),
+        ),
       ),
     )
 
     forAll(cases) { c =>
       assert(c.expectedPostEventPositions.keySet == c.expectedEventTradeResults.keySet)
 
-      val assetChanges =
-        Main.processDateChanges(DefaultDate, c.previousPositions, c.events, Seq.empty)
+      val (assetChanges, conversions) = Main.processDateChanges(DefaultDate, c.previousPositions, c.events, Seq.empty)
+
+      val assetChangesByStockbrokerAsset =
+        assetChanges
           .map(ac => ac.stockbrokerAsset -> ac)
           .toMap
 
-      assetChanges.keySet should equal (c.expectedPostEventPositions.keySet)
-      for (ac <- assetChanges.values) {
+      assetChangesByStockbrokerAsset.keySet should equal (c.expectedPostEventPositions.keySet)
+      for (ac <- assetChangesByStockbrokerAsset.values) {
         withClue(s"${ac.stockbrokerAsset}:") {
           ac.postEventPosition should equal (c.expectedPostEventPositions(ac.stockbrokerAsset))
           ac.eventTradeResult should equal (c.expectedEventTradeResults(ac.stockbrokerAsset))
         }
       }
+
+      conversions should equal (c.expectedConversions)
     }
   }
 
@@ -217,16 +226,18 @@ class MainTest extends TestBase {
     )
 
     forAll(cases) { c =>
-      val assetChanges =
-        Main.processDateChanges(DefaultDate, c.previousPositions, Seq.empty, c.brokerageNotes)
+      val (assetChanges, conversions) = Main.processDateChanges(DefaultDate, c.previousPositions, Seq.empty, c.brokerageNotes)
+
+      val assetChangesByStockbrokerAsset =
+        assetChanges
           .map(ac => ac.stockbrokerAsset -> ac)
           .toMap
 
-      assetChanges.keySet should equal (c.expectedResultingPositions.keySet)
-      c.expectedDayTradeResults.keySet shouldBe subsetOf (assetChanges.keySet)
-      c.expectedOperationsTradeResults.keySet shouldBe subsetOf (assetChanges.keySet)
+      assetChangesByStockbrokerAsset.keySet should equal (c.expectedResultingPositions.keySet)
+      c.expectedDayTradeResults.keySet shouldBe subsetOf (assetChangesByStockbrokerAsset.keySet)
+      c.expectedOperationsTradeResults.keySet shouldBe subsetOf (assetChangesByStockbrokerAsset.keySet)
 
-      for (ac <- assetChanges.values) {
+      for (ac <- assetChangesByStockbrokerAsset.values) {
         withClue(s"resultingPosition for ${ac.stockbrokerAsset}:") {
           ac.resultingPosition should equal (c.expectedResultingPositions(ac.stockbrokerAsset))
         }
@@ -239,6 +250,8 @@ class MainTest extends TestBase {
           ac.operationsTradeResult should equal (expectedOperationsTradeResults)
         }
       }
+
+      conversions should be (empty)
     }
   }
 

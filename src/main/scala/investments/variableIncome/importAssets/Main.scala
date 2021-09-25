@@ -70,20 +70,32 @@ object Main extends LocalDateSupport {
         if latestPosition.position.quantity != 0
       } yield stockbrokerAsset -> latestPosition.position
 
-    val assetChanges = processDateChanges(date, previousPositionByAsset, events, brokerageNotes)
+    val (assetChanges, conversions) = processDateChanges(date, previousPositionByAsset, events, brokerageNotes)
 
     for (ac <- assetChanges) {
+      if (conversions.contains(ac.stockbrokerAsset)) {
+        assert(latestPositions.contains(ac.stockbrokerAsset))
+      }
+
       for (latestPosition <- latestPositions.get(ac.stockbrokerAsset)) {
         if (!(latestPosition.date `isBefore` date)) {
           throw new Exception(s"Encontrado registro referente a ${ac.stockbrokerAsset} com data ${latestPosition.date}, que é igual ou posterior a $date")
         }
+
+        val conversionOpt = conversions.get(ac.stockbrokerAsset)
+        val convertedToAssetOpt = conversionOpt.map(_.asset)
+        val convertedToQuantityOpt = conversionOpt.map(_.quantity)
 
         ctx.run(
           query[AssetChange]
             .filter(_.asset == lift(ac.asset))
             .filter(_.stockbroker == lift(ac.stockbroker))
             .filter(_.date == lift(latestPosition.date))
-            .update(_.endDate -> lift(date))
+            .update(
+              _.endDate -> lift(date),
+              _.convertedToAsset -> lift(convertedToAssetOpt),
+              _.convertedToQuantity -> lift(convertedToQuantityOpt),
+            )
         )
       }
 
@@ -107,16 +119,16 @@ object Main extends LocalDateSupport {
     previousPositionByAsset: Map[StockbrokerAsset, Amount],
     events: Seq[Event],
     brokerageNotes: Seq[BrokerageNote],
-  ): Seq[AssetChange] = {
+  ): (Seq[AssetChange], Map[StockbrokerAsset, ConvertedTo]) = {
     def initializeAssetChange(stockbrokerAsset: StockbrokerAsset) =
       AssetChange
         .withZeroes(stockbrokerAsset, date)
         .withPreviousPosition(previousPositionByAsset.getOrElse(stockbrokerAsset, Amount.Zero))
 
-    val eventEffectByAsset = processEvents(previousPositionByAsset, events)
+    val eventOutcomeByAsset = processEvents(previousPositionByAsset, events)
     val postEventAssetChangesByAsset =
-      for ((stockbrokerAsset, eventEffect) <- eventEffectByAsset)
-        yield stockbrokerAsset -> initializeAssetChange(stockbrokerAsset).withEventEffect(Some(eventEffect))
+      for ((stockbrokerAsset, eventOutcome) <- eventOutcomeByAsset)
+        yield stockbrokerAsset -> initializeAssetChange(stockbrokerAsset).withEventEffect(Some(eventOutcome.toEffect))
 
     def postEventPosition(stockbrokerAsset: StockbrokerAsset): Option[Amount] =
       postEventAssetChangesByAsset.get(stockbrokerAsset).map(_.postEventPosition)
@@ -140,19 +152,24 @@ object Main extends LocalDateSupport {
         }
       }
 
-    postOperationsAssetChangesByAsset.values.toSeq
+    val conversions = eventOutcomeByAsset.collect {
+      case (stockbrokerAsset, EventOutcome.SetPosition(_, convertedToAsset, convertedToQuantity)) =>
+        stockbrokerAsset -> ConvertedTo(convertedToAsset, convertedToQuantity)
+    }
+
+    (postOperationsAssetChangesByAsset.values.toSeq, conversions)
   }
 
   private def processEvents(
     positionByAsset: Map[StockbrokerAsset, Amount],
     events: Seq[Event],
-  ): Map[StockbrokerAsset, EventEffect] =
+  ): Map[StockbrokerAsset, EventOutcome] =
     events
       .map { event =>
         val processor = new EventProcessor(event)
         processor.process(positionByAsset)
       }
-      .reduceOption(EventProcessor.mergeEffectsByAsset)
+      .reduceOption(EventProcessor.mergeOutcomeByAsset)
       .getOrElse(Map.empty)
 
   private def processBrokerageNote(

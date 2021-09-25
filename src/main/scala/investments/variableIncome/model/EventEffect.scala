@@ -13,11 +13,5 @@ object EventEffect {
 
   object AddToPosition {
     val Type = "AddToPosition"
-
-    def apply(amount: Amount): AddToPosition =
-      amount match {
-        case p@PurchaseAmount(_, _, _) => AddToPosition(p, SaleAmount.Zero)
-        case s@SaleAmount(_, _, _) => AddToPosition(PurchaseAmount.Zero, s)
-      }
   }
 }

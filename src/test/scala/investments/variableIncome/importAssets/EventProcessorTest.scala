@@ -1,7 +1,7 @@
 package sisgrana
 package investments.variableIncome.importAssets
 
-import investments.variableIncome.model.{Amount, EventEffect}
+import investments.variableIncome.model.Amount
 
 class EventProcessorTest extends TestBase {
   test("EventProcessor.processConversion()") {
@@ -9,7 +9,7 @@ class EventProcessorTest extends TestBase {
       (
         "conversion",
         "positions",
-        "expected effects",
+        "expected outcomes",
       ),
       (
         Event.Conversion("X", 1, "X", 4),
@@ -17,7 +17,7 @@ class EventProcessorTest extends TestBase {
           "X" -> Amount.fromSignedQuantityAndTotals(10, 40.00, 0.40),
         ),
         Map(
-          "X" -> EventEffect.SetPosition(
+          "X" -> EventOutcome.SetPosition(
             Amount.fromSignedQuantityAndTotals(40, 40.00, 0.40),
             convertedToAsset = "X",
             convertedToQuantity = 40.0,
@@ -30,7 +30,7 @@ class EventProcessorTest extends TestBase {
           "X" -> Amount.fromSignedQuantityAndTotals(-10, -40.00, 0.40),
         ),
         Map(
-          "X" -> EventEffect.SetPosition(
+          "X" -> EventOutcome.SetPosition(
             Amount.fromSignedQuantityAndTotals(-40, -40.00, 0.40),
             convertedToAsset = "X",
             convertedToQuantity = -40.0,
@@ -43,7 +43,7 @@ class EventProcessorTest extends TestBase {
           "X" -> Amount.fromSignedQuantityAndTotals(16, 40.00, 0.40),
         ),
         Map(
-          "X" -> EventEffect.SetPosition(
+          "X" -> EventOutcome.SetPosition(
             Amount.fromSignedQuantityAndTotals(4, 40.00, 0.40),
             convertedToAsset = "X",
             convertedToQuantity = 4.0,
@@ -56,7 +56,7 @@ class EventProcessorTest extends TestBase {
           "X" -> Amount.fromSignedQuantityAndAverages(15, 1.00, 0.10),
         ),
         Map(
-          "X" -> EventEffect.SetPosition(
+          "X" -> EventOutcome.SetPosition(
             Amount.fromSignedQuantityAndAverages(3, 4.00, 0.40),
             convertedToAsset = "X",
             convertedToQuantity = 3.75,
@@ -69,12 +69,12 @@ class EventProcessorTest extends TestBase {
           "X" -> Amount.fromSignedQuantityAndAverages(14, 1.50, 0.15),
         ),
         Map(
-          "X" -> EventEffect.SetPosition(
+          "X" -> EventOutcome.SetPosition(
             Amount.Zero,
             convertedToAsset = "Y",
             convertedToQuantity = 21,
           ),
-          "Y" -> EventEffect.AddToPosition(Amount.fromSignedQuantityAndAverages(21, 1.50 * 2 / 3, 0.15 * 2 / 3)),
+          "Y" -> EventOutcome.AddToPosition(Amount.fromSignedQuantityAndAverages(21, 1.50 * 2 / 3, 0.15 * 2 / 3)),
         ),
       ),
       (
@@ -83,20 +83,20 @@ class EventProcessorTest extends TestBase {
           "X" -> Amount.fromSignedQuantityAndAverages(15, 1.50, 0.15),
         ),
         Map(
-          "X" -> EventEffect.SetPosition(
+          "X" -> EventOutcome.SetPosition(
             Amount.Zero,
             convertedToAsset = "Y",
             convertedToQuantity = 22.5,
           ),
-          "Y" -> EventEffect.AddToPosition(Amount.fromSignedQuantityAndAverages(22, 1.50 * 2 / 3, 0.15 * 2 / 3)),
+          "Y" -> EventOutcome.AddToPosition(Amount.fromSignedQuantityAndAverages(22, 1.50 * 2 / 3, 0.15 * 2 / 3)),
         ),
       ),
     )
 
-    forAll(cases) { case (conversion, positions, expectedEffects) =>
-      val effects = EventProcessor.processConversion(conversion, positions)
+    forAll(cases) { case (conversion, positions, expectedOutcomes) =>
+      val outcomes = EventProcessor.processConversion(conversion, positions)
 
-      effects should equal (expectedEffects)
+      outcomes should equal (expectedOutcomes)
     }
   }
 
@@ -105,7 +105,7 @@ class EventProcessorTest extends TestBase {
       (
         "bonus",
         "positions",
-        "expected effects",
+        "expected outcomes",
       ),
       (
         Event.Bonus("X", 10, "X", 1, 1.00),
@@ -113,7 +113,7 @@ class EventProcessorTest extends TestBase {
           "X" -> Amount.fromSignedQuantityAndAverages(20, 2.00, 0.02),
         ),
         Map(
-          "X" -> EventEffect.AddToPosition(Amount.fromSignedQuantityAndAverages(2, 1.00, 0.00))
+          "X" -> EventOutcome.AddToPosition(Amount.fromSignedQuantityAndAverages(2, 1.00, 0.00))
         ),
       ),
       (
@@ -129,7 +129,7 @@ class EventProcessorTest extends TestBase {
           "X" -> Amount.fromSignedQuantityAndAverages(21, 2.00, 0.02),
         ),
         Map(
-          "X" -> EventEffect.AddToPosition(Amount.fromSignedQuantityAndAverages(2, 1.00, 0.00))
+          "X" -> EventOutcome.AddToPosition(Amount.fromSignedQuantityAndAverages(2, 1.00, 0.00))
         ),
       ),
       (
@@ -138,15 +138,15 @@ class EventProcessorTest extends TestBase {
           "X" -> Amount.fromSignedQuantityAndAverages(20, 2.00, 0.02),
         ),
         Map(
-          "Y" -> EventEffect.AddToPosition(Amount.fromSignedQuantityAndAverages(2, 1.00, 0.00))
+          "Y" -> EventOutcome.AddToPosition(Amount.fromSignedQuantityAndAverages(2, 1.00, 0.00))
         ),
       ),
     )
 
-    forAll(cases) { case (bonus, positions, expectedEffects) =>
-      val effects = EventProcessor.processBonus(bonus, positions)
+    forAll(cases) { case (bonus, positions, expectedOutcomes) =>
+      val outcomes = EventProcessor.processBonus(bonus, positions)
 
-      effects should equal (expectedEffects)
+      outcomes should equal (expectedOutcomes)
     }
   }
 }

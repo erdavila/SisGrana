@@ -39,6 +39,9 @@ CREATE TABLE IF NOT EXISTS asset_change(
     resulting_position_average_price NUMERIC NOT NULL,
     resulting_position_average_cost NUMERIC NOT NULL,
 
+    converted_to_asset TEXT NULL,
+    converted_to_quantity NUMERIC NULL,
+
     PRIMARY KEY (date, asset, stockbroker)
 );
 

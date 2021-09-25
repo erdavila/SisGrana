@@ -4,7 +4,7 @@ package investments.variableIncome.model
 import investments.variableIncome.model.ctx._
 import java.time.LocalDate
 import scala.annotation.tailrec
-import utils.{DateRange, DateRanges, oppositeSigns}
+import utils.{DateRange, DateRanges, oppositeSigns, sameNonZeroSigns}
 
 // TODO: rename to AssetPeriod
 // TODO: search for and rename everything that contains "change"
@@ -49,8 +49,8 @@ case class AssetChange(
   resultingPositionAveragePrice: Double,
   resultingPositionAverageCost: Double,
 
-  // TODO: add convertedToAsset: Option[String],
-  // TODO: add convertedToQuantity: Option[Double],
+  convertedToAsset: Option[String],
+  convertedToQuantity: Option[Double],
 ) {
   // Requirements are delegated to the other case classes requirements
 
@@ -149,6 +149,15 @@ case class AssetChange(
   lazy val swingTradeResult: TradeResult =
     eventTradeResult + operationsTradeResult
 
+  val convertedTo: Option[ConvertedTo] = {
+    require(convertedToAsset.isDefined == convertedToQuantity.isDefined)
+    for {
+      asset <- convertedToAsset
+      quantity <- convertedToQuantity
+      _ = assert(sameNonZeroSigns(resultingPositionQuantity, quantity))
+    } yield ConvertedTo(asset, quantity)
+  }
+
   def withPreviousPosition(previousPosition: Amount): AssetChange =
     this.copy(
       previousPositionQuantity = previousPosition.signedQuantity,
@@ -230,6 +239,12 @@ case class AssetChange(
       resultingPositionAveragePrice = resultingPosition.averagePrice,
       resultingPositionAverageCost = resultingPosition.averageCost,
     )
+
+  def withConvertedTo(convertedTo: Option[ConvertedTo]): AssetChange =
+    this.copy(
+      convertedToAsset = convertedTo.map(_.asset),
+      convertedToQuantity = convertedTo.map(_.quantity),
+    )
 }
 
 object AssetChange extends LocalDateSupport {
@@ -253,6 +268,7 @@ object AssetChange extends LocalDateSupport {
       saleQuantity = 0, saleAveragePrice = 0.0, saleAverageCost = 0.0,
       exercisedQuantity = 0,
       resultingPositionQuantity = 0, resultingPositionAveragePrice = 0.0, resultingPositionAverageCost = 0.0,
+      convertedToAsset = None, convertedToQuantity = None,
     )
 
   //noinspection TypeAnnotation
