@@ -1,7 +1,6 @@
 package sisgrana
 package investments.variableIncome.importQuotes
 
-import investments.variableIncome.importQuotes.FilesProcessor.allAssetsChangesToDateRanges
 import investments.variableIncome.model._
 import investments.variableIncome.model.ctx._
 import java.io.InputStream
@@ -127,12 +126,25 @@ class FilesProcessor extends LocalDateSupport {
     )
   }
 
-  private def makeAssetsDateRanges(minDate: LocalDate, maxDate: LocalDate): Map[String, DateRanges] = {
-    val beforeRange = ctx.run(AssetChange.latestAssetChangesAtDateQuery(minDate.minusDays(1)))
-    val inRange = ctx.run(query[AssetChange].filter(ac => ac.date >= lift(minDate) && ac.date <= lift(maxDate)))
-    val result = beforeRange ++ inRange
+  private[importQuotes] def makeAssetsDateRanges(minDate: LocalDate, maxDate: LocalDate): Map[String, DateRanges] = {
+    val assetChanges =
+      ctx.run(
+        AssetChange.betweenDatesQuery(minDate, maxDate)
+          .filter(_.resultingPositionQuantity != 0)
+      )
 
-    allAssetsChangesToDateRanges(result, minDate, maxDate)
+    val dateRanges = DateRanges.from(Seq(DateRange(minDate, maxDate)))
+
+    assetChanges
+      .flatMap { ac =>
+        val convertedToAsset =
+          for (ct <- ac.convertedTo)
+            yield ct.asset -> DateRange(ac.endDate, ac.endDate)
+        Some(ac.asset -> ac.dateRange) ++ convertedToAsset
+      }
+      .groupMap(_._1)(_._2)
+      .view.mapValues(drs => DateRanges.from(drs) `intersect` dateRanges)
+      .to(Map)
   }
 
   private def processZipFile(multiFile: MultiFile, inputStream: InputStream): Unit =
@@ -146,41 +158,4 @@ class FilesProcessor extends LocalDateSupport {
         entry = stream.getNextEntry
       }
     }
-}
-
-object FilesProcessor {
-  private[importQuotes] def allAssetsChangesToDateRanges(
-    assetChanges: Seq[AssetChange],
-    minDate: LocalDate,
-    maxDate: LocalDate,
-  ): Map[String, DateRanges] = {
-    val dateRangeByAsset = assetChanges
-      .groupBy(_.stockbrokerAsset)
-      .view.mapValues(assetChanges =>
-        AssetChange.toDateRanges(assetChanges.sortBy(_.date), minDate, maxDate)
-      )
-      .groupMapReduce
-        { case (stockbrokerAsset, _) => stockbrokerAsset.asset }
-        { case (_, dateRanges) => dateRanges }
-        { _ `union` _}
-
-    val convertedToAssets =
-      for {
-        ac <- assetChanges
-        convertedToAsset <- ac.eventEffect.collect {
-          case EventEffect.SetPosition(_, convertedToAsset, convertedToQuantity) if convertedToQuantity != 0.0 =>
-            convertedToAsset
-        }
-      } yield (convertedToAsset, ac.date)
-
-    convertedToAssets.foldLeft(dateRangeByAsset) { case (dateRangeByAsset, (asset, conversionDate)) =>
-      val conversionDateRange = DateRange(conversionDate, conversionDate)
-      val conversionDateRanges = DateRanges.from(Seq(conversionDateRange))
-
-      dateRangeByAsset.updatedWith(asset) {
-        case Some(dateRanges) => Some(dateRanges `union` conversionDateRanges)
-        case None => Some(conversionDateRanges)
-      }
-    }
-  }
 }

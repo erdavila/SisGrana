@@ -57,6 +57,9 @@ case class AssetChange(
   lazy val stockbrokerAsset: StockbrokerAsset =
     StockbrokerAsset(stockbroker, asset)
 
+  lazy val dateRange: DateRange =
+    DateRange(date, endDate)
+
   val previousPosition: Amount =
     Amount.fromSignedQuantityAndAverages(
       previousPositionQuantity,
@@ -269,6 +272,14 @@ object AssetChange extends LocalDateSupport {
       exercisedQuantity = 0,
       resultingPositionQuantity = 0, resultingPositionAveragePrice = 0.0, resultingPositionAverageCost = 0.0,
       convertedToAsset = None, convertedToQuantity = None,
+    )
+
+  //noinspection TypeAnnotation
+  def betweenDatesQuery(minDate: LocalDate, maxDate: LocalDate) =
+    ctx.quote(
+      query[AssetChange]
+        .filter(_.date <= lift(maxDate))
+        .filter(_.endDate >= lift(minDate))
     )
 
   //noinspection TypeAnnotation

@@ -2,12 +2,13 @@ package sisgrana
 package investments.variableIncome.importQuotes
 
 import investments.variableIncome.model.AssetChangeTest.DSL._
+import investments.variableIncome.model.Persisted
 import utils.DateRange.Mode.FullDay
 import utils.DateRangeTest.int2Date
 import utils.{DateRange, DateRanges}
 
-class FilesProcessorTest extends TestBase {
-  test(".allAssetsChangesToDateRanges()") {
+class FilesProcessorTest extends TestBase with Persisted {
+  test(".makeAssetsDateRanges()") {
     val MaxDate = 10
 
     def ranges(pairs: (Int, Int)*): DateRanges =
@@ -61,8 +62,12 @@ class FilesProcessorTest extends TestBase {
       ),
     )
 
+    val filesProcessor = new FilesProcessor
+
     forAll(cases) { (assetChanges, expectedDateRanges) =>
-      val result = FilesProcessor.allAssetsChangesToDateRanges(assetChanges, minDate = 0, MaxDate)
+      persisted(assetChanges)
+
+      val result = filesProcessor.makeAssetsDateRanges(minDate = 0, MaxDate)
       result should equal (expectedDateRanges)
     }
   }
