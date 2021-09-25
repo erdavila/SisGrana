@@ -73,9 +73,20 @@ object Main extends LocalDateSupport {
     val assetChanges = processDateChanges(date, previousPositionByAsset, events, brokerageNotes)
 
     for (ac <- assetChanges) {
-      latestPositions.get(ac.stockbrokerAsset).filterNot(_.date `isBefore` date).foreach(position =>
-        throw new Exception(s"Encontrado registro referente a ${ac.stockbrokerAsset} com data ${position.date}, que é igual ou posterior a $date")
-      )
+      for (latestPosition <- latestPositions.get(ac.stockbrokerAsset)) {
+        if (!(latestPosition.date `isBefore` date)) {
+          throw new Exception(s"Encontrado registro referente a ${ac.stockbrokerAsset} com data ${latestPosition.date}, que é igual ou posterior a $date")
+        }
+
+        ctx.run(
+          query[AssetChange]
+            .filter(_.asset == lift(ac.asset))
+            .filter(_.stockbroker == lift(ac.stockbroker))
+            .filter(_.date == lift(latestPosition.date))
+            .update(_.endDate -> lift(date))
+        )
+      }
+
       ctx.run(query[AssetChange].insert(lift(ac)))
     }
   }

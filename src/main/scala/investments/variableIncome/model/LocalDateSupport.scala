@@ -27,3 +27,5 @@ trait LocalDateSupport {
     def >=(other: LocalDate) = quote(infix"$localDate >= $other".asCondition)
   }
 }
+
+object LocalDateSupport extends LocalDateSupport

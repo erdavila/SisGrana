@@ -1,7 +1,9 @@
 CREATE TABLE IF NOT EXISTS asset_change(
     asset TEXT NOT NULL,
     stockbroker TEXT NOT NULL,
+
     date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
 
     previous_position_quantity INTEGER NOT NULL,
     previous_position_average_price NUMERIC NOT NULL,

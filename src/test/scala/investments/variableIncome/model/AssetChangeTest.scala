@@ -3,6 +3,7 @@ package investments.variableIncome.model
 
 import investments.variableIncome.model.AssetChangeTest.DSL._
 import java.time.LocalDate
+import org.scalatest.Inside.inside
 import scala.language.implicitConversions
 import utils.DateRangeTest.int2Date
 import utils.{DateRange, sameNonZeroSigns}
@@ -500,6 +501,102 @@ class AssetChangeTest extends TestBase {
       withMode(c.expectedFullDayDateRanges)(DateRange.Mode.FullDay)
     }
   }
+
+  //noinspection ZeroIndexToHead
+  test("AssetChangesBuilder") {
+    {
+      val result = assetChangesFor()(_
+        .on(1).resultingQuantity(3)
+        .on(3).resultingQuantity(7)
+      )
+
+      result should have length 2
+
+      result(0).date should equal (int2Date(1))
+      result(0).endDate should equal (int2Date(3))
+      result(0).previousPosition.quantity should equal (0)
+      result(0).purchaseAmount.quantity should equal (3)
+      result(0).resultingPosition.quantity should equal (3)
+
+      result(1).date should equal (int2Date(3))
+      result(1).previousPosition.quantity should equal (3)
+      result(1).purchaseAmount.quantity should equal (4)
+      result(1).resultingPosition.quantity should equal (7)
+    }
+
+    {
+      val result = assetChangesFor("a1")(_
+        .on(1).resultingQuantity(7)
+        .on(3).eventConvertedToSame(14)
+      )
+
+      result should have length 2
+
+      result(0).date should equal (int2Date(1))
+      result(0).endDate should equal (int2Date(3))
+      result(0).resultingPosition.quantity should equal (7)
+
+      result(1).date should equal (int2Date(3))
+      inside(result(1).eventEffect) { case Some(sp@ EventEffect.SetPosition(_, _, _)) =>
+        sp.position.quantity should equal (14)
+        sp.convertedToAsset should equal ("a1")
+        sp.convertedToQuantity should equal (14.0)
+      }
+      result(1).resultingPosition.quantity should equal (14)
+    }
+
+    {
+      val result = assetChangesFor("a1")(_
+        .on(1).resultingQuantity(7)
+        .on(3).eventConvertedToOther("a2")
+      )
+
+      result should have length 2
+
+      result(0).date should equal (int2Date(1))
+      result(0).endDate should equal (int2Date(3))
+      result(0).resultingPosition.quantity should equal (7)
+
+      result(1).date should equal (int2Date(3))
+      result(1).previousPosition.quantity should equal (7)
+      inside(result(1).eventEffect) { case Some(sp@ EventEffect.SetPosition(_, _, _)) =>
+        sp.position.quantity should equal (0)
+        sp.convertedToAsset should equal ("a2")
+        sp.convertedToQuantity should equal (7.0)
+      }
+      result(1).resultingPosition.quantity should equal (0)
+    }
+
+    {
+      val result = assetChangesFor()(_
+        .on(1).resultingQuantity(3)
+        .on(3).eventIncreasedQuantity(4)
+        .on(5).eventIncreasedQuantity(2).resultingQuantity(10)
+      )
+
+      result should have length 3
+
+      result(0).date should equal (int2Date(1))
+      result(0).endDate should equal (int2Date(3))
+      result(0).resultingPosition.quantity should equal (3)
+
+      result(1).date should equal (int2Date(3))
+      result(1).endDate should equal (int2Date(5))
+      result(1).previousPosition.quantity should equal (3)
+      inside(result(1).eventEffect) { case Some(atp@ EventEffect.AddToPosition(_, _)) =>
+        atp.increaseAmount.quantity should equal (4)
+      }
+      result(1).resultingPosition.quantity should equal (7)
+
+      result(2).date should equal (int2Date(5))
+      result(2).previousPosition.quantity should equal (7)
+      inside(result(2).eventEffect) { case Some(atp@ EventEffect.AddToPosition(_, _)) =>
+        atp.increaseAmount.quantity should equal (2)
+      }
+      result(2).purchaseAmount.quantity should equal (1)
+      result(2).resultingPosition.quantity should equal (10)
+    }
+  }
 }
 
 object AssetChangeTest {
@@ -507,15 +604,20 @@ object AssetChangeTest {
   object DSL {
     val NonZero = 999
 
-    case class AssetChangesBuilder(asset: String, stockbroker: String, assetChanges: Vector[AssetChange], previousResultingQuantity: Int) {
+    case class AssetChangesBuilder(asset: String, stockbroker: String, assetChanges: Vector[AssetChange]) {
       def noChanges: AssetChangesBuilder = this
 
       def on(date: LocalDate): AssetChangeBuilder = {
-        val previousPosition = Amount.fromSignedQuantityAndAverages(previousResultingQuantity, math.abs(previousResultingQuantity), math.abs(previousResultingQuantity) / 100.0)
+        val (previousPosition, seqBuilder) = assetChanges match {
+          case init :+ last => (last.resultingPosition, this.copy(assetChanges = init :+ last.copy(endDate = date)))
+          case _ => (Amount.Zero, this)
+        }
+
         val ac = AssetChange
           .withZeroes(asset, stockbroker, date)
           .withPreviousPosition(previousPosition)
-        AssetChangeBuilder(this, ac)
+
+        AssetChangeBuilder(seqBuilder, ac)
       }
     }
 
@@ -559,20 +661,12 @@ object AssetChangeTest {
         this.copy(assetChange = newAc)
       }
 
-      def on(date: LocalDate): AssetChangeBuilder = {
-        val newSeqBuilder = done()
-        newSeqBuilder.on(date)
-      }
-
       private[AssetChangeTest] def done(): AssetChangesBuilder =
-        seqBuilder.copy(
-          assetChanges = seqBuilder.assetChanges :+ assetChange,
-          previousResultingQuantity = assetChange.resultingPosition.signedQuantity,
-        )
+        seqBuilder.copy(assetChanges = seqBuilder.assetChanges :+ assetChange)
     }
 
     def assetChangesFor(asset: String = "asset", stockbroker: String = "stockbroker")(f: AssetChangesBuilder => AssetChangesBuilder): Seq[AssetChange] = {
-      val initialBuilder = AssetChangesBuilder(asset, stockbroker, Vector.empty, 0)
+      val initialBuilder = AssetChangesBuilder(asset, stockbroker, Vector.empty)
       val builder = f(initialBuilder)
       builder.assetChanges
     }

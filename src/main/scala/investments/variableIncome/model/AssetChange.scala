@@ -13,7 +13,7 @@ case class AssetChange(
   stockbroker: String,
 
   date: LocalDate, // TODO: rename to beginDate
-  // TODO: add endDate: LocalDate,
+  endDate: LocalDate,
 
   previousPositionQuantity: Int,
   previousPositionAveragePrice: Double,
@@ -233,12 +233,16 @@ case class AssetChange(
 }
 
 object AssetChange extends LocalDateSupport {
-  def withZeroes(stockbrokerAsset: StockbrokerAsset, date: LocalDate): AssetChange =
-    withZeroes(stockbrokerAsset.asset, stockbrokerAsset.stockbroker, date)
+  def withZeroes(stockbrokerAsset: StockbrokerAsset, beginDate: LocalDate): AssetChange =
+    withZeroes(stockbrokerAsset, beginDate, LocalDateSupport.MaxDate)
 
-  def withZeroes(asset: String, stockbroker: String, date: LocalDate): AssetChange =
+  def withZeroes(stockbrokerAsset: StockbrokerAsset, beginDate: LocalDate, endDate: LocalDate): AssetChange =
+    withZeroes(stockbrokerAsset.asset, stockbrokerAsset.stockbroker, beginDate, endDate)
+
+  def withZeroes(asset: String, stockbroker: String, beginDate: LocalDate, endDate: LocalDate = LocalDateSupport.MaxDate): AssetChange =
     AssetChange(
-      asset, stockbroker, date,
+      asset, stockbroker,
+      beginDate, endDate,
       previousPositionQuantity = 0, previousPositionAveragePrice = 0.0, previousPositionAverageCost = 0.0,
       eventEffectType = None,
       eventSetPositionQuantity = 0, eventSetPositionAveragePrice = 0.0, eventSetPositionAverageCost = 0.0,
