@@ -127,20 +127,20 @@ class FilesProcessor extends LocalDateSupport {
   }
 
   private[importQuotes] def makeAssetsDateRanges(minDate: LocalDate, maxDate: LocalDate): Map[String, DateRanges] = {
-    val assetChanges =
+    val assetPeriods =
       ctx.run(
-        AssetChange.betweenDatesQuery(minDate, maxDate)
+        AssetPeriod.betweenDatesQuery(minDate, maxDate)
           .filter(_.resultingPositionQuantity != 0)
       )
 
     val dateRanges = DateRanges.from(Seq(DateRange(minDate, maxDate)))
 
-    assetChanges
-      .flatMap { ac =>
+    assetPeriods
+      .flatMap { ap =>
         val convertedToAsset =
-          for (ct <- ac.convertedTo)
-            yield ct.asset -> DateRange(ac.endDate, ac.endDate)
-        Some(ac.asset -> ac.dateRange) ++ convertedToAsset
+          for (ct <- ap.convertedTo)
+            yield ct.asset -> DateRange(ap.endDate, ap.endDate)
+        Some(ap.asset -> ap.dateRange) ++ convertedToAsset
       }
       .groupMap(_._1)(_._2)
       .view.mapValues(drs => DateRanges.from(drs) `intersect` dateRanges)

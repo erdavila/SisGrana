@@ -5,13 +5,11 @@ import investments.variableIncome.model.ctx._
 import java.time.LocalDate
 import utils.{DateRange, oppositeSigns, sameNonZeroSigns}
 
-// TODO: rename to AssetPeriod
-// TODO: search for and rename everything that contains "change"
-case class AssetChange(
+case class AssetPeriod(
   asset: String,
   stockbroker: String,
 
-  date: LocalDate, // TODO: rename to beginDate
+  beginDate: LocalDate,
   endDate: LocalDate,
 
   previousPositionQuantity: Int,
@@ -55,7 +53,7 @@ case class AssetChange(
     StockbrokerAsset(stockbroker, asset)
 
   lazy val dateRange: DateRange =
-    DateRange(date, endDate)
+    DateRange(beginDate, endDate)
 
   val previousPosition: Amount =
     Amount.fromSignedQuantityAndAverages(
@@ -158,14 +156,14 @@ case class AssetChange(
     } yield ConvertedTo(asset, quantity)
   }
 
-  def withPreviousPosition(previousPosition: Amount): AssetChange =
+  def withPreviousPosition(previousPosition: Amount): AssetPeriod =
     this.copy(
       previousPositionQuantity = previousPosition.signedQuantity,
       previousPositionAveragePrice = previousPosition.averagePrice,
       previousPositionAverageCost = previousPosition.averageCost
     ).withSyncedResultingPositionFields()
 
-  def withEventEffect(eventEffect: Option[EventEffect]): AssetChange =
+  def withEventEffect(eventEffect: Option[EventEffect]): AssetPeriod =
     eventEffect match {
       case Some(EventEffect.SetPosition(pos)) =>
         this.copy(eventEffectType = Some(EventEffect.SetPosition.Type))
@@ -187,42 +185,42 @@ case class AssetChange(
           .withSyncedResultingPositionFields()
     }
 
-  private def withEventSetPositionAndNonSyncedResultingPosition(eventSetPosition: Amount): AssetChange =
+  private def withEventSetPositionAndNonSyncedResultingPosition(eventSetPosition: Amount): AssetPeriod =
     this.copy(
       eventSetPositionQuantity = eventSetPosition.signedQuantity,
       eventSetPositionAveragePrice = eventSetPosition.averagePrice,
       eventSetPositionAverageCost = eventSetPosition.averageCost,
     )
 
-  private def withEventIncreaseAmountAndNonSyncedResultingPosition(eventIncreaseAmount: PurchaseAmount): AssetChange =
+  private def withEventIncreaseAmountAndNonSyncedResultingPosition(eventIncreaseAmount: PurchaseAmount): AssetPeriod =
     this.copy(
       eventIncreaseQuantity = eventIncreaseAmount.quantity,
       eventIncreaseAveragePrice = eventIncreaseAmount.averagePrice,
       eventIncreaseAverageCost = eventIncreaseAmount.averageCost,
     )
 
-  private def withEventDecreaseAmountAndNonSyncedResultingPosition(eventDecreaseAmount: SaleAmount): AssetChange =
+  private def withEventDecreaseAmountAndNonSyncedResultingPosition(eventDecreaseAmount: SaleAmount): AssetPeriod =
     this.copy(
       eventDecreaseQuantity = eventDecreaseAmount.quantity,
       eventDecreaseAveragePrice = eventDecreaseAmount.averagePrice,
       eventDecreaseAverageCost = eventDecreaseAmount.averageCost,
     )
 
-  def withPurchaseAmount(purchaseAmount: PurchaseAmount): AssetChange =
+  def withPurchaseAmount(purchaseAmount: PurchaseAmount): AssetPeriod =
     this.copy(
       purchaseQuantity = purchaseAmount.quantity,
       purchaseAveragePrice = purchaseAmount.averagePrice,
       purchaseAverageCost = purchaseAmount.averageCost,
     ).withSyncedResultingPositionFields()
 
-  def withSaleAmount(saleAmount: SaleAmount): AssetChange =
+  def withSaleAmount(saleAmount: SaleAmount): AssetPeriod =
     this.copy(
       saleQuantity = saleAmount.quantity,
       saleAveragePrice = saleAmount.averagePrice,
       saleAverageCost = saleAmount.averageCost,
     ).withSyncedResultingPositionFields()
 
-  def withExercisedQuantity(exercisedQuantity: Int): AssetChange =
+  def withExercisedQuantity(exercisedQuantity: Int): AssetPeriod =
     this.copy(
       exercisedQuantity = exercisedQuantity,
     ).withSyncedResultingPositionFields()
@@ -234,22 +232,22 @@ case class AssetChange(
       resultingPositionAverageCost = resultingPosition.averageCost,
     )
 
-  def withConvertedTo(convertedTo: Option[ConvertedTo]): AssetChange =
+  def withConvertedTo(convertedTo: Option[ConvertedTo]): AssetPeriod =
     this.copy(
       convertedToAsset = convertedTo.map(_.asset),
       convertedToQuantity = convertedTo.map(_.quantity),
     )
 }
 
-object AssetChange extends LocalDateSupport {
-  def withZeroes(stockbrokerAsset: StockbrokerAsset, beginDate: LocalDate): AssetChange =
+object AssetPeriod extends LocalDateSupport {
+  def withZeroes(stockbrokerAsset: StockbrokerAsset, beginDate: LocalDate): AssetPeriod =
     withZeroes(stockbrokerAsset, beginDate, LocalDateSupport.MaxDate)
 
-  def withZeroes(stockbrokerAsset: StockbrokerAsset, beginDate: LocalDate, endDate: LocalDate): AssetChange =
+  def withZeroes(stockbrokerAsset: StockbrokerAsset, beginDate: LocalDate, endDate: LocalDate): AssetPeriod =
     withZeroes(stockbrokerAsset.asset, stockbrokerAsset.stockbroker, beginDate, endDate)
 
-  def withZeroes(asset: String, stockbroker: String, beginDate: LocalDate, endDate: LocalDate = LocalDateSupport.MaxDate): AssetChange =
-    AssetChange(
+  def withZeroes(asset: String, stockbroker: String, beginDate: LocalDate, endDate: LocalDate = LocalDateSupport.MaxDate): AssetPeriod =
+    AssetPeriod(
       asset, stockbroker,
       beginDate, endDate,
       previousPositionQuantity = 0, previousPositionAveragePrice = 0.0, previousPositionAverageCost = 0.0,
@@ -267,8 +265,8 @@ object AssetChange extends LocalDateSupport {
   //noinspection TypeAnnotation
   def betweenDatesQuery(minDate: LocalDate, maxDate: LocalDate) =
     ctx.quote(
-      query[AssetChange]
-        .filter(_.date <= lift(maxDate))
+      query[AssetPeriod]
+        .filter(_.beginDate <= lift(maxDate))
         .filter(_.endDate >= lift(minDate))
     )
 }

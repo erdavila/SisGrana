@@ -18,8 +18,8 @@ object Main extends LocalDateSupport {
 
   def showAssetsAtDate(date: LocalDate, printer: IndentedPrinter = new IndentedPrinter): Unit = {
     val result = ctx.run(
-      query[AssetChange]
-        .filter(_.date <= lift(date))
+      query[AssetPeriod]
+        .filter(_.beginDate <= lift(date))
         .filter(lift(date) < _.endDate)
         .filter(_.resultingPositionQuantity != 0)
     )
@@ -29,12 +29,12 @@ object Main extends LocalDateSupport {
       else s"Ativos em $date"
 
     printer.context(text) {
-      for ((stockbroker, assetChanges) <- result.groupBy(_.stockbroker).toIndexedSeq.sortBy(_._1)) {
+      for ((stockbroker, assetPeriods) <- result.groupBy(_.stockbroker).toIndexedSeq.sortBy(_._1)) {
         printer.context(stockbroker) {
-          for (ac <- assetChanges.sortBy(_.asset)) {
-            val position = ac.resultingPosition
-            val tag = typeTag(ac.asset).fold("")(text => s" [$text]")
-            printer.println(s"${ac.asset}: ${position.signedQuantity} x ${BrNumber.formatMoney(position.averagePriceWithCost)} = ${BrNumber.formatMoney(position.signedNetValue)}$tag")
+          for (ap <- assetPeriods.sortBy(_.asset)) {
+            val position = ap.resultingPosition
+            val tag = typeTag(ap.asset).fold("")(text => s" [$text]")
+            printer.println(s"${ap.asset}: ${position.signedQuantity} x ${BrNumber.formatMoney(position.averagePriceWithCost)} = ${BrNumber.formatMoney(position.signedNetValue)}$tag")
           }
         }
       }

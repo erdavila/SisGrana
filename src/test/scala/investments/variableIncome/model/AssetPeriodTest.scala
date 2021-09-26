@@ -2,15 +2,15 @@ package sisgrana
 package investments.variableIncome.model
 
 import investments.variableIncome.importAssets.EventOutcome
-import investments.variableIncome.model.AssetChangeTest.DSL._
+import investments.variableIncome.model.AssetPeriodTest.DSL._
 import java.time.LocalDate
 import org.scalatest.Inside.inside
 import scala.language.implicitConversions
 import utils.DateRangeTest.int2Date
 import utils.sameNonZeroSigns
 
-class AssetChangeTest extends TestBase {
-  private val ZeroAssetChange = AssetChange.withZeroes("asset", "stockbroker", LocalDate.now())
+class AssetPeriodTest extends TestBase {
+  private val ZeroAssetPeriod = AssetPeriod.withZeroes("asset", "stockbroker", LocalDate.now())
 
   test("previousPosition, withPreviousPosition(), and fields") {
     val cases = Table(
@@ -21,32 +21,32 @@ class AssetChangeTest extends TestBase {
     )
 
     forAll(cases) { previousPosition =>
-      val assetChange = ZeroAssetChange.withPreviousPosition(previousPosition)
+      val assetPeriod = ZeroAssetPeriod.withPreviousPosition(previousPosition)
 
-      assetChange.previousPosition should equal (previousPosition)
-      assetChange.previousPositionQuantity should equal (previousPosition.signedQuantity)
-      assetChange.previousPositionAveragePrice should equal (previousPosition.averagePrice)
-      assetChange.previousPositionAverageCost should equal (previousPosition.averageCost)
+      assetPeriod.previousPosition should equal (previousPosition)
+      assetPeriod.previousPositionQuantity should equal (previousPosition.signedQuantity)
+      assetPeriod.previousPositionAveragePrice should equal (previousPosition.averagePrice)
+      assetPeriod.previousPositionAverageCost should equal (previousPosition.averageCost)
     }
   }
 
   test("None: eventEffect, withEventEffect(), and fields") {
-    val assetChange = ZeroAssetChange.withEventEffect(None)
+    val assetPeriod = ZeroAssetPeriod.withEventEffect(None)
 
-    assetChange.eventEffect shouldBe empty
-    assetChange.eventSetPosition should equal (PurchaseAmount.Zero)
-    assetChange.eventIncreaseAmount should equal (PurchaseAmount.Zero)
-    assetChange.eventDecreaseAmount should equal (SaleAmount.Zero)
-    assetChange.eventEffectType shouldBe empty
-    assetChange.eventSetPositionQuantity should equal (0)
-    assetChange.eventSetPositionAveragePrice should equal (0.0)
-    assetChange.eventSetPositionAverageCost should equal (0.0)
-    assetChange.eventIncreaseQuantity should equal (0)
-    assetChange.eventIncreaseAveragePrice should equal (0.0)
-    assetChange.eventIncreaseAverageCost should equal (0.0)
-    assetChange.eventDecreaseQuantity should equal (0)
-    assetChange.eventDecreaseAveragePrice should equal (0.0)
-    assetChange.eventDecreaseAverageCost should equal (0.0)
+    assetPeriod.eventEffect shouldBe empty
+    assetPeriod.eventSetPosition should equal (PurchaseAmount.Zero)
+    assetPeriod.eventIncreaseAmount should equal (PurchaseAmount.Zero)
+    assetPeriod.eventDecreaseAmount should equal (SaleAmount.Zero)
+    assetPeriod.eventEffectType shouldBe empty
+    assetPeriod.eventSetPositionQuantity should equal (0)
+    assetPeriod.eventSetPositionAveragePrice should equal (0.0)
+    assetPeriod.eventSetPositionAverageCost should equal (0.0)
+    assetPeriod.eventIncreaseQuantity should equal (0)
+    assetPeriod.eventIncreaseAveragePrice should equal (0.0)
+    assetPeriod.eventIncreaseAverageCost should equal (0.0)
+    assetPeriod.eventDecreaseQuantity should equal (0)
+    assetPeriod.eventDecreaseAveragePrice should equal (0.0)
+    assetPeriod.eventDecreaseAverageCost should equal (0.0)
   }
 
   test("eventSetPosition, eventEffect, eventConvertedTo*, withEventEffect(), and fields") {
@@ -58,14 +58,14 @@ class AssetChangeTest extends TestBase {
     )
 
     forAll(cases) { eventEffect =>
-      val assetChange = ZeroAssetChange.withEventEffect(Some(eventEffect))
+      val assetPeriod = ZeroAssetPeriod.withEventEffect(Some(eventEffect))
 
-      assetChange.eventEffect should contain (eventEffect)
-      assetChange.eventSetPosition should equal (eventEffect.position)
-      assetChange.eventEffectType should contain (EventEffect.SetPosition.Type)
-      assetChange.eventSetPositionQuantity should equal (eventEffect.position.signedQuantity)
-      assetChange.eventSetPositionAveragePrice should equal (eventEffect.position.averagePrice)
-      assetChange.eventSetPositionAverageCost should equal (eventEffect.position.averageCost)
+      assetPeriod.eventEffect should contain (eventEffect)
+      assetPeriod.eventSetPosition should equal (eventEffect.position)
+      assetPeriod.eventEffectType should contain (EventEffect.SetPosition.Type)
+      assetPeriod.eventSetPositionQuantity should equal (eventEffect.position.signedQuantity)
+      assetPeriod.eventSetPositionAveragePrice should equal (eventEffect.position.averagePrice)
+      assetPeriod.eventSetPositionAverageCost should equal (eventEffect.position.averageCost)
     }
   }
 
@@ -83,18 +83,18 @@ class AssetChangeTest extends TestBase {
     )
 
     forAll(cases) { eventEffect =>
-      val assetChange = ZeroAssetChange.withEventEffect(Some(eventEffect))
+      val assetPeriod = ZeroAssetPeriod.withEventEffect(Some(eventEffect))
 
-      assetChange.eventEffect should contain (eventEffect)
-      assetChange.eventIncreaseAmount should equal (eventEffect.increaseAmount)
-      assetChange.eventDecreaseAmount should equal (eventEffect.decreaseAmount)
-      assetChange.eventEffectType should contain (EventEffect.AddToPosition.Type)
-      assetChange.eventIncreaseQuantity should equal (eventEffect.increaseAmount.quantity)
-      assetChange.eventIncreaseAveragePrice should equal (eventEffect.increaseAmount.averagePrice)
-      assetChange.eventIncreaseAverageCost should equal (eventEffect.increaseAmount.averageCost)
-      assetChange.eventDecreaseQuantity should equal (eventEffect.decreaseAmount.quantity)
-      assetChange.eventDecreaseAveragePrice should equal (eventEffect.decreaseAmount.averagePrice)
-      assetChange.eventDecreaseAverageCost should equal (eventEffect.decreaseAmount.averageCost)
+      assetPeriod.eventEffect should contain (eventEffect)
+      assetPeriod.eventIncreaseAmount should equal (eventEffect.increaseAmount)
+      assetPeriod.eventDecreaseAmount should equal (eventEffect.decreaseAmount)
+      assetPeriod.eventEffectType should contain (EventEffect.AddToPosition.Type)
+      assetPeriod.eventIncreaseQuantity should equal (eventEffect.increaseAmount.quantity)
+      assetPeriod.eventIncreaseAveragePrice should equal (eventEffect.increaseAmount.averagePrice)
+      assetPeriod.eventIncreaseAverageCost should equal (eventEffect.increaseAmount.averageCost)
+      assetPeriod.eventDecreaseQuantity should equal (eventEffect.decreaseAmount.quantity)
+      assetPeriod.eventDecreaseAveragePrice should equal (eventEffect.decreaseAmount.averagePrice)
+      assetPeriod.eventDecreaseAverageCost should equal (eventEffect.decreaseAmount.averageCost)
     }
   }
 
@@ -138,12 +138,12 @@ class AssetChangeTest extends TestBase {
     )
 
     forAll(cases) { case (previousPosition, eventIncreaseAmount, eventDecreaseAmount, expectedEventTradeResult, expectedNonTradeEventPosition) =>
-      val assetChange = ZeroAssetChange
+      val assetPeriod = ZeroAssetPeriod
         .withPreviousPosition(previousPosition)
         .withEventEffect(Some(EventEffect.AddToPosition(eventIncreaseAmount, eventDecreaseAmount)))
 
-      assetChange.eventTradeResult should equal (expectedEventTradeResult)
-      assetChange.nonTradeEventPosition should equal (expectedNonTradeEventPosition)
+      assetPeriod.eventTradeResult should equal (expectedEventTradeResult)
+      assetPeriod.nonTradeEventPosition should equal (expectedNonTradeEventPosition)
     }
   }
 
@@ -175,11 +175,11 @@ class AssetChangeTest extends TestBase {
     )
 
     forAll(cases) { case (previousPosition, eventEffect, expectedPostEventPosition) =>
-      val assetChange = ZeroAssetChange
+      val assetPeriod = ZeroAssetPeriod
         .withPreviousPosition(previousPosition)
         .withEventEffect(eventEffect)
 
-      assetChange.postEventPosition should equal (expectedPostEventPosition)
+      assetPeriod.postEventPosition should equal (expectedPostEventPosition)
     }
   }
 
@@ -191,12 +191,12 @@ class AssetChangeTest extends TestBase {
     )
 
     forAll(cases) { purchaseAmount =>
-      val assetChange = ZeroAssetChange.withPurchaseAmount(purchaseAmount)
+      val assetPeriod = ZeroAssetPeriod.withPurchaseAmount(purchaseAmount)
 
-      assetChange.purchaseAmount should equal (purchaseAmount)
-      assetChange.purchaseQuantity should equal (purchaseAmount.quantity)
-      assetChange.purchaseAveragePrice should equal (purchaseAmount.averagePrice)
-      assetChange.purchaseAverageCost should equal (purchaseAmount.averageCost)
+      assetPeriod.purchaseAmount should equal (purchaseAmount)
+      assetPeriod.purchaseQuantity should equal (purchaseAmount.quantity)
+      assetPeriod.purchaseAveragePrice should equal (purchaseAmount.averagePrice)
+      assetPeriod.purchaseAverageCost should equal (purchaseAmount.averageCost)
     }
   }
 
@@ -208,12 +208,12 @@ class AssetChangeTest extends TestBase {
     )
 
     forAll(cases) { saleAmount =>
-      val assetChange = ZeroAssetChange.withSaleAmount(saleAmount)
+      val assetPeriod = ZeroAssetPeriod.withSaleAmount(saleAmount)
 
-      assetChange.saleAmount should equal (saleAmount)
-      assetChange.saleQuantity should equal (saleAmount.quantity)
-      assetChange.saleAveragePrice should equal (saleAmount.averagePrice)
-      assetChange.saleAverageCost should equal (saleAmount.averageCost)
+      assetPeriod.saleAmount should equal (saleAmount)
+      assetPeriod.saleQuantity should equal (saleAmount.quantity)
+      assetPeriod.saleAveragePrice should equal (saleAmount.averagePrice)
+      assetPeriod.saleAverageCost should equal (saleAmount.averageCost)
     }
   }
 
@@ -267,12 +267,12 @@ class AssetChangeTest extends TestBase {
     )
 
     forAll(cases) { case (purchaseAmount, saleAmount, expectedDayTradeResult, expectedNonDayTradeOperationsAmount) =>
-      val assetChange = ZeroAssetChange
+      val assetPeriod = ZeroAssetPeriod
         .withPurchaseAmount(purchaseAmount)
         .withSaleAmount(saleAmount)
 
-      assetChange.dayTradeResult should equal (expectedDayTradeResult)
-      assetChange.nonDayTradeOperationsAmount should equal (expectedNonDayTradeOperationsAmount)
+      assetPeriod.dayTradeResult should equal (expectedDayTradeResult)
+      assetPeriod.nonDayTradeOperationsAmount should equal (expectedNonDayTradeOperationsAmount)
     }
   }
 
@@ -304,15 +304,15 @@ class AssetChangeTest extends TestBase {
     )
 
     forAll(cases) { case (postEventPosition, nonDayTradeOperationsAmount, expectedResultingPosition, expectedOperationsTradeResult) =>
-      val ac0 = ZeroAssetChange.withEventEffect(Some(EventEffect.SetPosition(postEventPosition)))
-      val assetChange =
+      val ap0 = ZeroAssetPeriod.withEventEffect(Some(EventEffect.SetPosition(postEventPosition)))
+      val assetPeriod =
         (nonDayTradeOperationsAmount: Amount) match {
-          case p@PurchaseAmount(_, _, _) => ac0.withPurchaseAmount(p)
-          case s@SaleAmount(_, _, _) => ac0.withSaleAmount(s)
+          case p@PurchaseAmount(_, _, _) => ap0.withPurchaseAmount(p)
+          case s@SaleAmount(_, _, _) => ap0.withSaleAmount(s)
         }
 
-      assetChange.resultingPosition should equal (expectedResultingPosition)
-      assetChange.operationsTradeResult should equal (expectedOperationsTradeResult)
+      assetPeriod.resultingPosition should equal (expectedResultingPosition)
+      assetPeriod.operationsTradeResult should equal (expectedOperationsTradeResult)
     }
   }
 
@@ -323,56 +323,56 @@ class AssetChangeTest extends TestBase {
       None
     )
 
-    val NonZeroAssetChange = ZeroAssetChange
+    val NonZeroAssetPeriod = ZeroAssetPeriod
       .withPurchaseAmount(PurchaseAmount.fromAverages(5, 1.00, 0.01))
 
     forAll(cases) { convertedToOpt =>
-      val assetChange = NonZeroAssetChange.withConvertedTo(convertedToOpt)
+      val assetPeriod = NonZeroAssetPeriod.withConvertedTo(convertedToOpt)
 
-      assetChange.convertedTo should equal (convertedToOpt)
-      assetChange.convertedToAsset.isDefined should equal (convertedToOpt.isDefined)
-      assetChange.convertedToQuantity.isDefined should equal (convertedToOpt.isDefined)
-      assetChange.convertedToAsset should equal (convertedToOpt.map(_.asset))
-      assetChange.convertedToQuantity should equal (convertedToOpt.map(_.quantity))
+      assetPeriod.convertedTo should equal (convertedToOpt)
+      assetPeriod.convertedToAsset.isDefined should equal (convertedToOpt.isDefined)
+      assetPeriod.convertedToQuantity.isDefined should equal (convertedToOpt.isDefined)
+      assetPeriod.convertedToAsset should equal (convertedToOpt.map(_.asset))
+      assetPeriod.convertedToQuantity should equal (convertedToOpt.map(_.quantity))
     }
   }
 
   //noinspection ZeroIndexToHead
-  test("AssetChangesBuilder") {
+  test("AssetPeriodsBuilder") {
     {
-      val result = assetChangesFor()(_
+      val result = assetPeriodsFor()(_
         .on(1).resultingQuantity(3)
         .on(3).resultingQuantity(7)
       )
 
       result should have length 2
 
-      result(0).date should equal (int2Date(1))
+      result(0).beginDate should equal (int2Date(1))
       result(0).endDate should equal (int2Date(3))
       result(0).previousPosition.quantity should equal (0)
       result(0).purchaseAmount.quantity should equal (3)
       result(0).resultingPosition.quantity should equal (3)
 
-      result(1).date should equal (int2Date(3))
+      result(1).beginDate should equal (int2Date(3))
       result(1).previousPosition.quantity should equal (3)
       result(1).purchaseAmount.quantity should equal (4)
       result(1).resultingPosition.quantity should equal (7)
     }
 
     {
-      val result = assetChangesFor("a1")(_
+      val result = assetPeriodsFor("a1")(_
         .on(1).resultingQuantity(7)
         .on(3).eventConvertedToSame(14)
       )
 
       result should have length 2
 
-      result(0).date should equal (int2Date(1))
+      result(0).beginDate should equal (int2Date(1))
       result(0).endDate should equal (int2Date(3))
       result(0).resultingPosition.quantity should equal (7)
       result(0).convertedTo should contain (ConvertedTo("a1", 14.0))
 
-      result(1).date should equal (int2Date(3))
+      result(1).beginDate should equal (int2Date(3))
       inside(result(1).eventEffect) { case Some(sp@ EventEffect.SetPosition(_)) =>
         sp.position.quantity should equal (14)
       }
@@ -381,19 +381,19 @@ class AssetChangeTest extends TestBase {
     }
 
     {
-      val result = assetChangesFor("a1")(_
+      val result = assetPeriodsFor("a1")(_
         .on(1).resultingQuantity(7)
         .on(3).eventConvertedToOther("a2")
       )
 
       result should have length 2
 
-      result(0).date should equal (int2Date(1))
+      result(0).beginDate should equal (int2Date(1))
       result(0).endDate should equal (int2Date(3))
       result(0).resultingPosition.quantity should equal (7)
       result(0).convertedTo should contain (ConvertedTo("a2", 7.0))
 
-      result(1).date should equal (int2Date(3))
+      result(1).beginDate should equal (int2Date(3))
       result(1).previousPosition.quantity should equal (7)
       inside(result(1).eventEffect) { case Some(sp@ EventEffect.SetPosition(_)) =>
         sp.position.quantity should equal (0)
@@ -403,7 +403,7 @@ class AssetChangeTest extends TestBase {
     }
 
     {
-      val result = assetChangesFor()(_
+      val result = assetPeriodsFor()(_
         .on(1).resultingQuantity(3)
         .on(3).eventIncreasedQuantity(4)
         .on(5).eventIncreasedQuantity(2).resultingQuantity(10)
@@ -411,11 +411,11 @@ class AssetChangeTest extends TestBase {
 
       result should have length 3
 
-      result(0).date should equal (int2Date(1))
+      result(0).beginDate should equal (int2Date(1))
       result(0).endDate should equal (int2Date(3))
       result(0).resultingPosition.quantity should equal (3)
 
-      result(1).date should equal (int2Date(3))
+      result(1).beginDate should equal (int2Date(3))
       result(1).endDate should equal (int2Date(5))
       result(1).previousPosition.quantity should equal (3)
       inside(result(1).eventEffect) { case Some(atp@ EventEffect.AddToPosition(_, _)) =>
@@ -423,7 +423,7 @@ class AssetChangeTest extends TestBase {
       }
       result(1).resultingPosition.quantity should equal (7)
 
-      result(2).date should equal (int2Date(5))
+      result(2).beginDate should equal (int2Date(5))
       result(2).previousPosition.quantity should equal (7)
       inside(result(2).eventEffect) { case Some(atp@ EventEffect.AddToPosition(_, _)) =>
         atp.increaseAmount.quantity should equal (2)
@@ -434,92 +434,90 @@ class AssetChangeTest extends TestBase {
   }
 }
 
-object AssetChangeTest {
+object AssetPeriodTest {
 
   object DSL {
     val NonZero = 999
 
-    case class AssetChangesBuilder(asset: String, stockbroker: String, assetChanges: Vector[AssetChange]) {
-      def noChanges: AssetChangesBuilder = this
-
-      def on(date: LocalDate): AssetChangeBuilder = {
-        val (previousPosition, seqBuilder) = assetChanges match {
-          case init :+ last => (last.resultingPosition, this.copy(assetChanges = init :+ last.copy(endDate = date)))
+    case class AssetPeriodsBuilder(asset: String, stockbroker: String, assetPeriods: Vector[AssetPeriod]) {
+      def on(date: LocalDate): AssetPeriodBuilder = {
+        val (previousPosition, seqBuilder) = assetPeriods match {
+          case init :+ last => (last.resultingPosition, this.copy(assetPeriods = init :+ last.copy(endDate = date)))
           case _ => (Amount.Zero, this)
         }
 
-        val ac = AssetChange
+        val ap = AssetPeriod
           .withZeroes(asset, stockbroker, date)
           .withPreviousPosition(previousPosition)
 
-        AssetChangeBuilder(seqBuilder, ac)
+        AssetPeriodBuilder(seqBuilder, ap)
       }
     }
 
-    case class AssetChangeBuilder(seqBuilder: AssetChangesBuilder, assetChange: AssetChange) {
-      def eventConvertedToSame(quantity: Int): AssetChangeBuilder = {
-        require(sameNonZeroSigns(assetChange.previousPosition.signedQuantity, quantity))
-        require(seqBuilder.assetChanges.nonEmpty)
+    case class AssetPeriodBuilder(seqBuilder: AssetPeriodsBuilder, assetPeriod: AssetPeriod) {
+      def eventConvertedToSame(quantity: Int): AssetPeriodBuilder = {
+        require(sameNonZeroSigns(assetPeriod.previousPosition.signedQuantity, quantity))
+        require(seqBuilder.assetPeriods.nonEmpty)
 
         val amount = Amount.fromSignedQuantityAndAverages(quantity, 1.00, 0.01)
-        eventConvertedTo(amount, assetChange.asset, quantity)
+        eventConvertedTo(amount, assetPeriod.asset, quantity)
       }
 
-      def eventConvertedToOther(otherAsset: String): AssetChangeBuilder = {
+      def eventConvertedToOther(otherAsset: String): AssetPeriodBuilder = {
         require(otherAsset != seqBuilder.asset)
 
-        val quantity = assetChange.previousPosition.signedQuantity
+        val quantity = assetPeriod.previousPosition.signedQuantity
         eventConvertedTo(Amount.Zero, otherAsset, quantity)
       }
 
-      private def eventConvertedTo(amount: Amount, asset: String, quantity: Double): AssetChangeBuilder = {
-        require(seqBuilder.assetChanges.nonEmpty)
+      private def eventConvertedTo(amount: Amount, asset: String, quantity: Double): AssetPeriodBuilder = {
+        require(seqBuilder.assetPeriods.nonEmpty)
 
-        val previousACs = seqBuilder.assetChanges
-        val newPreviousACs = previousACs.init :+ previousACs.last.withConvertedTo(Some(ConvertedTo(asset, quantity)))
+        val previousAPs = seqBuilder.assetPeriods
+        val newPreviousAPs = previousAPs.init :+ previousAPs.last.withConvertedTo(Some(ConvertedTo(asset, quantity)))
 
         this.copy(
-          seqBuilder = seqBuilder.copy(assetChanges = newPreviousACs),
-          assetChange = assetChange.withEventEffect(Some(EventEffect.SetPosition(amount))),
+          seqBuilder = seqBuilder.copy(assetPeriods = newPreviousAPs),
+          assetPeriod = assetPeriod.withEventEffect(Some(EventEffect.SetPosition(amount))),
         )
       }
 
-      def eventIncreasedQuantity(quantity: Int): AssetChangeBuilder = {
+      def eventIncreasedQuantity(quantity: Int): AssetPeriodBuilder = {
         require(quantity != 0)
         val amount = Amount.fromSignedQuantityAndAverages(quantity, 1.00, 0.01)
-        val newAc = assetChange.withEventEffect(Some(EventOutcome.AddToPosition(amount).toEffect))
-        this.copy(assetChange = newAc)
+        val newAP = assetPeriod.withEventEffect(Some(EventOutcome.AddToPosition(amount).toEffect))
+        this.copy(assetPeriod = newAP)
       }
 
-      def resultingQuantity(quantity: Int): AssetChangeBuilder = {
-        val diff = quantity - assetChange.postEventPosition.signedQuantity
-        val newAc =
+      def resultingQuantity(quantity: Int): AssetPeriodBuilder = {
+        val diff = quantity - assetPeriod.postEventPosition.signedQuantity
+        val newAP =
           if (diff > 0) {
-            assetChange.withPurchaseAmount(
+            assetPeriod.withPurchaseAmount(
               PurchaseAmount.fromAverages(diff, diff, diff / 100.0)
             )
           } else if (diff < 0) {
-            assetChange.withSaleAmount(
+            assetPeriod.withSaleAmount(
               SaleAmount.fromAverages(-diff, -diff, -diff / 100.0)
             )
           } else {
-            assetChange
+            assetPeriod
           }
-        assert(newAc.resultingPosition.signedQuantity == quantity)
-        this.copy(assetChange = newAc)
+        assert(newAP.resultingPosition.signedQuantity == quantity)
+        this.copy(assetPeriod = newAP)
       }
 
-      private[AssetChangeTest] def done(): AssetChangesBuilder =
-        seqBuilder.copy(assetChanges = seqBuilder.assetChanges :+ assetChange)
+      private[AssetPeriodTest] def done(): AssetPeriodsBuilder =
+        seqBuilder.copy(assetPeriods = seqBuilder.assetPeriods :+ assetPeriod)
     }
 
-    def assetChangesFor(asset: String = "asset", stockbroker: String = "stockbroker")(f: AssetChangesBuilder => AssetChangesBuilder): Seq[AssetChange] = {
-      val initialBuilder = AssetChangesBuilder(asset, stockbroker, Vector.empty)
+    def assetPeriodsFor(asset: String = "asset", stockbroker: String = "stockbroker")(f: AssetPeriodsBuilder => AssetPeriodsBuilder): Seq[AssetPeriod] = {
+      val initialBuilder = AssetPeriodsBuilder(asset, stockbroker, Vector.empty)
       val builder = f(initialBuilder)
-      builder.assetChanges
+      builder.assetPeriods
     }
 
-    implicit def singleBuilder2SeqBuilder(singleBuilder: AssetChangeBuilder): AssetChangesBuilder =
+    implicit def singleBuilder2SeqBuilder(singleBuilder: AssetPeriodBuilder): AssetPeriodsBuilder =
       singleBuilder.done()
   }
 }

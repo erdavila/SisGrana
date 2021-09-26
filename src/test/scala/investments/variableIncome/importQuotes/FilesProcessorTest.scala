@@ -1,7 +1,7 @@
 package sisgrana
 package investments.variableIncome.importQuotes
 
-import investments.variableIncome.model.AssetChangeTest.DSL._
+import investments.variableIncome.model.AssetPeriodTest.DSL._
 import investments.variableIncome.model.Persisted
 import utils.DateRange.Mode.FullDay
 import utils.DateRangeTest.int2Date
@@ -18,17 +18,17 @@ class FilesProcessorTest extends TestBase with Persisted {
       )
 
     val cases = Table(
-      "asset changes" -> "expected date ranges",
+      "asset periods" -> "expected date ranges",
       Seq(
-        assetChangesFor("asset-1", "stockbrokerA")(_
+        assetPeriodsFor("asset-1", "stockbrokerA")(_
           .on(2).resultingQuantity(NonZero)
           .on(4).resultingQuantity(0)
         ),
-        assetChangesFor("asset-1", "stockbrokerB")(_
+        assetPeriodsFor("asset-1", "stockbrokerB")(_
           .on(3).resultingQuantity(NonZero)
           .on(5).resultingQuantity(0)
         ),
-        assetChangesFor("asset-2")(_
+        assetPeriodsFor("asset-2")(_
           .on(3).resultingQuantity(NonZero)
           .on(6).resultingQuantity(0)
         ),
@@ -37,11 +37,11 @@ class FilesProcessorTest extends TestBase with Persisted {
         "asset-2" -> ranges((3, 6)),
       ),
       Seq(
-        assetChangesFor("asset")(_
+        assetPeriodsFor("asset")(_
           .on(1).resultingQuantity(NonZero)
           .on(2).eventConvertedToOther("other-asset")
         ),
-        assetChangesFor("other-asset")(_
+        assetPeriodsFor("other-asset")(_
           .on(2).eventIncreasedQuantity(NonZero)
         )
       ).flatten -> Map(
@@ -49,11 +49,11 @@ class FilesProcessorTest extends TestBase with Persisted {
         "other-asset" -> ranges((2, MaxDate)),
       ),
       Seq(
-        assetChangesFor("asset")(_
+        assetPeriodsFor("asset")(_
           .on(1).resultingQuantity(NonZero)
           .on(2).eventConvertedToOther("other-asset")
         ),
-        assetChangesFor("other-asset")(_
+        assetPeriodsFor("other-asset")(_
           .on(2).eventIncreasedQuantity(NonZero).resultingQuantity(0)
         )
       ).flatten -> Map(
@@ -64,8 +64,8 @@ class FilesProcessorTest extends TestBase with Persisted {
 
     val filesProcessor = new FilesProcessor
 
-    forAll(cases) { (assetChanges, expectedDateRanges) =>
-      persisted(assetChanges)
+    forAll(cases) { (assetPeriods, expectedDateRanges) =>
+      persisted(assetPeriods)
 
       val result = filesProcessor.makeAssetsDateRanges(minDate = 0, MaxDate)
       result should equal (expectedDateRanges)

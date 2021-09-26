@@ -70,27 +70,27 @@ object Main extends LocalDateSupport {
         if latestPosition.position.quantity != 0
       } yield stockbrokerAsset -> latestPosition.position
 
-    val (assetChanges, conversions) = processDateChanges(date, previousPositionByAsset, events, brokerageNotes)
+    val (assetPeriods, conversions) = processDateChanges(date, previousPositionByAsset, events, brokerageNotes)
 
-    for (ac <- assetChanges) {
-      if (conversions.contains(ac.stockbrokerAsset)) {
-        assert(latestPositions.contains(ac.stockbrokerAsset))
+    for (ap <- assetPeriods) {
+      if (conversions.contains(ap.stockbrokerAsset)) {
+        assert(latestPositions.contains(ap.stockbrokerAsset))
       }
 
-      for (latestPosition <- latestPositions.get(ac.stockbrokerAsset)) {
+      for (latestPosition <- latestPositions.get(ap.stockbrokerAsset)) {
         if (!(latestPosition.date `isBefore` date)) {
-          throw new Exception(s"Encontrado registro referente a ${ac.stockbrokerAsset} com data ${latestPosition.date}, que é igual ou posterior a $date")
+          throw new Exception(s"Encontrado registro referente a ${ap.stockbrokerAsset} com data ${latestPosition.date}, que é igual ou posterior a $date")
         }
 
-        val conversionOpt = conversions.get(ac.stockbrokerAsset)
+        val conversionOpt = conversions.get(ap.stockbrokerAsset)
         val convertedToAssetOpt = conversionOpt.map(_.asset)
         val convertedToQuantityOpt = conversionOpt.map(_.quantity)
 
         ctx.run(
-          query[AssetChange]
-            .filter(_.asset == lift(ac.asset))
-            .filter(_.stockbroker == lift(ac.stockbroker))
-            .filter(_.date == lift(latestPosition.date))
+          query[AssetPeriod]
+            .filter(_.asset == lift(ap.asset))
+            .filter(_.stockbroker == lift(ap.stockbroker))
+            .filter(_.beginDate == lift(latestPosition.date))
             .update(
               _.endDate -> lift(date),
               _.convertedToAsset -> lift(convertedToAssetOpt),
@@ -99,31 +99,31 @@ object Main extends LocalDateSupport {
         )
       }
 
-      ctx.run(query[AssetChange].insert(lift(ac)))
+      ctx.run(query[AssetPeriod].insert(lift(ap)))
     }
   }
 
   private def latestPositionByAsset(assets: Seq[String]): Map[StockbrokerAsset, LatestPosition] = {
     val result = ctx.run {
       val latestDateByStockbrokerAsset =
-        query[AssetChange]
-          .groupBy(ac => (ac.stockbroker, ac.asset))
-          .map { case ((stockbroker, asset), changes) =>
-            (stockbroker, asset, changes.map(_.date).max)
+        query[AssetPeriod]
+          .groupBy(ap => (ap.stockbroker, ap.asset))
+          .map { case ((stockbroker, asset), periods) =>
+            (stockbroker, asset, periods.map(_.beginDate).max)
           }
 
       for {
         (stockbroker, asset, dateOpt) <- latestDateByStockbrokerAsset
-        ac <- query[AssetChange]
-        if asset == ac.asset &&
-          stockbroker == ac.stockbroker &&
-          dateOpt.contains(ac.date) &&
-          liftQuery(assets).contains(ac.asset)
-      } yield ac
+        ap <- query[AssetPeriod]
+        if asset == ap.asset &&
+          stockbroker == ap.stockbroker &&
+          dateOpt.contains(ap.beginDate) &&
+          liftQuery(assets).contains(ap.asset)
+      } yield ap
     }
 
     result
-      .map(ac => ac.stockbrokerAsset -> LatestPosition(ac.date, ac.resultingPosition))
+      .map(ap => ap.stockbrokerAsset -> LatestPosition(ap.beginDate, ap.resultingPosition))
       .toMap
   }
 
@@ -132,32 +132,32 @@ object Main extends LocalDateSupport {
     previousPositionByAsset: Map[StockbrokerAsset, Amount],
     events: Seq[Event],
     brokerageNotes: Seq[BrokerageNote],
-  ): (Seq[AssetChange], Map[StockbrokerAsset, ConvertedTo]) = {
-    def initializeAssetChange(stockbrokerAsset: StockbrokerAsset) =
-      AssetChange
+  ): (Seq[AssetPeriod], Map[StockbrokerAsset, ConvertedTo]) = {
+    def initializeAssetPeriod(stockbrokerAsset: StockbrokerAsset) =
+      AssetPeriod
         .withZeroes(stockbrokerAsset, date)
         .withPreviousPosition(previousPositionByAsset.getOrElse(stockbrokerAsset, Amount.Zero))
 
     val eventOutcomeByAsset = processEvents(previousPositionByAsset, events)
-    val postEventAssetChangesByAsset =
+    val postEventAssetPeriodsByAsset =
       for ((stockbrokerAsset, eventOutcome) <- eventOutcomeByAsset)
-        yield stockbrokerAsset -> initializeAssetChange(stockbrokerAsset).withEventEffect(Some(eventOutcome.toEffect))
+        yield stockbrokerAsset -> initializeAssetPeriod(stockbrokerAsset).withEventEffect(Some(eventOutcome.toEffect))
 
     def postEventPosition(stockbrokerAsset: StockbrokerAsset): Option[Amount] =
-      postEventAssetChangesByAsset.get(stockbrokerAsset).map(_.postEventPosition)
+      postEventAssetPeriodsByAsset.get(stockbrokerAsset).map(_.postEventPosition)
         .orElse(previousPositionByAsset.get(stockbrokerAsset))
     val operationsByAsset = brokerageNotes
       .map(processBrokerageNote(postEventPosition, _))
       .reduceOption(_ ++ _) // Assumes that same StockbrokerAsset does not repeat in different BrokerageNotes
       .getOrElse(Map.empty)
 
-    val postOperationsAssetChangesByAsset =
-      operationsByAsset.foldLeft(postEventAssetChangesByAsset) { case (assetChanges, (stockbrokerAsset, operations)) =>
-        assetChanges.updatedWith(stockbrokerAsset) { postEventAssetChangeOpt =>
-          val assetChange = postEventAssetChangeOpt.getOrElse(initializeAssetChange(stockbrokerAsset))
+    val postOperationsAssetPeriodsByAsset =
+      operationsByAsset.foldLeft(postEventAssetPeriodsByAsset) { case (assetPeriods, (stockbrokerAsset, operations)) =>
+        assetPeriods.updatedWith(stockbrokerAsset) { postEventAssetPeriodOpt =>
+          val assetPeriod = postEventAssetPeriodOpt.getOrElse(initializeAssetPeriod(stockbrokerAsset))
 
           Some(
-            assetChange
+            assetPeriod
               .withPurchaseAmount(operations.purchase)
               .withSaleAmount(operations.sale)
               .withExercisedQuantity(operations.exercisedQuantity)
@@ -170,7 +170,7 @@ object Main extends LocalDateSupport {
         stockbrokerAsset -> ConvertedTo(convertedToAsset, convertedToQuantity)
     }
 
-    (postOperationsAssetChangesByAsset.values.toSeq, conversions)
+    (postOperationsAssetPeriodsByAsset.values.toSeq, conversions)
   }
 
   private def processEvents(

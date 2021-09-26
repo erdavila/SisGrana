@@ -115,14 +115,14 @@ class Main(showDetails: Boolean) extends LocalDateSupport {
     printer.context(year) {
       val minDate = year.atDay(1)
       val maxDate = year.atMonth(Month.DECEMBER).atEndOfMonth()
-      val assetChanges = ctx.run {
-        query[AssetChange]
-          .filter(ac => ac.date >= lift(minDate) && ac.date <= lift(maxDate))
-          .sortBy(_.date)
+      val assetPeriods = ctx.run {
+        query[AssetPeriod]
+          .filter(ap => ap.beginDate >= lift(minDate) && ap.beginDate <= lift(maxDate))
+          .sortBy(_.beginDate)
       }
 
-      for ((month, assetChanges) <- assetChanges.groupAndSortBy(_.date.getMonth)) {
-        processYearMonth(year.atMonth(month), assetChanges)
+      for ((month, assetPeriods) <- assetPeriods.groupAndSortBy(_.beginDate.getMonth)) {
+        processYearMonth(year.atMonth(month), assetPeriods)
       }
 
       assetsAtDate.Main.showAssetsAtDate(maxDate, printer)
@@ -151,11 +151,11 @@ class Main(showDetails: Boolean) extends LocalDateSupport {
     val Zero: TradesResults = TradesResults(TradeResult.Zero, TradeResult.Zero, 0.0, TradeResult.Zero, TradeResult.Zero)
   }
 
-  private def processYearMonth(yearMonth: YearMonth, assetChanges: Seq[AssetChange]): Unit =
+  private def processYearMonth(yearMonth: YearMonth, assetPeriods: Seq[AssetPeriod]): Unit =
     printer.context(yearMonth) {
-      val tradeResults = assetChanges.groupAndSortBy(_.date.getDayOfMonth)
-        .map { case (dayOfMonth, assetChanges) =>
-          processDate(yearMonth.atDay(dayOfMonth), assetChanges)
+      val tradeResults = assetPeriods.groupAndSortBy(_.beginDate.getDayOfMonth)
+        .map { case (dayOfMonth, assetPeriods) =>
+          processDate(yearMonth.atDay(dayOfMonth), assetPeriods)
         }
         .reduce(_ + _)
 
@@ -248,55 +248,55 @@ class Main(showDetails: Boolean) extends LocalDateSupport {
       printer.println()
     }
 
-  private def processDate(date: LocalDate, assetChanges: Seq[AssetChange]): TradesResults =
+  private def processDate(date: LocalDate, assetPeriods: Seq[AssetPeriod]): TradesResults =
     printer.context(date, showDetails) {
-      assetChanges.groupAndSortBy(_.stockbroker)
-        .map { case (stockbroker, assetChanges) =>
-          processStockbroker(stockbroker, assetChanges)
+      assetPeriods.groupAndSortBy(_.stockbroker)
+        .map { case (stockbroker, assetPeriods) =>
+          processStockbroker(stockbroker, assetPeriods)
         }
         .reduce(_ + _)
     }
 
-  private def processStockbroker(stockbroker: String, assetChanges: Seq[AssetChange]): TradesResults =
+  private def processStockbroker(stockbroker: String, assetPeriods: Seq[AssetPeriod]): TradesResults =
     printer.context(stockbroker, showDetails) {
-      assetChanges.sortBy(_.asset)
-        .map { ac =>
-          val detailsOpt = printer.hierarchy.optionalTree(ac.asset, showDetails)(
-            ac.eventEffect.flatMap {
+      assetPeriods.sortBy(_.asset)
+        .map { ap =>
+          val detailsOpt = printer.hierarchy.optionalTree(ap.asset, showDetails)(
+            ap.eventEffect.flatMap {
               case EventEffect.SetPosition(pos) =>
                 printer.hierarchy.optionalTree("[Evento]")(
-                  Some(formatPositionConversion(ac.previousPosition, pos))
+                  Some(formatPositionConversion(ap.previousPosition, pos))
                 )
               case EventEffect.AddToPosition(_, _) =>
                 printer.hierarchy.optionalTree("[Evento]")(
                   Some(
-                    if (oppositeSigns(ac.previousPosition.signedQuantity, ac.postEventPosition.signedQuantity)) {
-                      formatPositionChange(ac.previousPosition, Amount.Zero)
+                    if (oppositeSigns(ap.previousPosition.signedQuantity, ap.postEventPosition.signedQuantity)) {
+                      formatPositionChange(ap.previousPosition, Amount.Zero)
                     } else {
-                      formatPositionChange(ac.previousPosition, ac.postEventPosition)
+                      formatPositionChange(ap.previousPosition, ap.postEventPosition)
                     }
                   ),
-                  Option.when(ac.eventTradeResult.quantity > 0) {
-                    formatTradeResult(ac.eventTradeResult)
+                  Option.when(ap.eventTradeResult.quantity > 0) {
+                    formatTradeResult(ap.eventTradeResult)
                   },
-                  Option.when(oppositeSigns(ac.previousPosition.signedQuantity, ac.postEventPosition.signedQuantity)) {
-                    formatPositionChange(Amount.Zero, ac.postEventPosition)
+                  Option.when(oppositeSigns(ap.previousPosition.signedQuantity, ap.postEventPosition.signedQuantity)) {
+                    formatPositionChange(Amount.Zero, ap.postEventPosition)
                   },
                 )
             },
-            Option.when(ac.dayTradeResult.quantity > 0) {
+            Option.when(ap.dayTradeResult.quantity > 0) {
               printer.hierarchy.tree("[Day-Trade]")(
-                formatTradeResult(ac.dayTradeResult),
+                formatTradeResult(ap.dayTradeResult),
               )
             },
-            Option.when(ac.postEventPosition.signedQuantity != ac.resultingPosition.signedQuantity) {
+            Option.when(ap.postEventPosition.signedQuantity != ap.resultingPosition.signedQuantity) {
               printer.hierarchy.tree("[Carteira]")(
-                formatPositionChange(ac.postEventPosition, ac.resultingPosition),
+                formatPositionChange(ap.postEventPosition, ap.resultingPosition),
               )
             },
-            Option.when(ac.operationsTradeResult.quantity > 0) {
+            Option.when(ap.operationsTradeResult.quantity > 0) {
               printer.hierarchy.tree("[Operação Comum]")(
-                formatTradeResult(ac.operationsTradeResult),
+                formatTradeResult(ap.operationsTradeResult),
               )
             },
           )
@@ -305,30 +305,30 @@ class Main(showDetails: Boolean) extends LocalDateSupport {
             printer.hierarchy.print(details)
           }
 
-          typeResolver(ac.asset).taxation match {
+          typeResolver(ap.asset).taxation match {
             case Taxation.ExemptableSwingTrade =>
               TradesResults(
-                dayTrade = ac.dayTradeResult,
-                exemptableSwingTrade = ac.swingTradeResult,
-                totalExemptableSwingTradeSalesValueWithoutCost = ac.swingTradeResult.totalSaleValue,
+                dayTrade = ap.dayTradeResult,
+                exemptableSwingTrade = ap.swingTradeResult,
+                totalExemptableSwingTradeSalesValueWithoutCost = ap.swingTradeResult.totalSaleValue,
                 nonExemptableSwingTrade = TradeResult.Zero,
                 fiisTrade = TradeResult.Zero,
               )
             case Taxation.NonExemptableSwingTrade =>
               TradesResults(
-                dayTrade = ac.dayTradeResult,
+                dayTrade = ap.dayTradeResult,
                 exemptableSwingTrade = TradeResult.Zero,
                 totalExemptableSwingTradeSalesValueWithoutCost = 0.0,
-                nonExemptableSwingTrade = ac.swingTradeResult,
+                nonExemptableSwingTrade = ap.swingTradeResult,
                 fiisTrade = TradeResult.Zero,
               )
             case Taxation.FII =>
               TradesResults(
-                dayTrade = ac.dayTradeResult,
+                dayTrade = ap.dayTradeResult,
                 exemptableSwingTrade = TradeResult.Zero,
                 totalExemptableSwingTradeSalesValueWithoutCost = 0.0,
                 nonExemptableSwingTrade = TradeResult.Zero,
-                fiisTrade = ac.swingTradeResult,
+                fiisTrade = ap.swingTradeResult,
               )
             case Taxation.NonVariableIncome => TradesResults.Zero
           }

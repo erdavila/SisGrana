@@ -60,18 +60,18 @@ class MainTest extends TestBase {
     forAll(cases) { c =>
       assert(c.expectedPostEventPositions.keySet == c.expectedEventTradeResults.keySet)
 
-      val (assetChanges, conversions) = Main.processDateChanges(DefaultDate, c.previousPositions, c.events, Seq.empty)
+      val (assetPeriods, conversions) = Main.processDateChanges(DefaultDate, c.previousPositions, c.events, Seq.empty)
 
-      val assetChangesByStockbrokerAsset =
-        assetChanges
-          .map(ac => ac.stockbrokerAsset -> ac)
+      val assetPeriodsByStockbrokerAsset =
+        assetPeriods
+          .map(ap => ap.stockbrokerAsset -> ap)
           .toMap
 
-      assetChangesByStockbrokerAsset.keySet should equal (c.expectedPostEventPositions.keySet)
-      for (ac <- assetChangesByStockbrokerAsset.values) {
-        withClue(s"${ac.stockbrokerAsset}:") {
-          ac.postEventPosition should equal (c.expectedPostEventPositions(ac.stockbrokerAsset))
-          ac.eventTradeResult should equal (c.expectedEventTradeResults(ac.stockbrokerAsset))
+      assetPeriodsByStockbrokerAsset.keySet should equal (c.expectedPostEventPositions.keySet)
+      for (ap <- assetPeriodsByStockbrokerAsset.values) {
+        withClue(s"${ap.stockbrokerAsset}:") {
+          ap.postEventPosition should equal (c.expectedPostEventPositions(ap.stockbrokerAsset))
+          ap.eventTradeResult should equal (c.expectedEventTradeResults(ap.stockbrokerAsset))
         }
       }
 
@@ -226,28 +226,28 @@ class MainTest extends TestBase {
     )
 
     forAll(cases) { c =>
-      val (assetChanges, conversions) = Main.processDateChanges(DefaultDate, c.previousPositions, Seq.empty, c.brokerageNotes)
+      val (assetPeriods, conversions) = Main.processDateChanges(DefaultDate, c.previousPositions, Seq.empty, c.brokerageNotes)
 
-      val assetChangesByStockbrokerAsset =
-        assetChanges
-          .map(ac => ac.stockbrokerAsset -> ac)
+      val assetPeriodsByStockbrokerAsset =
+        assetPeriods
+          .map(ap => ap.stockbrokerAsset -> ap)
           .toMap
 
-      assetChangesByStockbrokerAsset.keySet should equal (c.expectedResultingPositions.keySet)
-      c.expectedDayTradeResults.keySet shouldBe subsetOf (assetChangesByStockbrokerAsset.keySet)
-      c.expectedOperationsTradeResults.keySet shouldBe subsetOf (assetChangesByStockbrokerAsset.keySet)
+      assetPeriodsByStockbrokerAsset.keySet should equal (c.expectedResultingPositions.keySet)
+      c.expectedDayTradeResults.keySet shouldBe subsetOf (assetPeriodsByStockbrokerAsset.keySet)
+      c.expectedOperationsTradeResults.keySet shouldBe subsetOf (assetPeriodsByStockbrokerAsset.keySet)
 
-      for (ac <- assetChangesByStockbrokerAsset.values) {
-        withClue(s"resultingPosition for ${ac.stockbrokerAsset}:") {
-          ac.resultingPosition should equal (c.expectedResultingPositions(ac.stockbrokerAsset))
+      for (ap <- assetPeriodsByStockbrokerAsset.values) {
+        withClue(s"resultingPosition for ${ap.stockbrokerAsset}:") {
+          ap.resultingPosition should equal (c.expectedResultingPositions(ap.stockbrokerAsset))
         }
-        withClue(s"dayTradeResult for ${ac.stockbrokerAsset}:") {
-          val expectedDayTradeResult = c.expectedDayTradeResults.getOrElse(ac.stockbrokerAsset, TradeResult.Zero)
-          ac.dayTradeResult should equal (expectedDayTradeResult)
+        withClue(s"dayTradeResult for ${ap.stockbrokerAsset}:") {
+          val expectedDayTradeResult = c.expectedDayTradeResults.getOrElse(ap.stockbrokerAsset, TradeResult.Zero)
+          ap.dayTradeResult should equal (expectedDayTradeResult)
         }
-        withClue(s"operationsTradeResult for ${ac.stockbrokerAsset}:") {
-          val expectedOperationsTradeResults = c.expectedOperationsTradeResults.getOrElse(ac.stockbrokerAsset, TradeResult.Zero)
-          ac.operationsTradeResult should equal (expectedOperationsTradeResults)
+        withClue(s"operationsTradeResult for ${ap.stockbrokerAsset}:") {
+          val expectedOperationsTradeResults = c.expectedOperationsTradeResults.getOrElse(ap.stockbrokerAsset, TradeResult.Zero)
+          ap.operationsTradeResult should equal (expectedOperationsTradeResults)
         }
       }
 
