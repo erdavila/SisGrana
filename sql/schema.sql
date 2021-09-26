@@ -14,8 +14,6 @@ CREATE TABLE IF NOT EXISTS asset_change(
     event_set_position_quantity INTEGER NOT NULL,
     event_set_position_average_price NUMERIC NOT NULL,
     event_set_position_average_cost NUMERIC NOT NULL,
-    event_converted_to_asset TEXT NULL,
-    event_converted_to_quantity NUMERIC NULL,
 
     event_increase_quantity INTEGER NOT NULL,
     event_increase_average_price NUMERIC NOT NULL,

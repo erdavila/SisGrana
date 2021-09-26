@@ -263,7 +263,7 @@ class Main(showDetails: Boolean) extends LocalDateSupport {
         .map { ac =>
           val detailsOpt = printer.hierarchy.optionalTree(ac.asset, showDetails)(
             ac.eventEffect.flatMap {
-              case EventEffect.SetPosition(pos, _, _) =>
+              case EventEffect.SetPosition(pos) =>
                 printer.hierarchy.optionalTree("[Evento]")(
                   Some(formatPositionConversion(ac.previousPosition, pos))
                 )

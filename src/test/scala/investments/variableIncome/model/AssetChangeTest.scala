@@ -52,9 +52,9 @@ class AssetChangeTest extends TestBase {
   test("eventSetPosition, eventEffect, eventConvertedTo*, withEventEffect(), and fields") {
     val cases = Table(
       "eventEffect",
-      EventEffect.SetPosition(PurchaseAmount.Zero, "X", 20.0),
-      EventEffect.SetPosition(PurchaseAmount.fromAverages(10, 10.00, 0.10), "X", 20.0),
-      EventEffect.SetPosition(SaleAmount.fromAverages(10, 10.00, 0.10), "X", -20.0),
+      EventEffect.SetPosition(PurchaseAmount.Zero),
+      EventEffect.SetPosition(PurchaseAmount.fromAverages(10, 10.00, 0.10)),
+      EventEffect.SetPosition(SaleAmount.fromAverages(10, 10.00, 0.10)),
     )
 
     forAll(cases) { eventEffect =>
@@ -66,8 +66,6 @@ class AssetChangeTest extends TestBase {
       assetChange.eventSetPositionQuantity should equal (eventEffect.position.signedQuantity)
       assetChange.eventSetPositionAveragePrice should equal (eventEffect.position.averagePrice)
       assetChange.eventSetPositionAverageCost should equal (eventEffect.position.averageCost)
-      assetChange.eventConvertedToAsset should equal (eventEffect.convertedToAsset)
-      assetChange.eventConvertedToQuantity should equal (eventEffect.convertedToQuantity)
     }
   }
 
@@ -163,7 +161,7 @@ class AssetChangeTest extends TestBase {
       ),
       (
         Amount.fromSignedQuantityAndAverages(10, 10.0, 0.10),
-        Some(EventEffect.SetPosition(Amount.fromSignedQuantityAndAverages(3, 3.33, 0.33), "", 0.0)),
+        Some(EventEffect.SetPosition(Amount.fromSignedQuantityAndAverages(3, 3.33, 0.33))),
         Amount.fromSignedQuantityAndAverages(3, 3.33, 0.33),
       ),
       (
@@ -306,7 +304,7 @@ class AssetChangeTest extends TestBase {
     )
 
     forAll(cases) { case (postEventPosition, nonDayTradeOperationsAmount, expectedResultingPosition, expectedOperationsTradeResult) =>
-      val ac0 = ZeroAssetChange.withEventEffect(Some(EventEffect.SetPosition(postEventPosition, "", 0.0)))
+      val ac0 = ZeroAssetChange.withEventEffect(Some(EventEffect.SetPosition(postEventPosition)))
       val assetChange =
         (nonDayTradeOperationsAmount: Amount) match {
           case p@PurchaseAmount(_, _, _) => ac0.withPurchaseAmount(p)
@@ -560,10 +558,8 @@ class AssetChangeTest extends TestBase {
       result(0).convertedTo should contain (ConvertedTo("a1", 14.0))
 
       result(1).date should equal (int2Date(3))
-      inside(result(1).eventEffect) { case Some(sp@ EventEffect.SetPosition(_, _, _)) =>
+      inside(result(1).eventEffect) { case Some(sp@ EventEffect.SetPosition(_)) =>
         sp.position.quantity should equal (14)
-        sp.convertedToAsset should equal ("a1")
-        sp.convertedToQuantity should equal (14.0)
       }
       result(1).resultingPosition.quantity should equal (14)
       result(1).convertedTo should be (empty)
@@ -584,10 +580,8 @@ class AssetChangeTest extends TestBase {
 
       result(1).date should equal (int2Date(3))
       result(1).previousPosition.quantity should equal (7)
-      inside(result(1).eventEffect) { case Some(sp@ EventEffect.SetPosition(_, _, _)) =>
+      inside(result(1).eventEffect) { case Some(sp@ EventEffect.SetPosition(_)) =>
         sp.position.quantity should equal (0)
-        sp.convertedToAsset should equal ("a2")
-        sp.convertedToQuantity should equal (7.0)
       }
       result(1).resultingPosition.quantity should equal (0)
       result(1).convertedTo should be (empty)
@@ -671,7 +665,7 @@ object AssetChangeTest {
 
         this.copy(
           seqBuilder = seqBuilder.copy(assetChanges = newPreviousACs),
-          assetChange = assetChange.withEventEffect(Some(EventEffect.SetPosition(amount, asset, quantity))),
+          assetChange = assetChange.withEventEffect(Some(EventEffect.SetPosition(amount))),
         )
       }
 

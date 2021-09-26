@@ -24,8 +24,6 @@ case class AssetChange(
   eventSetPositionQuantity: Int,
   eventSetPositionAveragePrice: Double,
   eventSetPositionAverageCost: Double,
-  eventConvertedToAsset: String, // TODO: remove
-  eventConvertedToQuantity: Double, // TODO: remove
 
   eventIncreaseQuantity: Int,
   eventIncreaseAveragePrice: Double,
@@ -96,7 +94,7 @@ case class AssetChange(
 
   lazy val eventEffect: Option[EventEffect] =
     eventEffectType.map {
-      case EventEffect.SetPosition.Type => EventEffect.SetPosition(eventSetPosition, eventConvertedToAsset, eventConvertedToQuantity)
+      case EventEffect.SetPosition.Type => EventEffect.SetPosition(eventSetPosition)
       case EventEffect.AddToPosition.Type => EventEffect.AddToPosition(eventIncreaseAmount, eventDecreaseAmount)
       case t => throw new Exception(s"Unknown type: $t")
     }
@@ -109,7 +107,7 @@ case class AssetChange(
 
   lazy val postEventPosition: Amount =
     eventEffect match {
-      case Some(EventEffect.SetPosition(_, _, _)) => eventSetPosition
+      case Some(EventEffect.SetPosition(_)) => eventSetPosition
       case Some(EventEffect.AddToPosition(_, _)) => nonTradeEventPosition
       case None => previousPosition
     }
@@ -170,9 +168,9 @@ case class AssetChange(
 
   def withEventEffect(eventEffect: Option[EventEffect]): AssetChange =
     eventEffect match {
-      case Some(EventEffect.SetPosition(pos, convToAsset, convToQty)) =>
+      case Some(EventEffect.SetPosition(pos)) =>
         this.copy(eventEffectType = Some(EventEffect.SetPosition.Type))
-          .withEventSetPositionAndNonSyncedResultingPosition(pos, convToAsset, convToQty)
+          .withEventSetPositionAndNonSyncedResultingPosition(pos)
           .withEventIncreaseAmountAndNonSyncedResultingPosition(PurchaseAmount.Zero)
           .withEventDecreaseAmountAndNonSyncedResultingPosition(SaleAmount.Zero)
           .withSyncedResultingPositionFields()
@@ -190,17 +188,11 @@ case class AssetChange(
           .withSyncedResultingPositionFields()
     }
 
-  private def withEventSetPositionAndNonSyncedResultingPosition(
-    eventSetPosition: Amount,
-    eventConvertedToAsset: String = "",
-    eventConvertedToQuantity: Double = 0.0,
-  ): AssetChange =
+  private def withEventSetPositionAndNonSyncedResultingPosition(eventSetPosition: Amount): AssetChange =
     this.copy(
       eventSetPositionQuantity = eventSetPosition.signedQuantity,
       eventSetPositionAveragePrice = eventSetPosition.averagePrice,
       eventSetPositionAverageCost = eventSetPosition.averageCost,
-      eventConvertedToAsset = eventConvertedToAsset,
-      eventConvertedToQuantity = eventConvertedToQuantity,
     )
 
   private def withEventIncreaseAmountAndNonSyncedResultingPosition(eventIncreaseAmount: PurchaseAmount): AssetChange =
@@ -264,7 +256,6 @@ object AssetChange extends LocalDateSupport {
       previousPositionQuantity = 0, previousPositionAveragePrice = 0.0, previousPositionAverageCost = 0.0,
       eventEffectType = None,
       eventSetPositionQuantity = 0, eventSetPositionAveragePrice = 0.0, eventSetPositionAverageCost = 0.0,
-      eventConvertedToAsset = "", eventConvertedToQuantity = 0.0,
       eventIncreaseQuantity = 0, eventIncreaseAveragePrice = 0.0, eventIncreaseAverageCost = 0.0,
       eventDecreaseQuantity = 0, eventDecreaseAveragePrice = 0.0, eventDecreaseAverageCost = 0.0,
       purchaseQuantity = 0, purchaseAveragePrice = 0.0, purchaseAverageCost = 0.0,

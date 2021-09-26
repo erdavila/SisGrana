@@ -9,7 +9,7 @@ sealed trait EventOutcome {
 
 object EventOutcome {
   case class SetPosition(amount: Amount, convertedToAsset: String, convertedToQuantity: Double) extends EventOutcome {
-    override def toEffect: EventEffect = EventEffect.SetPosition(amount, convertedToAsset, convertedToQuantity)
+    override def toEffect: EventEffect = EventEffect.SetPosition(amount)
   }
 
   case class AddToPosition(increaseAmount: PurchaseAmount, decreaseAmount: SaleAmount) extends EventOutcome {
