@@ -3,8 +3,7 @@ package investments.variableIncome.model
 
 import investments.variableIncome.model.ctx._
 import java.time.LocalDate
-import scala.annotation.tailrec
-import utils.{DateRange, DateRanges, oppositeSigns, sameNonZeroSigns}
+import utils.{DateRange, oppositeSigns, sameNonZeroSigns}
 
 // TODO: rename to AssetPeriod
 // TODO: search for and rename everything that contains "change"
@@ -272,65 +271,4 @@ object AssetChange extends LocalDateSupport {
         .filter(_.date <= lift(maxDate))
         .filter(_.endDate >= lift(minDate))
     )
-
-  //noinspection TypeAnnotation
-  // TODO: re-evaluate need for this method
-  def latestAssetChangesAtDateQuery(maxDate: LocalDate) =
-    ctx.quote {
-      for {
-        (asset, stockbroker, dateOpt) <- latestDateByAssetStockbroker(maxDate)
-        ac <- query[AssetChange]
-        if asset == ac.asset &&
-          stockbroker == ac.stockbroker &&
-          dateOpt.contains(ac.date)
-      } yield ac
-    }
-
-  // TODO: re-evaluate need for this method
-  private def latestDateByAssetStockbroker(maxDate: LocalDate) =
-    ctx.quote {
-      query[AssetChange]
-        .filter(_.date <= lift(maxDate))
-        .groupBy(ac => (ac.asset, ac.stockbroker))
-        .map { case ((asset, stockbroker), changes) =>
-          (asset, stockbroker, changes.map(_.date).max)
-        }
-    }
-
-  // TODO: re-evaluate need for this method
-  def toDateRanges(
-    assetChanges: Seq[AssetChange],
-    minDate: LocalDate,
-    maxDate: LocalDate,
-  )(implicit mode: DateRange.Mode): DateRanges = {
-    for (Seq(acA, acB) <- assetChanges.sliding(2)) {
-      require(acA.date `isBefore` acB.date)
-    }
-    require(assetChanges.map(_.stockbrokerAsset).distinct.lengthIs == 1)
-
-    val interested = (ac: AssetChange) => ac.resultingPosition.quantity != 0
-    val notInterested = (ac: AssetChange) => ! interested(ac)
-
-    import utils.dateOrdering._
-
-    @tailrec
-    def loop(assetChanges: Seq[AssetChange], result: Vector[DateRange]): Seq[DateRange] = {
-      assetChanges.dropWhile(notInterested) match {
-        case acBegin +: rest if !(acBegin.date `isAfter` maxDate) =>
-          lazy val beginDate = max(acBegin.date, minDate)
-          rest.dropWhile(interested) match {
-            case acEnd +: rest if !(acEnd.date `isBefore` minDate) =>
-              val endDate = min(acEnd.date, maxDate)
-              loop(rest, result :+ DateRange(beginDate, endDate))
-            case _ +: rest => loop(rest, result)
-            case _ => result :+ DateRange(beginDate, maxDate)
-          }
-        case _ +: _ => result
-        case _ => result
-      }
-    }
-
-    val result = loop(assetChanges, Vector.empty)
-    DateRanges.from(result)
-  }
 }

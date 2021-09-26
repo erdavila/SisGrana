@@ -104,10 +104,23 @@ object Main extends LocalDateSupport {
   }
 
   private def latestPositionByAsset(assets: Seq[String]): Map[StockbrokerAsset, LatestPosition] = {
-    val result = ctx.run(
-      AssetChange.latestAssetChangesAtDateQuery(MaxDate)
-        .filter(ac => liftQuery(assets).contains(ac.asset))
-    )
+    val result = ctx.run {
+      val latestDateByStockbrokerAsset =
+        query[AssetChange]
+          .groupBy(ac => (ac.stockbroker, ac.asset))
+          .map { case ((stockbroker, asset), changes) =>
+            (stockbroker, asset, changes.map(_.date).max)
+          }
+
+      for {
+        (stockbroker, asset, dateOpt) <- latestDateByStockbrokerAsset
+        ac <- query[AssetChange]
+        if asset == ac.asset &&
+          stockbroker == ac.stockbroker &&
+          dateOpt.contains(ac.date) &&
+          liftQuery(assets).contains(ac.asset)
+      } yield ac
+    }
 
     result
       .map(ac => ac.stockbrokerAsset -> LatestPosition(ac.date, ac.resultingPosition))
