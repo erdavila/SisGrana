@@ -5,9 +5,9 @@ import investments.utils.BrNumber
 import investments.variableIncome.assetsAtDate.AssetsAtDateMain
 import investments.variableIncome.model._
 import investments.variableIncome.model.ctx._
-import investments.variableIncome.{AssetType, Taxation}
+import investments.variableIncome.{AssetType, Formatting, Taxation}
 import java.time.{LocalDate, Month, Year, YearMonth}
-import utils.{IndentedPrinter, oppositeSigns, sameNonZeroSigns}
+import utils.IndentedPrinter
 
 object IrpfMain {
   private val SwingTradeExemptableLimit = 20_000.00
@@ -33,76 +33,9 @@ object IrpfMain {
       }
     }
 
-  private def formatPositionConversion(posBefore: Amount, posAfter: Amount, withLabel: Boolean = true): String = {
-    val formatted = s"${posBefore.signedFormatParens0} -> ${posAfter.signedFormatParens0}"
-    s"${positionLabel(withLabel)}$formatted"
-  }
-
-  private[irpf] def formatPositionChange(posBefore: Amount, posAfter: Amount, withLabel: Boolean = true): String = {
-    val formatted = {
-      def formattedChangeInOppositeDirection = {
-        val signal = if (posBefore.signedQuantity < 0) '+' else '-'
-        val quantityDelta = math.abs(posBefore.signedQuantity - posAfter.signedQuantity)
-        s"${posBefore.signedFormatParens0} $signal $quantityDelta unidades = ${posAfter.signedFormatParens0}"
-      }
-
-      if (sameNonZeroSigns(posBefore.signedQuantity, posAfter.signedQuantity)) {
-        if (math.abs(posBefore.signedQuantity) < math.abs(posAfter.signedQuantity)) {
-          val signal = if (posBefore.signedQuantity > 0) '+' else '-'
-          val delta = Amount.fromSignedQuantityAndTotals(
-            posAfter.signedQuantity - posBefore.signedQuantity,
-            posAfter.signedGrossValue - posBefore.signedGrossValue,
-            posAfter.totalCost - posBefore.totalCost,
-          )
-          s"${posBefore.signedFormatParens0} $signal ${delta.formatParens0} = ${posAfter.signedFormatParens0}"
-        } else if (math.abs(posBefore.signedQuantity) > math.abs(posAfter.signedQuantity)) {
-          formattedChangeInOppositeDirection
-        } else {
-          formatPositionConversion(posBefore, posAfter, withLabel = false)
-        }
-      } else if (oppositeSigns(posBefore.signedQuantity, posAfter.signedQuantity)) {
-        formattedChangeInOppositeDirection
-      } else {
-        formatPositionConversion(posBefore, posAfter, withLabel = false)
-      }
-    }
-
-    s"${positionLabel(withLabel)}$formatted"
-  }
-
-  private def positionLabel(withLabel: Boolean) = if (withLabel) "Posição: " else ""
-
-  private def formatTradeResult(tradeResult: TradeResult) =
-    s"Resultado: ${tradeResult.saleAmount.formatParens0} - ${tradeResult.purchaseAmount.formatParens0} = ${tradeResult.totalNetValue.format}"
-
   implicit private class IterableOps[A](private val iterable: Seq[A]) extends AnyVal {
     def groupAndSortBy[K: Ordering](f: A => K): Seq[(K, Seq[A])] =
       iterable.groupBy(f).toIndexedSeq.sortBy(_._1)
-  }
-
-  implicit private class AmountOps(private val amount: Amount) extends AnyVal {
-    def formatParens0: String =
-      formatValues(signed = false)
-
-    def signedFormatParens0: String =
-      formatValues(signed = true)
-
-    private def formatValues(signed: Boolean) =
-      if (amount.quantity == 0) {
-        "0"
-      } else {
-        val (qty, total) =
-          if (signed) {
-            (amount.signedQuantity, amount.signedNetValue)
-          } else {
-            (amount.quantity, amount.netValue)
-          }
-        s"($qty x ${amount.averagePriceWithCost.format} = ${total.format})"
-      }
-  }
-
-  implicit private[irpf] class DoubleOps(private val double: Double) extends AnyVal {
-    def format: String = BrNumber.formatMoney(double)
   }
 }
 
@@ -263,43 +196,7 @@ class IrpfMain(showDetails: Boolean) extends LocalDateSupport {
       assetPeriods.sortBy(_.asset)
         .map { ap =>
           val detailsOpt = printer.hierarchy.optionalTree(ap.asset, showDetails)(
-            ap.eventEffect.flatMap {
-              case EventEffect.SetPosition(pos) =>
-                printer.hierarchy.optionalTree("[Evento]")(
-                  Some(formatPositionConversion(ap.previousPosition, pos))
-                )
-              case EventEffect.AddToPosition(_, _) =>
-                printer.hierarchy.optionalTree("[Evento]")(
-                  Some(
-                    if (oppositeSigns(ap.previousPosition.signedQuantity, ap.postEventPosition.signedQuantity)) {
-                      formatPositionChange(ap.previousPosition, Amount.Zero)
-                    } else {
-                      formatPositionChange(ap.previousPosition, ap.postEventPosition)
-                    }
-                  ),
-                  Option.when(ap.eventTradeResult.quantity > 0) {
-                    formatTradeResult(ap.eventTradeResult)
-                  },
-                  Option.when(oppositeSigns(ap.previousPosition.signedQuantity, ap.postEventPosition.signedQuantity)) {
-                    formatPositionChange(Amount.Zero, ap.postEventPosition)
-                  },
-                )
-            },
-            Option.when(ap.dayTradeResult.quantity > 0) {
-              printer.hierarchy.tree("[Day-Trade]")(
-                formatTradeResult(ap.dayTradeResult),
-              )
-            },
-            Option.when(ap.postEventPosition.signedQuantity != ap.resultingPosition.signedQuantity) {
-              printer.hierarchy.tree("[Carteira]")(
-                formatPositionChange(ap.postEventPosition, ap.resultingPosition),
-              )
-            },
-            Option.when(ap.operationsTradeResult.quantity > 0) {
-              printer.hierarchy.tree("[Operação Comum]")(
-                formatTradeResult(ap.operationsTradeResult),
-              )
-            },
+            Formatting.forAssetPeriod(ap, None): _*
           )
 
           for (details <- detailsOpt) {
