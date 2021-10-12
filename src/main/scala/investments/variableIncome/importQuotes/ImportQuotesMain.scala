@@ -3,7 +3,7 @@ package investments.variableIncome.importQuotes
 
 import java.io.FileInputStream
 
-object Main {
+object ImportQuotesMain {
   def main(args: Array[String]): Unit = {
     val filesProcessor = new FilesProcessor
     for (arg <- args) {

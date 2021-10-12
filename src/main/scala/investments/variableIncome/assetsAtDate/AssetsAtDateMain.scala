@@ -8,7 +8,7 @@ import investments.variableIncome.model.ctx._
 import java.time.LocalDate
 import utils.IndentedPrinter
 
-object Main extends LocalDateSupport {
+object AssetsAtDateMain extends LocalDateSupport {
   private lazy val typeResolver = AssetType.Resolver.instance
 
   def main(args: Array[String]): Unit = {

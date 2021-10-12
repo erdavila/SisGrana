@@ -2,13 +2,13 @@ package sisgrana
 package investments.variableIncome.incomeRate
 
 import TestBase.{DefaultAsset, DefaultStockbroker, DefaultStockbrokerAsset}
-import investments.variableIncome.incomeRate.Main.Position
+import investments.variableIncome.incomeRate.IncomeRateMain.Position
 import investments.variableIncome.model.AssetPeriodTest.DSL._
 import investments.variableIncome.model.{ConvertedTo, Persisted, StockbrokerAsset}
 import utils.DateRange
 import utils.DateRangeTest.int2Date
 
-class MainTest extends TestBase with Persisted {
+class IncomeRateMainTest extends TestBase with Persisted {
   test(".queryQuantities()") {
     val cases = Table(
       "asset periods" -> "expected results",
@@ -73,7 +73,7 @@ class MainTest extends TestBase with Persisted {
     forAll(cases) { case assetPeriods -> expectedResults =>
       persisted(assetPeriods)
 
-      val result = Main.queryQuantities(DefaultStockbrokerAsset, dateRange)
+      val result = IncomeRateMain.queryQuantities(DefaultStockbrokerAsset, dateRange)
 
       result should equal (expectedResults)
     }
@@ -182,7 +182,7 @@ class MainTest extends TestBase with Persisted {
     )
 
     forAll(cases) { case (quantities, expectedResults) =>
-      val result = Main.regularizeDateRanges(quantities)
+      val result = IncomeRateMain.regularizeDateRanges(quantities)
 
       result should equal (expectedResults)
     }
@@ -193,7 +193,7 @@ class MainTest extends TestBase with Persisted {
     val data3to6 = DateRange(3, 6) -> 'B'
     val data8to10 = DateRange(8, 10) -> 'C'
 
-    val subPeriods = Main.joinSubPeriods(Seq(data1to3, data3to6, data8to10))
+    val subPeriods = IncomeRateMain.joinSubPeriods(Seq(data1to3, data3to6, data8to10))
     subPeriods.map(_.data) should equal (
       Seq(
         Seq(data1to3, data3to6),
@@ -230,7 +230,7 @@ class MainTest extends TestBase with Persisted {
     )
 
     forAll(cases) { case (dataSubPeriods, expectedNonDataSubPeriods) =>
-      val nonDataSubPeriods = Main.calculateNonDataSubPeriods(dataSubPeriods, periodDateRange)
+      val nonDataSubPeriods = IncomeRateMain.calculateNonDataSubPeriods(dataSubPeriods, periodDateRange)
 
       nonDataSubPeriods should equal (expectedNonDataSubPeriods)
     }

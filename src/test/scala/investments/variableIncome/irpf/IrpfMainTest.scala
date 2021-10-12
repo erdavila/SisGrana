@@ -1,10 +1,10 @@
 package sisgrana
 package investments.variableIncome.irpf
 
-import investments.variableIncome.irpf.Main.DoubleOps
+import investments.variableIncome.irpf.IrpfMain.DoubleOps
 import investments.variableIncome.model.Amount
 
-class MainTest extends TestBase {
+class IrpfMainTest extends TestBase {
   test("formatPositionChange()") {
     val cases = Table(
       (
@@ -45,7 +45,7 @@ class MainTest extends TestBase {
     )
 
     forAll(cases) { case (posBefore, posAfter, expectedOutput) =>
-      val output = Main.formatPositionChange(posBefore, posAfter, withLabel = false)
+      val output = IrpfMain.formatPositionChange(posBefore, posAfter, withLabel = false)
 
       output should equal (expectedOutput)
     }

@@ -11,7 +11,7 @@ import scala.annotation.tailrec
 import scala.util.{Failure, Try}
 import utils.{AnyOps, DateRange, DateRanges, quoted}
 
-object Main extends LocalDateSupport {
+object IncomeRateMain extends LocalDateSupport {
   private[incomeRate] case class Position(quantity: Int, convertedTo: Option[ConvertedTo]) {
     require(quantity > 0)
   }

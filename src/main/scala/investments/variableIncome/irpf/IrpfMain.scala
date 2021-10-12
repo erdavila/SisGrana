@@ -2,13 +2,14 @@ package sisgrana
 package investments.variableIncome.irpf
 
 import investments.utils.BrNumber
+import investments.variableIncome.assetsAtDate.AssetsAtDateMain
 import investments.variableIncome.model._
 import investments.variableIncome.model.ctx._
-import investments.variableIncome.{AssetType, Taxation, assetsAtDate}
+import investments.variableIncome.{AssetType, Taxation}
 import java.time.{LocalDate, Month, Year, YearMonth}
 import utils.{IndentedPrinter, oppositeSigns, sameNonZeroSigns}
 
-object Main {
+object IrpfMain {
   private val SwingTradeExemptableLimit = 20_000.00
   private val SwingTradeTaxRate = 0.15
   private val DayTradeTaxRate = 0.20
@@ -16,7 +17,7 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     val (showDetails, years) = processArgs(args)
-    val main = new Main(showDetails)
+    val main = new IrpfMain(showDetails)
 
     for (year <- years) {
       main.processYear(year)
@@ -105,8 +106,8 @@ object Main {
   }
 }
 
-class Main(showDetails: Boolean) extends LocalDateSupport {
-  import Main._
+class IrpfMain(showDetails: Boolean) extends LocalDateSupport {
+  import IrpfMain._
 
   private val typeResolver = AssetType.Resolver.instance
   private val printer = new IndentedPrinter
@@ -125,7 +126,7 @@ class Main(showDetails: Boolean) extends LocalDateSupport {
         processYearMonth(year.atMonth(month), assetPeriods)
       }
 
-      assetsAtDate.Main.showAssetsAtDate(maxDate, printer)
+      AssetsAtDateMain.showAssetsAtDate(maxDate, printer)
     }
 
   private case class TradesResults(

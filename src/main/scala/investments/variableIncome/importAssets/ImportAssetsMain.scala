@@ -7,7 +7,7 @@ import investments.variableIncome.model.ctx._
 import java.io.File
 import java.time.LocalDate
 
-object Main extends LocalDateSupport {
+object ImportAssetsMain extends LocalDateSupport {
 
   private lazy val nameNormalizer = NameNormalizer.get()
 

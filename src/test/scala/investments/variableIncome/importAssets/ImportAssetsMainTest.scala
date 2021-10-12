@@ -4,7 +4,7 @@ package investments.variableIncome.importAssets
 import investments.variableIncome.model.{Amount, ConvertedTo, StockbrokerAsset, TradeResult}
 import java.time.LocalDate
 
-class MainTest extends TestBase {
+class ImportAssetsMainTest extends TestBase {
   test("events") {
     case class Case(
       previousPositions: Map[StockbrokerAsset, Amount],
@@ -60,7 +60,7 @@ class MainTest extends TestBase {
     forAll(cases) { c =>
       assert(c.expectedPostEventPositions.keySet == c.expectedEventTradeResults.keySet)
 
-      val (assetPeriods, conversions) = Main.processDateChanges(DefaultDate, c.previousPositions, c.events, Seq.empty)
+      val (assetPeriods, conversions) = ImportAssetsMain.processDateChanges(DefaultDate, c.previousPositions, c.events, Seq.empty)
 
       val assetPeriodsByStockbrokerAsset =
         assetPeriods
@@ -226,7 +226,7 @@ class MainTest extends TestBase {
     )
 
     forAll(cases) { c =>
-      val (assetPeriods, conversions) = Main.processDateChanges(DefaultDate, c.previousPositions, Seq.empty, c.brokerageNotes)
+      val (assetPeriods, conversions) = ImportAssetsMain.processDateChanges(DefaultDate, c.previousPositions, Seq.empty, c.brokerageNotes)
 
       val assetPeriodsByStockbrokerAsset =
         assetPeriods
