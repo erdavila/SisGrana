@@ -15,7 +15,7 @@ case class TradeResult(
     require(totalSaleValue == 0.0)
     require(totalSaleCost == 0.0)
   } else {
-    require(totalPurchaseValue > 0.0)
+    require(totalPurchaseValue >= 0.0)
     require(totalPurchaseCost >= 0.0)
     require(totalSaleValue >= 0.0)
     require(totalSaleCost >= 0.0)

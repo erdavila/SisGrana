@@ -194,11 +194,14 @@ object ImportAssetsMain extends LocalDateSupport {
 
     val assetAggNegsList = brokerageNote.negotiations
       .flatMap { negotiation =>
-        val negotiationAverageCost = {
-          val valuePercentage = negotiation.totalValue / totalNegotiationsValue
-          val cost = valuePercentage * totalCosts
-          cost / negotiation.quantity
-        }
+        val negotiationAverageCost =
+          if (totalNegotiationsValue == 0.0) {
+            0.0
+          } else {
+            val valuePercentage = negotiation.totalValue / totalNegotiationsValue
+            val cost = valuePercentage * totalCosts
+            cost / negotiation.quantity
+          }
 
         val (optionSignedAvgPrice, optionAvgCost, optionAggNegsOpt) = negotiation.optionAsset match {
           case Some(optionAsset) =>
