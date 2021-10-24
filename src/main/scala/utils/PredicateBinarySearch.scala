@@ -21,6 +21,12 @@ object PredicateBinarySearch {
   case object ContinueSearchingBefore extends Action
   case object StopSearching extends Action
 
+  def search[A: Ordering, B](value: A, sortedSeq: IndexedSeq[B])(access: B => A): Result =
+    search(sortedSeq) { b =>
+      val a = access(b)
+      a ?<=> value
+    }
+
   def search[A](sortedSeq: IndexedSeq[A])(predicate: A => Action): Result =
     search(sortedSeq.length) { index =>
       val value = sortedSeq(index)
@@ -44,10 +50,9 @@ object PredicateBinarySearch {
     loop(0, length - 1)
   }
 
-  implicit class ActionOperator[A](private val a: A)(implicit ord: Ordering[A]) {
-    import ord._
-
-    def ?<=>(other: A): Action = {
+  implicit class ActionOperator[A](private val a: A) extends AnyVal {
+    def ?<=>(other: A)(implicit ord: Ordering[A]): Action = {
+      import ord._
       if (a < other) ContinueSearchingAfter
       else if (a > other) ContinueSearchingBefore
       else StopSearching

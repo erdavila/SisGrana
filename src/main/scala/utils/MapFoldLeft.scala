@@ -9,6 +9,12 @@ object MapFoldLeft {
       implementation(as, s, f, as.iterableFactory.newBuilder[B])
   }
 
+  implicit class IteratorOps[A](private val as: Iterator[A]) extends AnyVal {
+    def mapFoldLeft[B, S](s: S)(f: (S, A) => (B, S)): (S, Iterable[B]) = {
+      implementation(as, s, f, Iterable.newBuilder[B])
+    }
+  }
+
   implicit class MapOps[CC[X, Y] <: ScalaMapOps[X, Y, CC, CC[X, Y]], K, V](private val kvs: CC[K, V]) extends AnyVal {
     def mapFoldLeft[B, S](s: S)(f: (S, (K, V)) => (B, S))(implicit dummyImplicit: DummyImplicit): (S, Iterable[B]) =
       implementation(kvs: IterableOnce[(K, V)], s, f, kvs.iterableFactory.newBuilder[B])

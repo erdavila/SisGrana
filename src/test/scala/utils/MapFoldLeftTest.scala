@@ -44,6 +44,16 @@ class MapFoldLeftTest extends TestBase {
       bs shouldBe a [Set[_]]
       bs should equal (ExpectedOutputValues.to(Set))
     }
+
+    test("Iterator") {
+      val as = InputValues.to(Iterator)
+
+      val (s, bs) = as.mapFoldLeft(InitialState)(MapFoldFunction)
+
+      s should equal (ExpectedFinalState)
+      bs shouldBe a [Iterable[_]]
+      bs should equal (ExpectedOutputValues)
+    }
   }
 
   { // Map cases
