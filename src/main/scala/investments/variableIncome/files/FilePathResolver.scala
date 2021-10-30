@@ -8,7 +8,9 @@ import utils.MapFoldLeft._
 import utils._
 
 object FilePathResolver {
-  class NonExistingPathException(val path: String, cause: Throwable = null) extends Exception(cause)
+  class NonExistingPathException(val path: String, cause: Throwable = null) extends Exception(cause) {
+    override def getMessage: String = s"Caminho não existente: $path"
+  }
 
   def resolve(paths: Seq[String]): Seq[MultiLevelFilePath] =
     paths.flatMap(resolve).distinct

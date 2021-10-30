@@ -1,12 +1,12 @@
 package sisgrana
 package investments.variableIncome.importQuotes
 
+import investments.variableIncome.QuotesFileReader
 import investments.variableIncome.model._
 import investments.variableIncome.model.ctx._
 import java.io.InputStream
 import java.time.{LocalDate, Month, Year, YearMonth}
 import java.util.zip.ZipInputStream
-import scala.io.Source
 import utils.DateRange.Mode.FullDay
 import utils.{DateRange, DateRanges, IndentedPrinter}
 
@@ -41,21 +41,6 @@ class FilesProcessor extends LocalDateSupport {
   }
 
   private val AcceptedAssetVariations = Set("3", "4", "5", "6", "11")
-
-  private val DateExtractor = new StringExtractor(3, 10, str => {
-    val yearString = str.substring(0, 4)
-    val monthString = str.substring(4, 6)
-    val dayString = str.substring(6, 8)
-    val dateString = yearString + "-" + monthString + "-" + dayString
-    LocalDate.parse(dateString)
-  })
-
-  private val AssetExtractor = new StringExtractor(13, 24, _.trim)
-  private val OpenPriceExtractor = new StringExtractor.PriceExtractor(57)
-  private val MaxPriceExtractor = new StringExtractor.PriceExtractor(70)
-  private val MinPriceExtractor = new StringExtractor.PriceExtractor(83)
-  private val AvgPriceExtractor = new StringExtractor.PriceExtractor(96)
-  private val ClosePriceExtractor = new StringExtractor.PriceExtractor(109)
 
   def processFile(multiFile: MultiFile, inputStream: => InputStream): Unit =
     multiFile.name match {
@@ -94,19 +79,19 @@ class FilesProcessor extends LocalDateSupport {
 
     val quotesIterator =
       for {
-        line <- Source.fromInputStream(inputStream).getLines()
-        if line.startsWith("01")
-        asset = AssetExtractor.from(line)
-        if AcceptedAssetVariations.contains(asset.substring(4))
-        dateRanges <- assetsDateRanges.get(asset)
-        date = DateExtractor.from(line)
-        if dateRanges.contains(date)
-        openPrice = OpenPriceExtractor.from(line)
-        closePrice = ClosePriceExtractor.from(line)
-        minPrice = MinPriceExtractor.from(line)
-        avgPrice = AvgPriceExtractor.from(line)
-        maxPrice = MaxPriceExtractor.from(line)
-      } yield AssetQuote(asset, date, openPrice, closePrice, minPrice, avgPrice, maxPrice)
+        record <- QuotesFileReader.readFrom(inputStream)
+        if AcceptedAssetVariations.contains(record.asset.substring(4))
+        dateRanges <- assetsDateRanges.get(record.asset)
+        if dateRanges.contains(record.date)
+      } yield AssetQuote(
+        record.asset,
+        record.date,
+        record.openPrice,
+        record.closePrice,
+        record.minPrice,
+        record.avgPrice,
+        record.maxPrice,
+      )
 
     val quotes = quotesIterator.toSeq
     printer.println(s"${quotes.length} cotações")

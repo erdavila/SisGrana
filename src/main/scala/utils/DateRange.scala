@@ -10,6 +10,12 @@ case class DateRange(beginDate: LocalDate, endDate: LocalDate) {
 
   def size(implicit mode: DateRange.Mode): Long =
     ChronoUnit.DAYS.between(beginDate, endDate) + mode.offset
+
+  def foreach[U](f: LocalDate => U): Unit =
+    for (n <- 0 until size(DateRange.Mode.FullDay).toInt) {
+      val date = beginDate.plusDays(n)
+      f(date)
+    }
 }
 
 object DateRange {
