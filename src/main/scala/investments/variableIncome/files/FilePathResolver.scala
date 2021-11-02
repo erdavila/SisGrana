@@ -4,7 +4,7 @@ package investments.variableIncome.files
 import java.io.{File, FileInputStream, InputStream}
 import java.util.zip.ZipInputStream
 import scala.annotation.tailrec
-import utils.MapFoldLeft._
+import utils.Traversing._
 import utils._
 
 object FilePathResolver {
@@ -83,10 +83,10 @@ object FilePathResolver {
     private val entries = Iterator.continually(zipInputStream.getNextEntry).takeWhile(_ != null)
 
     def resolve(path: String): Seq[MultiLevelFilePath] = {
-      val (directoryConfirmed, filePathSeqs) = entries.mapFoldLeft(false) { (directoryConfirmed, entry) =>
-        def returnDefault = (Seq.empty, directoryConfirmed)
-        def returnFilePaths(filePaths: Seq[MultiLevelFilePath]) = (filePaths, directoryConfirmed)
-        def returnDirectoryConfirmed = (Seq.empty, true)
+      val (directoryConfirmed, filePathSeqs) = entries.foldFlatMapLeft(false) { (directoryConfirmed, entry) =>
+        def returnDefault = (directoryConfirmed, Seq.empty)
+        def returnFilePaths(filePaths: Seq[MultiLevelFilePath]) = (directoryConfirmed, filePaths)
+        def returnDirectoryConfirmed = (true, Seq.empty)
 
         if (entry.isDirectory) {
           if (entry.getName.stripTrailingSlash == path) {
@@ -110,7 +110,7 @@ object FilePathResolver {
         }
       }
 
-      val filePaths = filePathSeqs.flatten.toSeq
+      val filePaths = filePathSeqs.toSeq
       if (filePaths.isEmpty  &&  !directoryConfirmed) {
         throw new NonExistingPathException(path)
       }
