@@ -69,6 +69,42 @@ trait ArgumentsParser[A] {
   protected def takeRemaining(atLeast: Int): Parser[Args] =
     returnAtLeast(atLeast) { args => (Nil, args) }
 
+  protected def takeOptionParameter(forms: String*): Parser[Option[String]] =
+    takeOption(forms, 1)(
+      found = (option, params) => {
+        assert(params.lengthIs <= 1)
+        params.headOption match {
+          case Some(param) => Some(param)
+          case None => error(s"Faltando parâmetro para a opção $option")
+        }
+      },
+      notFound = () => None,
+    )
+
+  protected def takeOption(forms: String*): Parser[Boolean] =
+    takeOption(forms, 0)(
+      found = (_, _) => true,
+      notFound = () => false,
+    )
+
+  private def takeOption[T](forms: Seq[String], paramsCount: Int)(
+    found: (String, List[String]) => T,
+    notFound: () => T,
+  ): Parser[T] =
+    StateT { args =>
+      val (possiblyOptions, nonOptionArgs) = args.span(_ != Delimiter)
+      val i = possiblyOptions.indexWhere(arg => forms.contains(arg))
+      if (i >= 0) {
+        val (argsBeforeOption, rest) = possiblyOptions.splitAt(i)
+        val option = rest.head
+        val (params, argsAfterOption) = rest.tail.splitAt(paramsCount)
+        val remainingArgs = argsBeforeOption ::: argsAfterOption ::: nonOptionArgs
+        success((remainingArgs, found(option, params)))
+      } else {
+        success((args, notFound()))
+      }
+    }
+
   private def returnAtLeast(atLeast: Int)(f: Args => (Args, List[String])): Parser[List[String]] =
     StateT { args =>
       val (remaining, toBeReturned) = f(args)
@@ -104,24 +140,24 @@ object ArgumentsParser {
     protected def toPaths(args: Args): Seq[MultiLevelFilePath] =
       FilePathResolver.resolve(args)
 
-    protected def toDateRanges(args: Args): DateRanges = {
-      def parseDate(arg: String): LocalDate =
-        try {
-          LocalDate.parse(arg)
-        } catch {
-          case e: Throwable => error(s"Data inválida: ${e.getMessage}", e)
-        }
+    protected def toDate(arg: String): LocalDate =
+      try {
+        LocalDate.parse(arg)
+      } catch {
+        case e: Throwable => error(s"Data inválida: ${e.getMessage}", e)
+      }
 
+    protected def toDateRanges(args: Args): DateRanges = {
       val ranges =
         for (arg <- args)
           yield {
             arg match {
               case s"$begin:$end" =>
-                val beginDate = parseDate(begin)
-                val endDate = parseDate(end)
+                val beginDate = toDate(begin)
+                val endDate = toDate(end)
                 DateRange(beginDate, endDate)
               case _ =>
-                val date = parseDate(arg)
+                val date = toDate(arg)
                 DateRange(date, date)
             }
           }

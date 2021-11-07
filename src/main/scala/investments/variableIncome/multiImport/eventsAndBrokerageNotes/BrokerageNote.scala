@@ -1,12 +1,12 @@
 package sisgrana
-package investments.variableIncome.importAssets
+package investments.variableIncome.multiImport.eventsAndBrokerageNotes
 
 import investments.utils.BrNumber
 import investments.variableIncome.AssetType
-import java.io.File
+import java.io.InputStream
 import java.time.LocalDate
-import scala.annotation.tailrec
-import utils.{DoubleOps, quoted}
+import utils.Traversing._
+import utils.{DoubleOps, SSV, Traverser, quoted}
 
 sealed trait Operation
 
@@ -98,40 +98,63 @@ case class BrokerageNote(
 }
 
 object BrokerageNote {
-  def fromFile(date: LocalDate, stockbroker: String, nameNormalizer: NameNormalizer)(file: File): Seq[BrokerageNote] =
-    try {
-      val linesValues = SSV.readFile(file)
-      fromLinesValues(date, stockbroker, nameNormalizer)(linesValues)
-    } catch {
-      case t: Throwable => throw new Exception(s"An exception was thrown while reading file $file", t)
+
+  def from(date: LocalDate, stockbroker: String, nameNormalizer: NameNormalizer)(inputStream: InputStream): Iterator[BrokerageNote] =
+    fromLinesValues(date, stockbroker, nameNormalizer)(SSV.readFrom(inputStream))
+
+  private[eventsAndBrokerageNotes] def fromLinesValues(date: LocalDate, stockbroker: String, nameNormalizer: NameNormalizer)(linesValues: Iterator[SSV.LineValues]): Iterator[BrokerageNote] = {
+    val traverser =
+      for {
+        parsedSome <- getState
+        _ <- if (parsedSome) skipBlankLine[Boolean] else nothing[Boolean, SSV.LineValues]
+
+        negotiations <- takeNegotiations(nameNormalizer)
+        costs <- takeCosts
+        total <- takeTotal
+
+        parsedSome = true
+        _ <- setState(parsedSome)
+        note = BrokerageNote(stockbroker, date, negotiations.toList, costs.toList, total)
+        _ = note.checkTotalValue()
+      } yield note
+
+    linesValues.traverse(traverser, false) { (parsedSome, completed) =>
+      if (!parsedSome || !completed) throw new Exception("Missing data")
+      None
     }
-
-  private[importAssets] def fromLinesValues(date: LocalDate, stockbroker: String, nameNormalizer: NameNormalizer)(linesValues: Seq[Seq[String]]): Seq[BrokerageNote] = {
-    @tailrec
-    def loop(linesValues: Seq[Seq[String]], accumulator: Seq[BrokerageNote]): Seq[BrokerageNote] = {
-      val (negotiationsLinesValues, remaining1) = linesValues.span(_.nonEmpty)
-      val (costsLinesValues, remaining2) = remaining1.drop(1).span(_.nonEmpty)
-      val (totalString, remaining3) = remaining2.drop(1) match {
-        case Seq(Seq(totalString), remaining3@_*) => (totalString, remaining3)
-        case Seq(totalLineValues, _@_*) => throw new Exception(s"Invalid values for total: $totalLineValues")
-        case _ => throw new Exception("Missing data")
-      }
-
-      val negotiations = negotiationsLinesValues.map(Negotiation.parseLineValues(nameNormalizer))
-      val costs = costsLinesValues.map(Cost.parseLineValues)
-      val total = BrNumber.parse(totalString)
-
-      val note = BrokerageNote(stockbroker, date, negotiations.toList, costs.toList, total)
-      note.checkTotalValue()
-      val newAccumulator = accumulator :+ note
-
-      remaining3 match {
-        case Seq(Seq(), remaining4@_*) => loop(remaining4, newAccumulator)
-        case Seq() => newAccumulator
-        case _ => throw new Exception(s"Exceeding data: $remaining3")
-      }
-    }
-
-    loop(linesValues, Vector.empty)
   }
+
+  private def getState[In] = Traverser.getState[Boolean, In]
+  private def setState[In](value: Boolean) = Traverser.setState[Boolean, In](value)
+
+  private def skipBlankLine[S] =
+    for {
+      line <- Traverser.takeNext[S, SSV.LineValues]
+      _ = if (line.nonEmpty) throw new Exception("Exceeding data")
+    } yield ()
+
+  private def nothing[S, In] = Traverser.const[S, In](())
+
+  private def takeNegotiations[S](nameNormalizer: NameNormalizer) =
+    for {
+      linesValues <- Traverser.takeWhile[S, SSV.LineValues](_.nonEmpty)
+      negotiations = linesValues.map(Negotiation.parseLineValues(nameNormalizer))
+      _ <- skipBlankLine
+    } yield negotiations
+
+  private def takeCosts[S] =
+    for {
+      linesValues <- Traverser.takeWhile[S, SSV.LineValues](_.nonEmpty)
+      costs = linesValues.map(Cost.parseLineValues)
+      _ <- skipBlankLine
+    } yield costs
+
+  private def takeTotal[S] =
+    for {
+      lineValues <- Traverser.takeNext[S, SSV.LineValues]
+      value = lineValues match {
+        case Seq(value) => value
+        case _ => throw new Exception(s"Invalid values for total: $lineValues")
+      }
+    } yield BrNumber.parse(value)
 }

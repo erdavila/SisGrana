@@ -1,5 +1,5 @@
 package sisgrana
-package investments.variableIncome.importAssets
+package investments.variableIncome.multiImport.eventsAndBrokerageNotes
 
 import investments.variableIncome.model.{Amount, EventEffect, PurchaseAmount, SaleAmount}
 

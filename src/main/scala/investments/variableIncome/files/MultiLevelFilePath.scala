@@ -8,14 +8,24 @@ import utils.use
 sealed trait MultiLevelFilePath {
   def name: String
   def stringPath: String
-  def read[A](f: InputStream => A): A
+  protected def doRead[A](f: InputStream => A): A
+
+  final def readFromIterator[A](f: InputStream => Iterator[A]): Seq[A] =
+    read(inputStream => f(inputStream).toSeq)
+
+  final def read[A](f: InputStream => A): A =
+    try {
+      doRead(f)
+    } catch {
+      case e: Throwable => throw new Exception(s"Failure while reading $stringPath", e)
+    }
 }
 
 case class TerminalFilePath(filePath: String) extends MultiLevelFilePath {
   override def name: String = new File(filePath).getName
   override def stringPath: String = filePath
 
-  override def read[A](f: InputStream => A): A =
+  override protected def doRead[A](f: InputStream => A): A =
     use(new FileInputStream(filePath))(f)
 }
 
@@ -23,7 +33,7 @@ case class InsideZipFilePath(zipFilePath: String, inZipMultiLevelFilePath: Multi
   override def name: String = inZipMultiLevelFilePath.name
   override def stringPath: String = s"$zipFilePath/${inZipMultiLevelFilePath.stringPath}"
 
-  override def read[A](f: InputStream => A): A =
+  override protected def doRead[A](f: InputStream => A): A =
     use(new ZipInputStream(new FileInputStream(zipFilePath))) {
       readInsideZip(_, inZipMultiLevelFilePath, f)
     }

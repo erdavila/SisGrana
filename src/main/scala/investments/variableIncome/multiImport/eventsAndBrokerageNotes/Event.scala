@@ -1,8 +1,9 @@
 package sisgrana
-package investments.variableIncome.importAssets
+package investments.variableIncome.multiImport.eventsAndBrokerageNotes
 
 import investments.utils.BrNumber
-import java.io.File
+import java.io.InputStream
+import utils.SSV
 
 sealed trait Event {
   def subjectAssets: Set[String]
@@ -22,7 +23,7 @@ object Event {
     override def subjectAssets: Set[String] = Set(fromAsset, toAsset)
   }
 
-  def parseLineValues(lineValues: Seq[String]): Event = {
+  def parseLineValues(lineValues: SSV.LineValues): Event = {
     SSV.matchValues(lineValues) {
       case Seq("convert", fromAsset, fromQty, "->", toQty, toAsset) =>
         Conversion(fromAsset, BrNumber.parse(fromQty), toAsset, BrNumber.parse(toQty))
@@ -31,6 +32,7 @@ object Event {
     }
   }
 
-  def fromFile(file: File): Seq[Event] =
-    SSV.readFile(file).map(Event.parseLineValues)
+  def from(inputStream: InputStream): Iterator[Event] =
+    for (lineValues <- SSV.readFrom(inputStream))
+      yield Event.parseLineValues(lineValues)
 }

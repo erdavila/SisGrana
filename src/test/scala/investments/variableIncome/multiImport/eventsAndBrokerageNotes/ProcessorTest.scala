@@ -1,10 +1,10 @@
 package sisgrana
-package investments.variableIncome.importAssets
+package investments.variableIncome.multiImport.eventsAndBrokerageNotes
 
 import investments.variableIncome.model.{Amount, ConvertedTo, StockbrokerAsset, TradeResult}
 import java.time.LocalDate
 
-class ImportAssetsMainTest extends TestBase {
+class ProcessorTest extends TestBase {
   test("events") {
     case class Case(
       previousPositions: Map[StockbrokerAsset, Amount],
@@ -60,7 +60,7 @@ class ImportAssetsMainTest extends TestBase {
     forAll(cases) { c =>
       assert(c.expectedPostEventPositions.keySet == c.expectedEventTradeResults.keySet)
 
-      val (assetPeriods, conversions) = ImportAssetsMain.processDateChanges(DefaultDate, c.previousPositions, c.events, Seq.empty)
+      val (assetPeriods, conversions) = Processor.processDateChanges(DefaultDate, c.previousPositions, c.events, Seq.empty)
 
       val assetPeriodsByStockbrokerAsset =
         assetPeriods
@@ -226,7 +226,7 @@ class ImportAssetsMainTest extends TestBase {
     )
 
     forAll(cases) { c =>
-      val (assetPeriods, conversions) = ImportAssetsMain.processDateChanges(DefaultDate, c.previousPositions, Seq.empty, c.brokerageNotes)
+      val (assetPeriods, conversions) = Processor.processDateChanges(DefaultDate, c.previousPositions, Seq.empty, c.brokerageNotes)
 
       val assetPeriodsByStockbrokerAsset =
         assetPeriods

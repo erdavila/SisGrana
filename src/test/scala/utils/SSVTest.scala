@@ -1,11 +1,11 @@
 package sisgrana
-package investments.variableIncome.importAssets
+package utils
 
-import investments.variableIncome.importAssets.SSV.{InterruptedContentException, UnexpectedCharacterException}
+import utils.SSV.{InterruptedContentException, UnexpectedCharacterException}
 
 class SSVTest extends TestBase {
   private def fromChars(chars: String): Seq[Seq[String]] =
-    SSV.fromChars(chars.iterator)
+    SSV.fromChars(chars.iterator).toSeq
 
   test("simple case") {
     val allLinesValues = fromChars(

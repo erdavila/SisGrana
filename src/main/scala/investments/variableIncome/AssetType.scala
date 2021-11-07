@@ -1,9 +1,8 @@
 package sisgrana
 package investments.variableIncome
 
-import investments.variableIncome.importAssets.SSV
-import java.io.File
-import utils.quoted
+import java.io.{File, FileInputStream}
+import utils.{SSV, quoted, use}
 
 sealed abstract class AssetType(val code: String) {
   def taxation: Taxation
@@ -70,12 +69,17 @@ object AssetType {
     lazy val instance: Resolver = fromFile(new File(DataPath, TypesFileName))
 
     def fromFile(file: File): Resolver = {
-      val entries = SSV.readFile(file).map { lineValues =>
-        SSV.matchValues(lineValues) { case Seq(asset, typeCode) =>
-          asset -> AssetType.ByCode(typeCode)
-        }
+      val entries = use(new FileInputStream(file)) { inputStream =>
+        SSV.readFrom(inputStream)
+          .map { lineValues =>
+            SSV.matchValues(lineValues) { case Seq(asset, typeCode) =>
+              asset -> AssetType.ByCode(typeCode)
+            }
+          }
+          .toMap
       }
-      new Resolver(entries.toMap)
+
+      new Resolver(entries)
     }
 
     def isOption(assetCode: String): Boolean =

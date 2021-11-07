@@ -1,8 +1,8 @@
 package sisgrana
-package investments.variableIncome.importAssets
+package investments.variableIncome.multiImport.eventsAndBrokerageNotes
 
 import investments.variableIncome.model.{Amount, PurchaseAmount, SaleAmount, StockbrokerAsset}
-import sisgrana.utils.oppositeSigns
+import utils.oppositeSigns
 
 case class AggregatedNegotiations(
   stockbrokerAsset: StockbrokerAsset,

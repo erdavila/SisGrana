@@ -1,8 +1,8 @@
 package sisgrana
-package investments.variableIncome.importAssets
+package investments.variableIncome.multiImport.eventsAndBrokerageNotes
 
-import investments.variableIncome.importAssets.EventProcessor.{mergeOutcomeByAsset, processBonus, processConversion}
 import investments.variableIncome.model.{Amount, PurchaseAmount, StockbrokerAsset}
+import investments.variableIncome.multiImport.eventsAndBrokerageNotes.EventProcessor.{mergeOutcomeByAsset, processBonus, processConversion}
 
 class EventProcessor(event: Event) {
   def process(positionByAsset: Map[StockbrokerAsset, Amount]): Map[StockbrokerAsset, EventOutcome] = {
@@ -43,7 +43,7 @@ object EventProcessor {
       case _ => throw new Exception(s"Efeitos dos tipos ${outcome1.getClass} e ${outcome2.getClass} não podem ser mesclados ($stockbrokerAsset)")
     }
 
-  private[importAssets] def processConversion(conversion: Event.Conversion, positionByAsset: Map[String, Amount]): Map[String, EventOutcome] =
+  private[eventsAndBrokerageNotes] def processConversion(conversion: Event.Conversion, positionByAsset: Map[String, Amount]): Map[String, EventOutcome] =
     positionByAsset.get(conversion.fromAsset) match {
       case Some(position) =>
         val newQuantity = position.signedQuantity * conversion.toQuantity / conversion.fromQuantity
@@ -69,7 +69,7 @@ object EventProcessor {
       case None => Map.empty
     }
 
-  private[importAssets] def processBonus(bonus: Event.Bonus, positionByAsset: Map[String, Amount]): Map[String, EventOutcome] =
+  private[eventsAndBrokerageNotes] def processBonus(bonus: Event.Bonus, positionByAsset: Map[String, Amount]): Map[String, EventOutcome] =
     positionByAsset.get(bonus.fromAsset) match {
       case Some(position) if position.signedQuantity > 0 =>
         val newQuantity = (position.quantity * bonus.toQuantity / bonus.fromQuantity).toInt

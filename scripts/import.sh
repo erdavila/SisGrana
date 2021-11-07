@@ -1,8 +1,8 @@
 #!/bin/bash
 
-FILES=''
-for file in "$@"; do
-  FILES="$FILES \"$file\""
+ARGS=''
+for arg in "$@"; do
+  ARGS="$ARGS \"$arg\""
 done
 
-sbt "runMain sisgrana.investments.variableIncome.importAssets.ImportAssetsMain $FILES"
+sbt "runMain sisgrana.investments.variableIncome.multiImport.MultiImportMain $ARGS"

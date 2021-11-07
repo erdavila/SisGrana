@@ -1,7 +1,8 @@
 package sisgrana
-package investments.variableIncome.importAssets
+package investments.variableIncome.multiImport.eventsAndBrokerageNotes
 
 import java.time.LocalDate
+import utils.SSV
 
 class BrokerageNoteTest extends TestBase {
   private val Stockbroker = "stockbroker"
@@ -14,6 +15,9 @@ class BrokerageNoteTest extends TestBase {
       "ZZZZ" -> "ZZZZ",
     )
   )
+
+  private def brokerageNotesFromLineValues(linesValues: Seq[SSV.LineValues]) =
+    BrokerageNote.fromLinesValues(Date, Stockbroker, nameNormalizer)(linesValues.iterator).toSeq
 
   test("Valid cases for .fromLinesValues()") {
     val cases = Table(
@@ -81,14 +85,14 @@ class BrokerageNoteTest extends TestBase {
     )
 
     forAll(cases) { case (linesValues, expectedBrokerageNotes) =>
-      val brokerageNotes = BrokerageNote.fromLinesValues(Date, Stockbroker, nameNormalizer)(linesValues)
+      val brokerageNotes = brokerageNotesFromLineValues(linesValues)
 
       brokerageNotes should equal (expectedBrokerageNotes)
     }
   }
 
   test("Invalid total in .fromLinesValues()") {
-    val e = the [Exception] thrownBy BrokerageNote.fromLinesValues(Date, Stockbroker, nameNormalizer)(
+    val e = the [Exception] thrownBy brokerageNotesFromLineValues(
       Seq(
         Seq("C", "The X", "1", "23,45"),
         Seq.empty,
@@ -110,11 +114,10 @@ class BrokerageNoteTest extends TestBase {
   )
 
   test("Missing data in .fromLinesValues()") {
-    //noinspection RangeToIndices
-    for (numLines <- 0 until CompleteSimpleLinesValues.length) {
+    for (numLines <- 1 until CompleteSimpleLinesValues.length) {
       withClue(s"[$numLines lines]") {
         val linesValues = CompleteSimpleLinesValues.take(numLines)
-        val e = the [Exception] thrownBy BrokerageNote.fromLinesValues(Date, Stockbroker, nameNormalizer)(linesValues)
+        val e = the [Exception] thrownBy brokerageNotesFromLineValues(linesValues)
 
         e.getMessage should equal ("Missing data")
       }
@@ -123,7 +126,7 @@ class BrokerageNoteTest extends TestBase {
 
   test("Exceeding data in .fromLinesValues()") {
     val linesValues = CompleteSimpleLinesValues :+ Seq("excess")
-    val e = the [Exception] thrownBy BrokerageNote.fromLinesValues(Date, Stockbroker, nameNormalizer)(linesValues)
+    val e = the [Exception] thrownBy brokerageNotesFromLineValues(linesValues)
 
     e.getMessage should startWith ("Exceeding data")
   }

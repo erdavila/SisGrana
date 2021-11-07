@@ -1,64 +1,104 @@
 package sisgrana
-package investments.variableIncome.importAssets
+package investments.variableIncome.multiImport.eventsAndBrokerageNotes
 
 import investments.variableIncome.AssetType
-import investments.variableIncome.model._
-import investments.variableIncome.model.ctx._
-import java.io.File
+import investments.variableIncome.files.InputFile
+import investments.variableIncome.model.{Amount, AssetPeriod, ConvertedTo, PurchaseAmount, SaleAmount, StockbrokerAsset, ctx}
+import investments.variableIncome.model.ctx.{localDateDecoder => _, localDateEncoder => _, _}
+import investments.variableIncome.model.LocalDateSupport._
 import java.time.LocalDate
+import utils._
 
-object ImportAssetsMain extends LocalDateSupport {
-
+object Processor {
   private lazy val nameNormalizer = NameNormalizer.get()
 
-  def main(args: Array[String]): Unit = {
-    val importedFileNamesByDate = args.toSeq
-      .flatMap { arg =>
-        val file = new File(arg)
-        val ifnOpt = ImportedFileName.from(file)
-        if (ifnOpt.isEmpty) {
-          Console.err.println(s"Ignorando $file")
+  def process(
+    inputFiles: Seq[InputFile[EventsOrBrokerageNoteFileName]],
+    filterAssetsFromDate: Option[LocalDate],
+    resetAssets: Boolean
+  ): Unit = {
+    val sortedInputFiles =
+      inputFiles
+        .pipeWhenMatched(filterAssetsFromDate) {
+          case Some(filterDate) => _.filterNot(_.name.date `isBefore` filterDate)
         }
-
-        ifnOpt
-      }
-      .groupBy(_.date)
-      .toSeq
-      .sortBy(_._1)
+        .groupBy(_.name.date)
+        .toSeq
+        .sortBy(_._1)
 
     ctx.transaction {
-      for ((date, importedFileNames) <- importedFileNamesByDate) {
-        processDate(date, importedFileNames)
+      for {
+        firstInputFile <- inputFiles.headOption
+        if resetAssets
+      } {
+        resetFromDate(firstInputFile.name.date)
+      }
+
+      try {
+        for ((date, inputFiles) <- sortedInputFiles) {
+          processDate(date, inputFiles)
+        }
+      } catch {
+        case e: Throwable =>
+          Console.err.println("ABORTANDO. As importações não serão salvas")
+          throw e
       }
     }
   }
 
+  private def resetFromDate(resetDate: LocalDate): Unit = {
+    import investments.variableIncome.model.LocalDateSupport._
+
+    ctx.run(
+      query[AssetPeriod]
+        .filter(_.beginDate >= lift(resetDate))
+        .delete
+    )
+
+    ctx.run(
+      query[AssetPeriod]
+        .filter(_.endDate >= lift(resetDate))
+        .update(
+          _.convertedToAsset -> None,
+          _.convertedToQuantity -> None,
+        )
+    )
+  }
+
   private case class LatestPosition(date: LocalDate, position: Amount)
 
-  private def processDate(date: LocalDate, importedFileNames: Seq[ImportedFileName]): Unit = {
+  private def processDate(date: LocalDate, inputFiles: Seq[InputFile[EventsOrBrokerageNoteFileName]]): Unit = {
     println(s"Processando dados de $date")
 
-    val (eventsSeq, brokerageNotesSeq) = importedFileNames.partitionMap {
-      case ImportedFileName(_, "EVENTS", file) => Left(Event.fromFile(file))
-      case ImportedFileName(_, stockbroker, file) => Right(BrokerageNote.fromFile(date, stockbroker, nameNormalizer)(file))
+    val (eventsSeq, brokerageNotesSeq) = inputFiles.partitionMap {
+      case InputFile(EventsFileName(_), path) =>
+        println(s"  Lendo eventos em ${path.stringPath}")
+        Left(path.readFromIterator(Event.from))
+      case InputFile(BrokerageNoteFileName(date, stockbroker), path) =>
+        println(s"  Lendo notas de corretagem em ${path.stringPath}")
+        Right(path.readFromIterator(BrokerageNote.from(date, stockbroker, nameNormalizer)))
     }
     assert(eventsSeq.lengthIs <= 1)
+
     val events = eventsSeq.headOption.getOrElse(Seq.empty)
     val brokerageNotes = brokerageNotesSeq.flatten
 
-    val subjectAssets = (
-      for {
-        event <- events
-        asset <- event.subjectAssets
-      } yield asset
-    ) ++ (
-      for {
-        brokerageNote <- brokerageNotes
-        asset <- brokerageNote.subjectAssets
-      } yield asset
-    )
+    val subjectAssets = {
+      val eventsAssets =
+        for {
+          event <- events
+          asset <- event.subjectAssets
+        } yield asset
+      val brokerageNotesAssets =
+        for {
+          brokerageNote <- brokerageNotes
+          asset <- brokerageNote.subjectAssets
+        } yield asset
 
-    val latestPositions = latestPositionByAsset(subjectAssets.distinct)
+      (eventsAssets ++ brokerageNotesAssets).distinct
+    }
+
+    val latestPositions = latestPositionByAsset(subjectAssets)
     for {
       (stockbrokerAsset, latestPosition) <- latestPositions
       if latestPosition.date `isAfter` date
@@ -86,7 +126,7 @@ object ImportAssetsMain extends LocalDateSupport {
         val convertedToAssetOpt = conversionOpt.map(_.asset)
         val convertedToQuantityOpt = conversionOpt.map(_.quantity)
 
-        ctx.run(
+        ctx.run {
           query[AssetPeriod]
             .filter(_.asset == lift(ap.asset))
             .filter(_.stockbroker == lift(ap.stockbroker))
@@ -96,7 +136,7 @@ object ImportAssetsMain extends LocalDateSupport {
               _.convertedToAsset -> lift(convertedToAssetOpt),
               _.convertedToQuantity -> lift(convertedToQuantityOpt),
             )
-        )
+        }
       }
 
       ctx.run(query[AssetPeriod].insert(lift(ap)))
@@ -127,7 +167,7 @@ object ImportAssetsMain extends LocalDateSupport {
       .toMap
   }
 
-  private[importAssets] def processDateChanges(
+  private[eventsAndBrokerageNotes] def processDateChanges(
     date: LocalDate,
     previousPositionByAsset: Map[StockbrokerAsset, Amount],
     events: Seq[Event],
@@ -146,6 +186,7 @@ object ImportAssetsMain extends LocalDateSupport {
     def postEventPosition(stockbrokerAsset: StockbrokerAsset): Option[Amount] =
       postEventAssetPeriodsByAsset.get(stockbrokerAsset).map(_.postEventPosition)
         .orElse(previousPositionByAsset.get(stockbrokerAsset))
+
     val operationsByAsset = brokerageNotes
       .map(processBrokerageNote(postEventPosition, _))
       .reduceOption(_ ++ _) // Assumes that same StockbrokerAsset does not repeat in different BrokerageNotes
