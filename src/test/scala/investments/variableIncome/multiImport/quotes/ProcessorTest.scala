@@ -1,5 +1,5 @@
 package sisgrana
-package investments.variableIncome.importQuotes
+package investments.variableIncome.multiImport.quotes
 
 import investments.variableIncome.model.AssetPeriodTest.DSL._
 import investments.variableIncome.model.Persisted
@@ -7,7 +7,7 @@ import utils.DateRange.Mode.FullDay
 import utils.DateRangeTest.int2Date
 import utils.{DateRange, DateRanges}
 
-class FilesProcessorTest extends TestBase with Persisted {
+class ProcessorTest extends TestBase with Persisted {
   test(".makeAssetsDateRanges()") {
     val MaxDate = 10
 
@@ -62,12 +62,10 @@ class FilesProcessorTest extends TestBase with Persisted {
       ),
     )
 
-    val filesProcessor = new FilesProcessor
-
     forAll(cases) { (assetPeriods, expectedDateRanges) =>
       persisted(assetPeriods)
 
-      val result = filesProcessor.makeAssetsDateRanges(minDate = 0, MaxDate)
+      val result = Processor.makeAssetsDateRanges(minDate = 0, MaxDate)
       result should equal (expectedDateRanges)
     }
   }
