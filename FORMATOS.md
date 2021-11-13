@@ -19,6 +19,7 @@ Elementos entre um par de colchetes representam um valor.
 * `X:i` - `X` é um número inteiro sem sinal
 * `X:n` - `X` é um número sem sinal
 * `X:sn` - `X` é um número possivelmente com sinal
+* `X:d` - `X` é uma data no formato `AAAA-MM-DD`
 
 # Padronização de Nomes
 **Caminho:** data/names.ssv
@@ -101,3 +102,11 @@ Para cada `10` ações `ABCD3`, `1` ação `ABCD3` com preço `R$ 12,34` é incl
 bonus  PCAR3  1  ->  1  ASAI3  14,70
 ```
 Para cada `1` ação `PCAR3`, `1` ação `ASAI3` com preço `R$ 14,70` é incluída.
+
+# Datas Sem Cotação
+**Caminho:** data/`ANO`/NON-QUOTE DATES.ssv
+
+```
+CONTEÚDO := LINHA*
+LINHA := [DATA:d]
+```
