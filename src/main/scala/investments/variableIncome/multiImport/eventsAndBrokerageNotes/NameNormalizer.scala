@@ -27,7 +27,7 @@ class NameNormalizer(map: Map[String, String]) {
 }
 
 object NameNormalizer {
-  private val FileName = "names.ssv"
+  val FileName = "names.ssv"
 
   def get(): NameNormalizer = {
     val entries = use(new FileInputStream(new File(DataPath, FileName))) { inputStream =>

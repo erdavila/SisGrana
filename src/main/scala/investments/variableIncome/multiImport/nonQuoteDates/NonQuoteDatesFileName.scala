@@ -6,7 +6,7 @@ import investments.variableIncome.files.filters.{FilterFunction, HasFilesFilter}
 
 sealed trait NonQuoteDatesFileName extends FileName
 
-object NonQuoteDatesFileName extends NonQuoteDatesFileName with HasFilesFilter[NonQuoteDatesFileName] {
+case object NonQuoteDatesFileName extends NonQuoteDatesFileName with HasFilesFilter[NonQuoteDatesFileName] {
   val FileName = "NON-QUOTE DATES.ssv"
 
   override def FilterFunction: FilterFunction[NonQuoteDatesFileName] = {
