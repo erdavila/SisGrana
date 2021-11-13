@@ -8,7 +8,7 @@ import investments.variableIncome.model.{NonQuoteDate, ctx}
 import java.io.InputStream
 
 object Processor {
-  def process(inputFiles: Seq[InputFile[NonQuoteDatesFileName.type]]): Unit =
+  def process(inputFiles: Seq[InputFile[NonQuoteDatesFileName]]): Unit =
     for (inputFile <- inputFiles) {
       println(s"Importando datas sem cotação em ${inputFile.path.stringPath}")
       inputFile.path.read(importNonQuoteDates)

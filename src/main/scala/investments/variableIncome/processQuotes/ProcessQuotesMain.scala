@@ -3,8 +3,9 @@ package investments.variableIncome.processQuotes
 
 import investments.utils.BrNumber
 import investments.variableIncome.QuotesFileReader
-import investments.variableIncome.files.filters.Filter
-import investments.variableIncome.files.{FileName, InputFile, filters}
+import investments.variableIncome.files.InputFile
+import investments.variableIncome.files.filters.applyFilter
+import investments.variableIncome.quotesFiles.QuotesFileName
 import java.io.InputStream
 import java.time.LocalDate
 import utils.{DateRanges, PredicateBinarySearch}
@@ -14,7 +15,7 @@ object ProcessQuotesMain {
 
   def main(args: Array[String]): Unit = {
     val (operation, filePaths) = ArgsParser.parse(args)
-    val inputFiles = Filter.apply(filters.QuotesFiles)(filePaths)
+    val inputFiles = applyFilter(QuotesFileName.FilesFilter)(filePaths)
 
     operation match {
       case OperationArguments.FindVariation(asset, minVariation) => findVariation(asset, minVariation, inputFiles)
@@ -22,7 +23,7 @@ object ProcessQuotesMain {
     }
   }
 
-  private def findVariation(asset: String, minVariation: Double, filePaths: Seq[InputFile[FileName.QuotesFileName]]): Unit = {
+  private def findVariation(asset: String, minVariation: Double, filePaths: Seq[InputFile[QuotesFileName]]): Unit = {
     val dateQuotes = readAssetQuotes(asset, filePaths)
 
     if (dateQuotes.isEmpty) {
@@ -53,7 +54,7 @@ object ProcessQuotesMain {
   }
 
   //noinspection AccessorLikeMethodIsUnit
-  private def getQuotes(asset: String, dateRanges: DateRanges, filePaths: Seq[InputFile[FileName.QuotesFileName]]): Unit = {
+  private def getQuotes(asset: String, dateRanges: DateRanges, filePaths: Seq[InputFile[QuotesFileName]]): Unit = {
     val dateQuotes = readAssetQuotes(asset, filePaths)
     for {
       dateRange <- dateRanges.indexedSeq
@@ -75,7 +76,7 @@ object ProcessQuotesMain {
     }
   }
 
-  private def readAssetQuotes(asset: String, filePaths: Seq[InputFile[FileName.QuotesFileName]]): IndexedSeq[DateQuote] = {
+  private def readAssetQuotes(asset: String, filePaths: Seq[InputFile[QuotesFileName]]): IndexedSeq[DateQuote] = {
     val dateQuotes =
       for {
         filePath <- filePaths

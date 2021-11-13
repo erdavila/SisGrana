@@ -2,11 +2,11 @@ package sisgrana
 package investments.variableIncome.multiImport.quotes
 
 import investments.variableIncome.QuotesFileReader
-import investments.variableIncome.files.FileName.QuotesFileName
 import investments.variableIncome.files.InputFile
 import investments.variableIncome.model.LocalDateSupport._
 import investments.variableIncome.model.ctx.{localDateDecoder => _, localDateEncoder => _, _}
 import investments.variableIncome.model.{AssetPeriod, AssetQuote, ctx}
+import investments.variableIncome.quotesFiles.QuotesFileName
 import java.io.InputStream
 import java.time.{LocalDate, Month}
 import utils.DateRange.Mode.FullDay
@@ -15,9 +15,7 @@ import utils.{DateRange, DateRanges}
 object Processor {
   private val AcceptedAssetVariations = Set("3", "4", "5", "6", "11")
 
-  def process(
-    inputFiles: Seq[InputFile[QuotesFileName]],
-  ): Unit =
+  def process(inputFiles: Seq[InputFile[QuotesFileName]]): Unit =
     for (inputFile <- inputFiles) {
       processFile(inputFile)
     }

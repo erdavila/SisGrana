@@ -2,12 +2,14 @@ package sisgrana
 package investments.variableIncome.multiImport.nonQuoteDates
 
 import investments.variableIncome.files.FileName
-import investments.variableIncome.files.filters.Filter
+import investments.variableIncome.files.filters.{FilterFunction, HasFilesFilter}
 
-object NonQuoteDatesFileName extends FileName {
+sealed trait NonQuoteDatesFileName extends FileName
+
+object NonQuoteDatesFileName extends NonQuoteDatesFileName with HasFilesFilter[NonQuoteDatesFileName] {
   val FileName = "NON-QUOTE DATES.ssv"
 
-  val FilesFilter: Filter[NonQuoteDatesFileName.type] = Filter {
+  override def FilterFunction: FilterFunction[NonQuoteDatesFileName] = {
     case FileName => NonQuoteDatesFileName
   }
 }
