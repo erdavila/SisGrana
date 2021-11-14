@@ -2,8 +2,8 @@ package sisgrana
 package investments.model
 
 import TestBase.{DefaultAsset, DefaultStockbroker}
+import investments.commands.multiImport.eventsAndBrokerageNotes.EventOutcome
 import investments.model.AssetPeriodTest.DSL._
-import investments.multiImport.eventsAndBrokerageNotes.EventOutcome
 import java.time.LocalDate
 import org.scalatest.Inside.inside
 import scala.language.implicitConversions

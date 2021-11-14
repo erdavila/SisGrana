@@ -1,8 +1,8 @@
 package sisgrana
 package investments.fileTypes.brokerageNotes
 
+import investments.commands.multiImport.eventsAndBrokerageNotes.NameNormalizer
 import investments.files.SSV
-import investments.multiImport.eventsAndBrokerageNotes.NameNormalizer
 import java.time.LocalDate
 
 class BrokerageNoteFileReaderTest extends TestBase {

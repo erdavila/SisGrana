@@ -5,4 +5,4 @@ for arg in "$@"; do
   ARGS="$ARGS \"$arg\""
 done
 
-sbt "runMain sisgrana.investments.multiImport.MultiImportMain $ARGS"
+sbt "runMain sisgrana.investments.commands.multiImport.MultiImportMain $ARGS"

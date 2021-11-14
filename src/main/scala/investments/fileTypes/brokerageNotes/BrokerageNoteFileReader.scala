@@ -2,8 +2,8 @@ package sisgrana
 package investments.fileTypes.brokerageNotes
 
 import investments.AssetType
+import investments.commands.multiImport.eventsAndBrokerageNotes.NameNormalizer
 import investments.files.SSV
-import investments.multiImport.eventsAndBrokerageNotes.NameNormalizer
 import java.io.InputStream
 import java.time.LocalDate
 import utils.Traversing._

@@ -5,4 +5,4 @@ for arg in "$@"; do
   ARGS="$ARGS \"$arg\""
 done
 
-sbt "runMain sisgrana.investments.incomeRate.IncomeRateMain $ARGS"
+sbt "runMain sisgrana.investments.commands.incomeRate.IncomeRateMain $ARGS"
