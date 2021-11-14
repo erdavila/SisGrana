@@ -1,8 +1,3 @@
 #!/bin/bash
-
-ARGS=''
-for arg in "$@"; do
-  ARGS="$ARGS \"$arg\""
-done
-
-sbt "runMain sisgrana.investments.commands.processQuotes.ProcessQuotesMain $ARGS"
+export MAIN_CLASS=sisgrana.investments.commands.processQuotes.ProcessQuotesMain
+exec bash $(dirname $0)/_executor.sh "$@"

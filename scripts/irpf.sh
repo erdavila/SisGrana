@@ -1,8 +1,3 @@
 #!/bin/bash
-
-FILES=''
-for file in "$@"; do
-  FILES="$FILES \"$file\""
-done
-
-sbt "runMain sisgrana.investments.commands.irpf.IrpfMain $FILES"
+export MAIN_CLASS=sisgrana.investments.commands.irpf.IrpfMain
+exec bash $(dirname $0)/_executor.sh "$@"

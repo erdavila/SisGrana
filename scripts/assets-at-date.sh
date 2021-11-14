@@ -1,3 +1,3 @@
 #!/bin/bash
-
-sbt "runMain sisgrana.investments.commands.assetsAtDate.AssetsAtDateMain $1"
+export MAIN_CLASS=sisgrana.investments.commands.assetsAtDate.AssetsAtDateMain
+exec bash $(dirname $0)/_executor.sh "$@"
