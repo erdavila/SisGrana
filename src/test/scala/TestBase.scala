@@ -1,6 +1,6 @@
 package sisgrana
 
-import investments.variableIncome.model.StockbrokerAsset
+import investments.model.StockbrokerAsset
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks

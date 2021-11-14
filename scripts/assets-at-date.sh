@@ -1,3 +1,3 @@
 #!/bin/bash
 
-sbt "runMain sisgrana.investments.variableIncome.assetsAtDate.AssetsAtDateMain $1"
+sbt "runMain sisgrana.investments.assetsAtDate.AssetsAtDateMain $1"
