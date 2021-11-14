@@ -1,17 +1,16 @@
 package sisgrana
 package investments
 
-import cats.data.StateT
+import cats.data.State
 import investments.files.{FilePathResolver, MultiLevelFilePath}
 import java.io.PrintStream
 import java.time.LocalDate
-import scala.util.{Failure, Success, Try}
 import utils.{DateRange, DateRanges}
 
 trait ArgumentsParser[A] {
   protected type Args = List[String]
 
-  protected type Parser[T] = StateT[Try, Args, T]
+  protected type Parser[T] = State[Args, T]
 
   protected val Delimiter = "--"
 
@@ -32,9 +31,10 @@ trait ArgumentsParser[A] {
     } yield result
 
 
-    result.runA(args.toList) match {
-      case Success(result) => result
-      case Failure(exception) =>
+    try {
+      result.runA(args.toList).value
+    } catch {
+      case exception: Throwable =>
         Console.err.println(exception.getMessage)
         Console.err.println()
         printUsage(Console.err)
@@ -45,15 +45,15 @@ trait ArgumentsParser[A] {
   private val MissingArgument = "Argumento faltando"
 
   protected def takeNext: Parser[String] =
-    StateT {
-      case h :: t => Success((t, h))
-      case Nil => Failure(new Exception(MissingArgument))
+    State {
+      case h :: t => (t, h)
+      case Nil => error(MissingArgument)
     }
 
   protected def takeNextIf(condition: String => Boolean): Parser[Option[String]] =
-    StateT {
-      case h :: t if condition(h) => Success((t, Some(h)))
-      case args => Success((args, None))
+    State {
+      case h :: t if condition(h) => (t, Some(h))
+      case args => (args, None)
     }
 
   protected def discardNext: Parser[Unit] =
@@ -91,7 +91,7 @@ trait ArgumentsParser[A] {
     found: (String, List[String]) => T,
     notFound: () => T,
   ): Parser[T] =
-    StateT { args =>
+    State { args =>
       val (possiblyOptions, nonOptionArgs) = args.span(_ != Delimiter)
       val i = possiblyOptions.indexWhere(arg => forms.contains(arg))
       if (i >= 0) {
@@ -99,19 +99,19 @@ trait ArgumentsParser[A] {
         val option = rest.head
         val (params, argsAfterOption) = rest.tail.splitAt(paramsCount)
         val remainingArgs = argsBeforeOption ::: argsAfterOption ::: nonOptionArgs
-        success((remainingArgs, found(option, params)))
+        (remainingArgs, found(option, params))
       } else {
-        success((args, notFound()))
+        (args, notFound())
       }
     }
 
   private def returnAtLeast(atLeast: Int)(f: Args => (Args, List[String])): Parser[List[String]] =
-    StateT { args =>
+    State { args =>
       val (remaining, toBeReturned) = f(args)
       if (toBeReturned.lengthIs >= atLeast) {
-        success((remaining, toBeReturned))
+        (remaining, toBeReturned)
       } else {
-        failure(MissingArgument)
+        error(MissingArgument)
       }
     }
 
@@ -126,10 +126,6 @@ trait ArgumentsParser[A] {
 
   protected def error(str: String, exception: Throwable): Nothing =
     throw new Exception(str, exception)
-
-  private def success[T](t: T): Try[T] = Success(t)
-
-  private def failure(str: String): Try[Nothing] = Failure(new Exception(str))
 
   private def exit(status: Int): Nothing =
     System.exit(status).asInstanceOf[Nothing]
