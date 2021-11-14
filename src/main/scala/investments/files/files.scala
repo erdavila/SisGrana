@@ -1,5 +1,6 @@
 package sisgrana
+package investments
 
-package object investments {
+package object files {
   val DataPath = "data"
 }

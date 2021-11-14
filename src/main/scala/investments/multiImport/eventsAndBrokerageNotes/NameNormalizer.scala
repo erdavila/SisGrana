@@ -1,11 +1,10 @@
 package sisgrana
 package investments.multiImport.eventsAndBrokerageNotes
 
-import investments.DataPath
 import investments.AssetType
-import java.io.{File, FileInputStream}
+import investments.fileTypes.names.NamesFileReader
 import scala.annotation.tailrec
-import utils.{SSV, quoted, use}
+import utils.quoted
 
 class NameNormalizer(map: Map[String, String]) {
   def normalize(name: String): String =
@@ -28,17 +27,8 @@ class NameNormalizer(map: Map[String, String]) {
 }
 
 object NameNormalizer {
-  val FileName = "names.ssv"
-
   def get(): NameNormalizer = {
-    val entries = use(new FileInputStream(new File(DataPath, FileName))) { inputStream =>
-      val entries = for {
-        names <- SSV.readFrom(inputStream)
-        normalizedName = names.head
-        name <- names
-      } yield name -> normalizedName
-      entries.toMap
-    }
+    val entries = NamesFileReader.read()
     new NameNormalizer(entries.toMap)
   }
 }

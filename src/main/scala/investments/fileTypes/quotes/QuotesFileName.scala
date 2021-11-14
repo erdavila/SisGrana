@@ -1,5 +1,5 @@
 package sisgrana
-package investments.quotesFiles
+package investments.fileTypes.quotes
 
 import investments.files.FileName
 import investments.files.filters.{FilterFunction, HasFilesFilter}

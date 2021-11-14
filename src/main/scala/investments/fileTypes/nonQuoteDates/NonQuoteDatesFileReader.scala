@@ -1,10 +1,9 @@
 package sisgrana
-package investments.multiImport.nonQuoteDates
+package investments.fileTypes.nonQuoteDates
 
-import investments.model.NonQuoteDate
+import investments.files.SSV
 import java.io.InputStream
 import java.time.LocalDate
-import utils.SSV
 
 object NonQuoteDatesFileReader {
   def readFrom(inputStream: InputStream): Iterator[NonQuoteDate] = {

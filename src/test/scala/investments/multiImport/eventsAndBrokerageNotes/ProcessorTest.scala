@@ -1,6 +1,8 @@
 package sisgrana
 package investments.multiImport.eventsAndBrokerageNotes
 
+import investments.fileTypes.brokerageNotes.{BrokerageNote, Cost, Negotiation, Operation}
+import investments.fileTypes.events.Event
 import investments.model.{Amount, ConvertedTo, StockbrokerAsset, TradeResult}
 import java.time.LocalDate
 

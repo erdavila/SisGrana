@@ -1,7 +1,7 @@
 package sisgrana
-package utils
+package investments.files
 
-import utils.SSV.{InterruptedContentException, UnexpectedCharacterException}
+import investments.files.SSV.{InterruptedContentException, UnexpectedCharacterException}
 
 class SSVTest extends TestBase {
   private def fromChars(chars: String): Seq[Seq[String]] =

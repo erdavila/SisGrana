@@ -1,5 +1,5 @@
 package sisgrana
-package investments.multiImport.nonQuoteDates
+package investments.fileTypes.nonQuoteDates
 
 import investments.files.FileName
 import investments.files.filters.{FilterFunction, HasFilesFilter}

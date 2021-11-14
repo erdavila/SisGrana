@@ -1,10 +1,10 @@
 package sisgrana
 package investments.multiImport
 
+import investments.fileTypes.EventsOrBrokerageNoteFileName
+import investments.fileTypes.nonQuoteDates.NonQuoteDatesFileName
+import investments.fileTypes.quotes.QuotesFileName
 import investments.files.filters.applyFilter
-import investments.multiImport.eventsAndBrokerageNotes.EventsOrBrokerageNoteFileName
-import investments.multiImport.nonQuoteDates.NonQuoteDatesFileName
-import investments.quotesFiles.QuotesFileName
 
 object MultiImportMain {
   private val FilesFilter =

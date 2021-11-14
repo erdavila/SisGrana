@@ -1,5 +1,5 @@
 package sisgrana
-package investments.multiImport.eventsAndBrokerageNotes
+package investments.fileTypes
 
 import investments.files.FileName
 import investments.files.filters.{FilterFunction, HasFilesFilter}

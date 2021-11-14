@@ -1,10 +1,11 @@
 package sisgrana
-package investments.multiImport.eventsAndBrokerageNotes
+package investments.fileTypes.brokerageNotes
 
+import investments.files.SSV
+import investments.multiImport.eventsAndBrokerageNotes.NameNormalizer
 import java.time.LocalDate
-import utils.SSV
 
-class BrokerageNoteTest extends TestBase {
+class BrokerageNoteFileReaderTest extends TestBase {
   private val Stockbroker = "stockbroker"
   private val Date = LocalDate.now()
 
@@ -17,7 +18,7 @@ class BrokerageNoteTest extends TestBase {
   )
 
   private def brokerageNotesFromLineValues(linesValues: Seq[SSV.LineValues]) =
-    BrokerageNote.fromLinesValues(Date, Stockbroker, nameNormalizer)(linesValues.iterator).toSeq
+    BrokerageNoteFileReader.fromLinesValues(Date, Stockbroker, nameNormalizer)(linesValues.iterator).toSeq
 
   test("Valid cases for .fromLinesValues()") {
     val cases = Table(

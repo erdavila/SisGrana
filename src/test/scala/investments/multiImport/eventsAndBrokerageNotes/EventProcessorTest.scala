@@ -1,6 +1,7 @@
 package sisgrana
 package investments.multiImport.eventsAndBrokerageNotes
 
+import investments.fileTypes.events.Event
 import investments.model.Amount
 
 class EventProcessorTest extends TestBase {

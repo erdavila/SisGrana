@@ -41,7 +41,7 @@ object IrpfMain {
 class IrpfMain(showDetails: Boolean) extends LocalDateSupport {
   import IrpfMain._
 
-  private val typeResolver = AssetType.Resolver.instance
+  private val typeResolver = AssetType.Resolver.get()
   private val printer = new IndentedPrinter
 
   private def processYear(year: Year): Unit =

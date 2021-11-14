@@ -1,10 +1,11 @@
 package sisgrana
 package investments.files
 
-import investments.AssetType
-import investments.multiImport.eventsAndBrokerageNotes.{BrokerageNoteFileName, EventsFileName, EventsOrBrokerageNoteFileName, NameNormalizer}
-import investments.multiImport.nonQuoteDates.NonQuoteDatesFileName
-import investments.quotesFiles.QuotesFileName
+import investments.fileTypes.assetTypes.{AssetTypesFileName, AssetTypesFileReader}
+import investments.fileTypes.names.{NamesFileName, NamesFileReader}
+import investments.fileTypes.nonQuoteDates.NonQuoteDatesFileName
+import investments.fileTypes.quotes.QuotesFileName
+import investments.fileTypes.{BrokerageNoteFileName, EventsFileName, EventsOrBrokerageNoteFileName}
 
 object FilesMain {
   def main(args: Array[String]): Unit =
@@ -26,8 +27,6 @@ object FilesMain {
     }
 
   private case object DatabaseFileName extends FileName
-  private case object NameNormalizerFileName extends FileName
-  private case object TypesFileName extends FileName
 
   private val AllTypesFilterFunction: String => Option[FileName] =
     EventsOrBrokerageNoteFileName.FilterFunction
@@ -35,8 +34,8 @@ object FilesMain {
       .orElse(NonQuoteDatesFileName.FilterFunction)
       .orElse[String, FileName] {
         case s"$_.sqlite" => DatabaseFileName
-        case NameNormalizer.FileName => NameNormalizerFileName
-        case AssetType.Resolver.TypesFileName => TypesFileName
+        case NamesFileReader.FileName => NamesFileName
+        case AssetTypesFileReader.FileName => AssetTypesFileName
       }
       .lift
 
@@ -53,8 +52,8 @@ object FilesMain {
         }
         (Console.YELLOW, text)
       case Some(DatabaseFileName) => (Console.CYAN, "Base de dados")
-      case Some(NameNormalizerFileName) => (Console.CYAN, "Nomes para normalização")
-      case Some(TypesFileName) => (Console.CYAN, "Tipos de ativos")
+      case Some(NamesFileName) => (Console.CYAN, "Nomes para normalização")
+      case Some(AssetTypesFileName) => (Console.CYAN, "Tipos de ativos")
       case Some(fileName) => (Console.RED, s"TIPO IDENTIFICADO MAS NÃO ESPERADO: $fileName")
       case None => (Console.RED, "Tipo desconhecido")
     }

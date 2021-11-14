@@ -1,12 +1,11 @@
 package sisgrana
 package investments.multiImport.quotes
 
-import investments.QuotesFileReader
+import investments.fileTypes.quotes.{QuotesFileName, QuotesFileReader}
 import investments.files.InputFile
 import investments.model.LocalDateSupport._
 import investments.model.ctx.{localDateDecoder => _, localDateEncoder => _, _}
 import investments.model.{AssetPeriod, AssetQuote, ctx}
-import investments.quotesFiles.QuotesFileName
 import java.io.InputStream
 import java.time.{LocalDate, Month}
 import utils.DateRange.Mode.FullDay

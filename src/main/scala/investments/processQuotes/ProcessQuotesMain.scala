@@ -1,10 +1,9 @@
 package sisgrana
 package investments.processQuotes
 
-import investments.QuotesFileReader
+import investments.fileTypes.quotes.{QuotesFileName, QuotesFileReader}
 import investments.files.InputFile
 import investments.files.filters.applyFilter
-import investments.quotesFiles.QuotesFileName
 import java.io.InputStream
 import java.time.LocalDate
 import utils.{BrNumber, DateRanges, PredicateBinarySearch}

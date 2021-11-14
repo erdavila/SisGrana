@@ -1,10 +1,11 @@
 package sisgrana
-package utils
+package investments.files
 
 import com.softwaremill.quicklens._
 import java.io.{InputStream, OutputStream, PrintWriter}
 import scala.io.Source
 import utils.Traversing._
+import utils.use
 
 object SSV {
   type LineValues = Seq[String]
@@ -21,7 +22,7 @@ object SSV {
     fromChars(source)
   }
 
-  private[utils] def fromChars(chars: Iterator[Char]): Iterator[LineValues] = {
+  private[files] def fromChars(chars: Iterator[Char]): Iterator[LineValues] = {
     case class Data(lineValues: LineValues, value: String, lineNumber: Int, columnNumber: Int) {
       def appendToValue(char: Char): Data =
         this.modify(_.value).using(_ :+ char)

@@ -1,9 +1,8 @@
 package sisgrana
 package investments
 
-import investments.DataPath
-import java.io.{File, FileInputStream}
-import utils.{SSV, quoted, use}
+import investments.fileTypes.assetTypes.AssetTypesFileReader
+import utils.quoted
 
 sealed abstract class AssetType(val code: String) {
   def taxation: Taxation
@@ -63,24 +62,11 @@ object AssetType {
   }
 
   object Resolver {
-    val TypesFileName = "types.ssv"
-
     private val OptionRegex = """^[A-Z0-9]{4}[A-X]\d{2,3}$""".r
 
-    lazy val instance: Resolver = fromFile(new File(DataPath, TypesFileName))
-
-    def fromFile(file: File): Resolver = {
-      val entries = use(new FileInputStream(file)) { inputStream =>
-        SSV.readFrom(inputStream)
-          .map { lineValues =>
-            SSV.matchValues(lineValues) { case Seq(asset, typeCode) =>
-              asset -> AssetType.ByCode(typeCode)
-            }
-          }
-          .toMap
-      }
-
-      new Resolver(entries)
+    def get(): Resolver = {
+      val entries = AssetTypesFileReader.read()
+      new Resolver(entries.toMap)
     }
 
     def isOption(assetCode: String): Boolean =

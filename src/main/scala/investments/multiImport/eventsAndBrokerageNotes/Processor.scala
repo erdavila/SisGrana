@@ -2,10 +2,13 @@ package sisgrana
 package investments.multiImport.eventsAndBrokerageNotes
 
 import investments.AssetType
+import investments.fileTypes.brokerageNotes.{BrokerageNote, BrokerageNoteFileReader, Operation}
+import investments.fileTypes.events.{Event, EventsFileReader}
+import investments.fileTypes.{BrokerageNoteFileName, EventsFileName, EventsOrBrokerageNoteFileName}
 import investments.files.InputFile
-import investments.model.{Amount, AssetPeriod, ConvertedTo, PurchaseAmount, SaleAmount, StockbrokerAsset, ctx}
-import investments.model.ctx.{localDateDecoder => _, localDateEncoder => _, _}
 import investments.model.LocalDateSupport._
+import investments.model._
+import investments.model.ctx.{localDateDecoder => _, localDateEncoder => _, _}
 import java.time.LocalDate
 import utils._
 
@@ -73,10 +76,10 @@ object Processor {
     val (eventsSeq, brokerageNotesSeq) = inputFiles.partitionMap {
       case InputFile(EventsFileName(_), path) =>
         println(s"  Lendo eventos em ${path.stringPath}")
-        Left(path.readFromIterator(Event.from))
+        Left(path.readFromIterator(EventsFileReader.readFrom))
       case InputFile(BrokerageNoteFileName(date, stockbroker), path) =>
         println(s"  Lendo notas de corretagem em ${path.stringPath}")
-        Right(path.readFromIterator(BrokerageNote.from(date, stockbroker, nameNormalizer)))
+        Right(path.readFromIterator(BrokerageNoteFileReader.readFrom(date, stockbroker, nameNormalizer)))
     }
     assert(eventsSeq.lengthIs <= 1)
 

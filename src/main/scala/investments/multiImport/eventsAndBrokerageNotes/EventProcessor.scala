@@ -1,6 +1,7 @@
 package sisgrana
 package investments.multiImport.eventsAndBrokerageNotes
 
+import investments.fileTypes.events.Event
 import investments.model.{Amount, PurchaseAmount, StockbrokerAsset}
 import investments.multiImport.eventsAndBrokerageNotes.EventProcessor.{mergeOutcomeByAsset, processBonus, processConversion}
 

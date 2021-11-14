@@ -8,7 +8,7 @@ import java.time.LocalDate
 import utils.{BrNumber, IndentedPrinter}
 
 object AssetsAtDateMain extends LocalDateSupport {
-  private lazy val typeResolver = AssetType.Resolver.instance
+  private lazy val typeResolver = AssetType.Resolver.get()
 
   def main(args: Array[String]): Unit = {
     val date = args.headOption.fold(LocalDate.now())(LocalDate.parse)

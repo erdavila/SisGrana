@@ -1,6 +1,7 @@
 package sisgrana
 package investments.multiImport.nonQuoteDates
 
+import investments.fileTypes.nonQuoteDates.{NonQuoteDatesFileName, NonQuoteDatesFileReader}
 import investments.files.InputFile
 import investments.model.LocalDateSupport._
 import investments.model.ctx.{localDateDecoder => _, localDateEncoder => _, _}
