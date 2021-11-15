@@ -11,7 +11,7 @@ case class Options(filterAssetsFromDate: Option[LocalDate], resetAssets: Boolean
 object ArgsParser extends ArgumentsParser[(Options, Seq[MultiLevelFilePath])] with ArgumentsParser.Utils {
   override protected def spec: ArgsParser.Parser[(Options, Seq[MultiLevelFilePath])] =
     for {
-      filterDate <- takeOptionParameter("--filter-assets-from", "--filter") $ (_.map(toDate))
+      filterDate <- takeOptionParameter("--filter-assets-from", "--filter") $$ toDate
       reset <- takeOption("--reset-assets", "--reset")
       filePaths <- takeRemaining(1) $ toPaths
     } yield (Options(filterDate, reset), filePaths)

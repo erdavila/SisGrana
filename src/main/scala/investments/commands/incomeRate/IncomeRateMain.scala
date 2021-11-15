@@ -2,13 +2,12 @@ package sisgrana
 package investments.commands.incomeRate
 
 import investments.AssetType
-import investments.model.{Portfolio => _, _}
 import investments.model.ctx.{localDateDecoder => _, localDateEncoder => _, _}
+import investments.model.{Portfolio => _, _}
+import java.time.LocalDate
 import java.time.temporal.ChronoUnit.{DAYS, MONTHS, YEARS}
-import java.time.{LocalDate, Year, YearMonth}
 import scala.annotation.tailrec
-import scala.util.{Failure, Try}
-import utils.{AnyOps, BrNumber, DateRange, DateRanges, quoted}
+import utils.{AnyOps, BrNumber, DateRange, DateRanges}
 
 object IncomeRateMain extends LocalDateSupport {
   private[incomeRate] case class Position(quantity: Int, convertedTo: Option[ConvertedTo]) {
@@ -34,7 +33,7 @@ object IncomeRateMain extends LocalDateSupport {
   }
 
   def main(args: Array[String]): Unit = {
-    val (period, positiveFilters, negativeFilters) = parseArgs(args)
+    val (period, positiveFilters, negativeFilters) = ArgsParser.parse(args)
 
     val filtersResolver = new FiltersResolver(period)
     val portfolio = filtersResolver.resolve(positiveFilters, negativeFilters)
@@ -79,68 +78,6 @@ object IncomeRateMain extends LocalDateSupport {
         println(s"  ${dateRange.beginDate} a ${dateRange.endDate}")
       }
     }
-  }
-
-  private def parseArgs(args: Array[String]): (Period, Seq[AssetFilter], Seq[AssetFilter]) = {
-    val period = parsePeriod(args.head)
-    val (positiveFilters, negativeFilters) = parseFilters(args.tail)
-    require(positiveFilters.nonEmpty, "Ao menos um filtro é obrigatório")
-    (period, positiveFilters, negativeFilters)
-  }
-
-  private def parsePeriod(periodArg: String): Period = {
-    val t = periodArg match {
-      case s"$begin:$end" =>
-        Try {
-          val beginYear = Year.parse(begin)
-          val endYear = Year.parse(end)
-          Period.YearRange(beginYear, endYear)
-        } `recover` { _ =>
-          val beginMonth = YearMonth.parse(begin)
-          val endMonth = YearMonth.parse(end)
-          Period.MonthRange(beginMonth, endMonth)
-        } `recover` { _ =>
-          val beginDate = LocalDate.parse(begin)
-          val endDate = LocalDate.parse(end)
-          Period.DateRange(beginDate, endDate)
-        }
-
-      case _ =>
-        Try {
-          val year = Year.parse(periodArg)
-          Period.Year(year)
-        } `recover` { _ =>
-          val month = YearMonth.parse(periodArg)
-          Period.Month(month)
-        }
-    }
-
-    t.recoverWith { _ =>
-      Failure(new IllegalArgumentException(s"Período inválido: ${quoted(periodArg)}"))
-    }.get
-  }
-
-  private def parseFilters(args: Array[String]): (Seq[AssetFilter], Seq[AssetFilter]) =
-    args
-      .map(parseFilter)
-      .toSeq
-      .partitionMap {
-        case (filter, true) => Left(filter)
-        case (filter, false) => Right(filter)
-      }
-
-  private def parseFilter(arg: String): (AssetFilter, Boolean) = {
-    val (assetFilterString, positive) = arg match {
-      case s"-$arg" => (arg, false)
-      case _ => (arg, true)
-    }
-
-    val filter = AssetFilter.parse(assetFilterString)
-    if (!positive) {
-      require(filter != AssetFilter(), s"Filtro inválido: ${quoted(arg)}")
-    }
-
-    (filter, positive)
   }
 
   private def queryQuantities(portfolio: Portfolio): Map[StockbrokerAsset, Seq[(DateRange, Position)]] = {

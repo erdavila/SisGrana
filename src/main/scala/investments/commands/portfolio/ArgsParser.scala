@@ -75,7 +75,7 @@ object ArgsParser extends ArgumentsParser[OperationArguments] with ArgumentsPars
     takeNext $ toDate
 
   private def takeOptionalDate: Parser[Option[LocalDate]] =
-    takeNextIfAny $ (_.map(toDate))
+    takeNextIfAny $$ toDate
 
   override protected def printUsage(printStream: PrintStream): Unit = {
     printStream.println("Parâmetros esperados:")

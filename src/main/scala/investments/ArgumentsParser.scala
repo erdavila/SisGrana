@@ -5,6 +5,7 @@ import cats.data.State
 import investments.files.{FilePathResolver, MultiLevelFilePath}
 import java.io.PrintStream
 import java.time.LocalDate
+import scala.collection.IterableOps
 import utils.{DateRange, DateRanges, Exit}
 
 trait ArgumentsParser[A] {
@@ -127,6 +128,18 @@ trait ArgumentsParser[A] {
     def $ [U](f: T => U): Parser[U] =
       for (t <- parser)
         yield f(t)
+  }
+
+  protected implicit class IterableParserOps[T, CC[X] <: IterableOps[X, CC, CC[X]]](parser: Parser[CC[T]]) {
+    def $$ [U](f: T => U): Parser[CC[U]] =
+      for (ts <- parser)
+        yield ts.map(f)
+  }
+
+  protected implicit class OptionParserOps[T](parser: Parser[Option[T]]) {
+    def $$ [U](f: T => U): Parser[Option[U]] =
+      for (ts <- parser)
+        yield ts.map(f)
   }
 
   protected def error(str: String): Nothing =
