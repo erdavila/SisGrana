@@ -61,11 +61,11 @@ class AssetFilterTest extends TestBase {
     )
 
     forAll(cases) { case (input, expectedConsumed, expectedRemaining) =>
-      val (consumed, remaining) = AssetFilter.consumePart.consumeFrom(input)
+      val (remaining, consumed) = AssetFilter.consumePart.run(input).value
       consumed should equal (expectedConsumed)
       remaining should equal (expectedRemaining)
     }
 
-    an [IllegalArgumentException] shouldBe thrownBy { AssetFilter.consumePart.consumeFrom("""\""") }
+    an [IllegalArgumentException] shouldBe thrownBy { AssetFilter.consumePart.run("""\""").value }
   }
 }

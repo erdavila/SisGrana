@@ -1,6 +1,7 @@
 package sisgrana
 package investments.commands.incomeRate
 
+import cats.data.State
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 import scala.annotation.tailrec
@@ -37,53 +38,16 @@ object AssetFilter {
     } yield AssetFilter(asset, stockbroker, minDate, maxDate)
 
     try {
-      consumer.consumeAllFrom(string)
+      val (remaining, filter) = consumer.run(string).value
+      if (remaining.nonEmpty) throw new IllegalArgumentException(s"Caracteres em excesso: ${quoted(remaining)}")
+      filter
     } catch {
       case e: IllegalArgumentException =>
         throw new IllegalArgumentException(s"Filtro inválido: ${quoted(string)}\n${e.getMessage}", e)
     }
   }
 
-  private[incomeRate] trait StringConsumer[A] {
-    def consumeFrom(string: String): (A, String)
-
-    final def consumeAllFrom(string: String): A = {
-      val (a, remaining) = consumeFrom(string)
-      require(remaining.isEmpty)
-      a
-    }
-
-    final def map[B](f: A => B): StringConsumer[B] =
-      flatMap { a =>
-        val b = f(a)
-        StringConsumer.unit(b)
-      }
-
-    final def flatMap[B](f: A => StringConsumer[B]): StringConsumer[B] = new StringConsumer[B] {
-      override def consumeFrom(string: String): (B, String) = {
-        val (a, remaining) = StringConsumer.this.consumeFrom(string)
-        val bConsumer = f(a)
-        bConsumer.consumeFrom(remaining)
-      }
-    }
-  }
-
-  private object StringConsumer {
-    def unit[A](a: A): StringConsumer[A] = new StringConsumer[A] {
-      override def consumeFrom(string: String): (A, String) = (a, string)
-    }
-  }
-
-  private def consumePartStartingWith(char: Char): StringConsumer[Option[String]] = new StringConsumer[Option[String]] {
-    override def consumeFrom(string: String): (Option[String], String) =
-      if (string.headOption.contains(char)) {
-        consumePart.consumeFrom(string.tail)
-      } else {
-        (None, string)
-      }
-  }
-
-  private def consumeDatePartStartingWith(char: Char): StringConsumer[Option[LocalDate]] =
+  private def consumeDatePartStartingWith(char: Char): State[String, Option[LocalDate]] =
     for {
       partOpt <- consumePartStartingWith(char)
       dateOpt = partOpt.map { part =>
@@ -95,8 +59,17 @@ object AssetFilter {
       }
     } yield dateOpt
 
-  private[incomeRate] lazy val consumePart: StringConsumer[Option[String]] = new StringConsumer[Option[String]] {
-    override def consumeFrom(string: String): (Option[String], String) = {
+  private def consumePartStartingWith(char: Char): State[String, Option[String]] =
+    State { string =>
+      if (string.headOption.contains(char)) {
+        consumePart.run(string.tail).value
+      } else {
+        (string, None)
+      }
+    }
+
+  private[incomeRate] def consumePart: State[String, Option[String]] =
+    State { string =>
       val Delimiters = Set(StockbrokerDelimiter, MinDateDelimiter, MaxDateDelimiter)
 
       val consumed = new StringBuilder
@@ -123,7 +96,6 @@ object AssetFilter {
       val remaining = loop(string)
 
       val consumedOpt = Option.when(consumed.nonEmpty)(consumed.result())
-      (consumedOpt, remaining)
+      (remaining, consumedOpt)
     }
-  }
 }
