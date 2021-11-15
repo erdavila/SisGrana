@@ -2,7 +2,7 @@ package sisgrana
 package investments.commands.incomeRate
 
 import investments.AssetType
-import investments.model._
+import investments.model.{Portfolio => _, _}
 import investments.model.ctx.{localDateDecoder => _, localDateEncoder => _, _}
 import java.time.temporal.ChronoUnit.{DAYS, MONTHS, YEARS}
 import java.time.{LocalDate, Year, YearMonth}

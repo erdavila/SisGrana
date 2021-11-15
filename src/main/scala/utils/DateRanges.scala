@@ -31,7 +31,7 @@ case class DateRanges private(indexedSeq: IndexedSeq[DateRange]) {
   def intersect(other: DateRanges)(implicit mode: DateRange.Mode): DateRanges =
     doSetOperation(other, DateRanges.intersect)
 
-  def doSetOperation(other: DateRanges, op: (IndexedSeq[DateRange], IndexedSeq[DateRange]) => IndexedSeq[DateRange])(implicit mode: DateRange.Mode): DateRanges = {
+  private def doSetOperation(other: DateRanges, op: (IndexedSeq[DateRange], IndexedSeq[DateRange]) => IndexedSeq[DateRange])(implicit mode: DateRange.Mode): DateRanges = {
     val newISeq = op(this.indexedSeq, other.indexedSeq)
     DateRanges(removeSingleDayRangesOnDayChangeMode(newISeq))
   }

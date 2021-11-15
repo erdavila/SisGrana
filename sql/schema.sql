@@ -43,6 +43,18 @@ CREATE TABLE IF NOT EXISTS asset_period(
     PRIMARY KEY (begin_date, asset, stockbroker)
 );
 
+CREATE TABLE IF NOT EXISTS portfolio_asset_date_range(
+    portfolio_name TEXT NOT NULL,
+
+    asset TEXT NOT NULL,
+    stockbroker TEXT NOT NULL,
+
+    begin_date TEXT NOT NULL,
+    end_date TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS portfolio_asset_date_range_name
+    ON portfolio_asset_date_range(portfolio_name);
+
 CREATE TABLE IF NOT EXISTS asset_quote(
     asset TEXT NOT NULL,
     date TEXT NOT NULL,

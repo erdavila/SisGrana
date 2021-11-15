@@ -2,7 +2,7 @@ package sisgrana
 package investments.commands.incomeRate
 
 import investments.commands.incomeRate.FiltersResolver.mergePortfolios
-import investments.model._
+import investments.model.{Portfolio => _, _}
 import investments.model.ctx.{localDateDecoder => _, localDateEncoder => _, _}
 import java.time.LocalDate
 import utils.DateRange.Mode.DayChange

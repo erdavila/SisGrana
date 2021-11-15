@@ -5,7 +5,7 @@ import cats.data.State
 import investments.files.{FilePathResolver, MultiLevelFilePath}
 import java.io.PrintStream
 import java.time.LocalDate
-import utils.{DateRange, DateRanges}
+import utils.{DateRange, DateRanges, Exit}
 
 trait ArgumentsParser[A] {
   protected type Args = List[String]
@@ -21,7 +21,7 @@ trait ArgumentsParser[A] {
   def parse(args: Array[String]): A = {
     if (args.iterator.takeWhile(_ != Delimiter).exists(arg => arg == "-h" || arg == "--help")) {
       printUsage(Console.out)
-      exit(0)
+      Exit()
     }
 
     val result = for {
@@ -35,26 +35,34 @@ trait ArgumentsParser[A] {
       result.runA(args.toList).value
     } catch {
       case exception: Throwable =>
-        Console.err.println(exception.getMessage)
-        Console.err.println()
-        printUsage(Console.err)
-        exit(1)
+        Exit.withErrorMessage { printStream =>
+          printStream.println(exception.getMessage)
+          printStream.println()
+          printUsage(printStream)
+        }
     }
   }
 
   private val MissingArgument = "Argumento faltando"
 
   protected def takeNext: Parser[String] =
-    State {
-      case h :: t => (t, h)
-      case Nil => error(MissingArgument)
-    }
+    for (nextOpt <- takeNextIfAny)
+      yield nextOpt.getOrElse(error(MissingArgument))
 
   protected def takeNextIf(condition: String => Boolean): Parser[Option[String]] =
     State {
       case h :: t if condition(h) => (t, Some(h))
       case args => (args, None)
     }
+
+  protected def takeNextIfAny: Parser[Option[String]] =
+    State {
+      case h :: t => (t, Some(h))
+      case Nil => (Nil, None)
+    }
+
+  protected def const[T](value: T): Parser[T] =
+    State.pure(value)
 
   protected def discardNext: Parser[Unit] =
     for (_ <- takeNext)
@@ -126,9 +134,6 @@ trait ArgumentsParser[A] {
 
   protected def error(str: String, exception: Throwable): Nothing =
     throw new Exception(str, exception)
-
-  private def exit(status: Int): Nothing =
-    System.exit(status).asInstanceOf[Nothing]
 }
 
 object ArgumentsParser {
