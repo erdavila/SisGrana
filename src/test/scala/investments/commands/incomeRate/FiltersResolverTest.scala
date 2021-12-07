@@ -56,160 +56,160 @@ class FiltersResolverTest extends TestBase with Persisted {
     )
 
     val cases = Table(
-      "filter" -> "expected portfolio",
+      "filter" -> "expected portfolio content",
       AssetFilter() -> Map(
-        portfolioEntry("asset-1", "stockbroker-1")((1, 10)),
-        portfolioEntry("asset-1", "stockbroker-2")((1, 10)),
-        portfolioEntry("asset-1", "stockbroker-3")((1, 10)),
-        portfolioEntry("asset-2", "stockbroker-1")((1, 10)),
-        portfolioEntry("asset-3", "stockbroker-1")((1, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-1")((1, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((1, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-3")((1, 10)),
+        portfolioContentEntry("asset-2", "stockbroker-1")((1, 10)),
+        portfolioContentEntry("asset-3", "stockbroker-1")((1, 10)),
       ),
       AssetFilter(minDate = Some(0)) -> Map(
-        portfolioEntry("asset-1", "stockbroker-1")((1, 10)),
-        portfolioEntry("asset-1", "stockbroker-2")((1, 10)),
-        portfolioEntry("asset-1", "stockbroker-3")((1, 10)),
-        portfolioEntry("asset-2", "stockbroker-1")((1, 10)),
-        portfolioEntry("asset-3", "stockbroker-1")((1, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-1")((1, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((1, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-3")((1, 10)),
+        portfolioContentEntry("asset-2", "stockbroker-1")((1, 10)),
+        portfolioContentEntry("asset-3", "stockbroker-1")((1, 10)),
       ),
       AssetFilter(minDate = Some(1)) -> Map(
-        portfolioEntry("asset-1", "stockbroker-1")((1, 10)),
-        portfolioEntry("asset-1", "stockbroker-2")((1, 10)),
-        portfolioEntry("asset-1", "stockbroker-3")((1, 10)),
-        portfolioEntry("asset-2", "stockbroker-1")((1, 10)),
-        portfolioEntry("asset-3", "stockbroker-1")((1, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-1")((1, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((1, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-3")((1, 10)),
+        portfolioContentEntry("asset-2", "stockbroker-1")((1, 10)),
+        portfolioContentEntry("asset-3", "stockbroker-1")((1, 10)),
       ),
       AssetFilter(minDate = Some(5)) -> Map(
-        portfolioEntry("asset-1", "stockbroker-2")((5, 10)),
-        portfolioEntry("asset-1", "stockbroker-3")((5, 10)),
-        portfolioEntry("asset-2", "stockbroker-1")((5, 10)),
-        portfolioEntry("asset-3", "stockbroker-1")((5, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((5, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-3")((5, 10)),
+        portfolioContentEntry("asset-2", "stockbroker-1")((5, 10)),
+        portfolioContentEntry("asset-3", "stockbroker-1")((5, 10)),
       ),
       AssetFilter(minDate = Some(10)) -> Map.empty,
       AssetFilter(minDate = Some(11)) -> Map.empty,
       AssetFilter(maxDate = Some(5)) -> Map(
-        portfolioEntry("asset-1", "stockbroker-1")((1, 5)),
-        portfolioEntry("asset-1", "stockbroker-3")((1, 5)),
-        portfolioEntry("asset-3", "stockbroker-1")((1, 5)),
+        portfolioContentEntry("asset-1", "stockbroker-1")((1, 5)),
+        portfolioContentEntry("asset-1", "stockbroker-3")((1, 5)),
+        portfolioContentEntry("asset-3", "stockbroker-1")((1, 5)),
       ),
       AssetFilter(asset = Some("asset-1")) -> Map(
-        portfolioEntry("asset-1", "stockbroker-1")((1, 10)),
-        portfolioEntry("asset-1", "stockbroker-2")((1, 10)),
-        portfolioEntry("asset-1", "stockbroker-3")((1, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-1")((1, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((1, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-3")((1, 10)),
       ),
       AssetFilter(asset = Some("asset-1"), minDate = Some(5)) -> Map(
-        portfolioEntry("asset-1", "stockbroker-2")((5, 10)),
-        portfolioEntry("asset-1", "stockbroker-3")((5, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((5, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-3")((5, 10)),
       ),
       AssetFilter(asset = Some("asset-1"), maxDate = Some(5)) -> Map(
-        portfolioEntry("asset-1", "stockbroker-1")((1, 5)),
-        portfolioEntry("asset-1", "stockbroker-3")((1, 5)),
+        portfolioContentEntry("asset-1", "stockbroker-1")((1, 5)),
+        portfolioContentEntry("asset-1", "stockbroker-3")((1, 5)),
       ),
       AssetFilter(stockbroker = Some("stockbroker-1")) -> Map(
-        portfolioEntry("asset-1", "stockbroker-1")((1, 10)),
-        portfolioEntry("asset-2", "stockbroker-1")((1, 10)),
-        portfolioEntry("asset-3", "stockbroker-1")((1, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-1")((1, 10)),
+        portfolioContentEntry("asset-2", "stockbroker-1")((1, 10)),
+        portfolioContentEntry("asset-3", "stockbroker-1")((1, 10)),
       ),
       AssetFilter(stockbroker = Some("stockbroker-1"), minDate = Some(5)) -> Map(
-        portfolioEntry("asset-2", "stockbroker-1")((5, 10)),
-        portfolioEntry("asset-3", "stockbroker-1")((5, 10)),
+        portfolioContentEntry("asset-2", "stockbroker-1")((5, 10)),
+        portfolioContentEntry("asset-3", "stockbroker-1")((5, 10)),
       ),
       AssetFilter(stockbroker = Some("stockbroker-1"), maxDate = Some(5)) -> Map(
-        portfolioEntry("asset-1", "stockbroker-1")((1, 5)),
-        portfolioEntry("asset-3", "stockbroker-1")((1, 5)),
+        portfolioContentEntry("asset-1", "stockbroker-1")((1, 5)),
+        portfolioContentEntry("asset-3", "stockbroker-1")((1, 5)),
       ),
       AssetFilter(asset = Some("asset-1"), stockbroker = Some("stockbroker-2")) -> Map(
-        portfolioEntry("asset-1", "stockbroker-2")((1, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((1, 10)),
       ),
     )
 
-    forAll(cases) { case (filter, expectedPortfolio) =>
-      val portfolio = filtersResolver.resolveFilter(filter)
-      portfolio should equal (expectedPortfolio)
+    forAll(cases) { case (filter, expectedPortfolioContent) =>
+      val portfolioContent = filtersResolver.resolveFilter(filter)
+      portfolioContent should equal (expectedPortfolioContent)
     }
   }
 
   test(".applyNegativeFilter()") {
-    val portfolio = Map(
-      portfolioEntry("asset-2", "stockbroker-1")((1, 8)),
-      portfolioEntry("asset-1", "stockbroker-1")((2, 9)),
-      portfolioEntry("asset-1", "stockbroker-2")((3, 10)),
+    val portfolioContent = Map(
+      portfolioContentEntry("asset-2", "stockbroker-1")((1, 8)),
+      portfolioContentEntry("asset-1", "stockbroker-1")((2, 9)),
+      portfolioContentEntry("asset-1", "stockbroker-2")((3, 10)),
     )
 
     val cases = Table(
-      "filter" -> "expected Portfolio",
+      "filter" -> "expected portfolio content",
       AssetFilter(minDate = Some(0)) -> Map.empty,
       AssetFilter(minDate = Some(1)) -> Map.empty,
       AssetFilter(minDate = Some(5)) -> Map(
-        portfolioEntry("asset-2", "stockbroker-1")((1, 5)),
-        portfolioEntry("asset-1", "stockbroker-1")((2, 5)),
-        portfolioEntry("asset-1", "stockbroker-2")((3, 5)),
+        portfolioContentEntry("asset-2", "stockbroker-1")((1, 5)),
+        portfolioContentEntry("asset-1", "stockbroker-1")((2, 5)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((3, 5)),
       ),
-      AssetFilter(minDate = Some(10)) -> portfolio,
-      AssetFilter(minDate = Some(11)) -> portfolio,
+      AssetFilter(minDate = Some(10)) -> portfolioContent,
+      AssetFilter(minDate = Some(11)) -> portfolioContent,
       AssetFilter(maxDate = Some(5)) -> Map(
-        portfolioEntry("asset-2", "stockbroker-1")((5, 8)),
-        portfolioEntry("asset-1", "stockbroker-1")((5, 9)),
-        portfolioEntry("asset-1", "stockbroker-2")((5, 10)),
+        portfolioContentEntry("asset-2", "stockbroker-1")((5, 8)),
+        portfolioContentEntry("asset-1", "stockbroker-1")((5, 9)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((5, 10)),
       ),
       AssetFilter(asset = Some("asset-1")) -> Map(
-        portfolioEntry("asset-2", "stockbroker-1")((1, 8)),
+        portfolioContentEntry("asset-2", "stockbroker-1")((1, 8)),
       ),
       AssetFilter(asset = Some("asset-1"), minDate = Some(5)) -> Map(
-        portfolioEntry("asset-2", "stockbroker-1")((1, 8)),
-        portfolioEntry("asset-1", "stockbroker-1")((2, 5)),
-        portfolioEntry("asset-1", "stockbroker-2")((3, 5)),
+        portfolioContentEntry("asset-2", "stockbroker-1")((1, 8)),
+        portfolioContentEntry("asset-1", "stockbroker-1")((2, 5)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((3, 5)),
       ),
       AssetFilter(asset = Some("asset-1"), maxDate = Some(5)) -> Map(
-        portfolioEntry("asset-2", "stockbroker-1")((1, 8)),
-        portfolioEntry("asset-1", "stockbroker-1")((5, 9)),
-        portfolioEntry("asset-1", "stockbroker-2")((5, 10)),
+        portfolioContentEntry("asset-2", "stockbroker-1")((1, 8)),
+        portfolioContentEntry("asset-1", "stockbroker-1")((5, 9)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((5, 10)),
       ),
       AssetFilter(stockbroker = Some("stockbroker-1")) -> Map(
-        portfolioEntry("asset-1", "stockbroker-2")((3, 10)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((3, 10)),
       ),
       AssetFilter(stockbroker = Some("stockbroker-1"), minDate = Some(5)) -> Map(
-        portfolioEntry("asset-2", "stockbroker-1")((1, 5)),
-        portfolioEntry("asset-1", "stockbroker-1")((2, 5)),
-        portfolioEntry("asset-1", "stockbroker-2")((3, 10)),
+        portfolioContentEntry("asset-2", "stockbroker-1")((1, 5)),
+        portfolioContentEntry("asset-1", "stockbroker-1")((2, 5)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((3, 10)),
       ),
       AssetFilter(stockbroker = Some("stockbroker-1"), maxDate = Some(5)) -> Map(
-        portfolioEntry("asset-2", "stockbroker-1")((5, 8)),
-        portfolioEntry("asset-1", "stockbroker-1")((5, 9)),
-        portfolioEntry("asset-1", "stockbroker-2")((3, 10)),
+        portfolioContentEntry("asset-2", "stockbroker-1")((5, 8)),
+        portfolioContentEntry("asset-1", "stockbroker-1")((5, 9)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((3, 10)),
       ),
       AssetFilter(asset = Some("asset-1"), stockbroker = Some("stockbroker-1")) -> Map(
-        portfolioEntry("asset-2", "stockbroker-1")((1, 8)),
-        portfolioEntry("asset-1", "stockbroker-2")((3, 10)),
+        portfolioContentEntry("asset-2", "stockbroker-1")((1, 8)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((3, 10)),
       ),
     )
 
-    forAll(cases) { case (filter, expectedPortfolio) =>
-      val result = filtersResolver.applyNegativeFilter(portfolio, filter)
-      result should equal (expectedPortfolio)
+    forAll(cases) { case (filter, expectedPortfolioContent) =>
+      val result = filtersResolver.applyNegativeFilter(portfolioContent, filter)
+      result should equal (expectedPortfolioContent)
     }
   }
 
   test(".mergePortfolios()") {
     val p1 = Map(
-      portfolioEntry("a1", "s1")((1, 3)),
-      portfolioEntry("a2", "s1")((2, 10)),
+      portfolioContentEntry("a1", "s1")((1, 3)),
+      portfolioContentEntry("a2", "s1")((2, 10)),
     )
     val p2 = Map(
-      portfolioEntry("a1", "s1")((7, 10)),
-      portfolioEntry("a1", "s2")((1, 5)),
+      portfolioContentEntry("a1", "s1")((7, 10)),
+      portfolioContentEntry("a1", "s2")((1, 5)),
     )
 
-    val result = FiltersResolver.mergePortfolios(p1, p2)
+    val result = FiltersResolver.mergePortfolioContents(p1, p2)
 
     val expectedResult = Map(
-      portfolioEntry("a1", "s1")((1, 3), (7, 10)),
-      portfolioEntry("a2", "s1")((2, 10)),
-      portfolioEntry("a1", "s2")((1, 5)),
+      portfolioContentEntry("a1", "s1")((1, 3), (7, 10)),
+      portfolioContentEntry("a2", "s1")((2, 10)),
+      portfolioContentEntry("a1", "s2")((1, 5)),
     )
 
     result should equal (expectedResult)
   }
 
-  private def portfolioEntry(asset: String, stockbroker: String)(dateRangeSeq: DateRange*): (StockbrokerAsset, DateRanges) =
+  private def portfolioContentEntry(asset: String, stockbroker: String)(dateRangeSeq: DateRange*): (StockbrokerAsset, DateRanges) =
     StockbrokerAsset(stockbroker, asset) -> DateRanges.from(dateRangeSeq)
 }

@@ -1,8 +1,8 @@
 package sisgrana
 package investments.commands.incomeRate
 
-import investments.commands.incomeRate.FiltersResolver.mergePortfolios
-import investments.model.{Portfolio => _, _}
+import investments.commands.incomeRate.FiltersResolver.mergePortfolioContents
+import investments.model._
 import investments.model.ctx.{localDateDecoder => _, localDateEncoder => _, _}
 import java.time.LocalDate
 import utils.DateRange.Mode.DayChange
@@ -12,15 +12,15 @@ class FiltersResolver(
   period: Period,
   adjustDate: LocalDate => LocalDate = NonQuoteDate.adjustToQuoteDate
 ) extends LocalDateSupport {
-  def resolve(positiveFilters: Seq[AssetFilter], negativeFilters: Seq[AssetFilter]): Portfolio = {
-    val positivePortfolio = positiveFilters
+  def resolve(positiveFilters: Seq[AssetFilter], negativeFilters: Seq[AssetFilter]): PortfolioContent = {
+    val positivePortfolioContent = positiveFilters
       .map(resolveFilter)
-      .reduce(mergePortfolios)
+      .reduce(mergePortfolioContents)
 
-    negativeFilters.foldLeft(positivePortfolio)(applyNegativeFilter)
+    negativeFilters.foldLeft(positivePortfolioContent)(applyNegativeFilter)
   }
 
-  private[incomeRate] def resolveFilter(filter: AssetFilter): Portfolio =
+  private[incomeRate] def resolveFilter(filter: AssetFilter): PortfolioContent =
     dateRange(filter) match {
       case None => Map.empty
       case Some(dateRange) =>
@@ -44,7 +44,7 @@ class FiltersResolver(
           .to(Map)
     }
 
-  private[incomeRate] def applyNegativeFilter(portfolio: Portfolio, filter: AssetFilter): Portfolio = {
+  private[incomeRate] def applyNegativeFilter(portfolioContent: PortfolioContent, filter: AssetFilter): PortfolioContent = {
     require(
       Seq(
         filter.asset,
@@ -55,7 +55,7 @@ class FiltersResolver(
     )
 
     dateRange(filter) match {
-      case None => portfolio
+      case None => portfolioContent
       case Some(dateRange) =>
         val predicate: StockbrokerAsset => Boolean =
           (filter.asset, filter.stockbroker) match {
@@ -68,7 +68,7 @@ class FiltersResolver(
 
         val periodDateRanges = DateRanges.single(dateRange)
 
-        portfolio
+        portfolioContent
           .flatMap { case (stockbrokerAsset, dateRanges) =>
             if (predicate(stockbrokerAsset)) {
               val newDateRanges = dateRanges `diff` periodDateRanges
@@ -93,7 +93,7 @@ class FiltersResolver(
 }
 
 object FiltersResolver {
-  private[incomeRate] def mergePortfolios(p1: Portfolio, p2: Portfolio): Portfolio =
+  private[incomeRate] def mergePortfolioContents(p1: PortfolioContent, p2: PortfolioContent): PortfolioContent =
     (p1 `foldLeft` p2) { case (p2, (stockbrokerAsset1, dateRanges1)) =>
       p2.updatedWith(stockbrokerAsset1) {
         case Some(dateRanges2) => Some(dateRanges1 `union` dateRanges2)

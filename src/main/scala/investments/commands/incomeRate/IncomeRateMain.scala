@@ -80,7 +80,7 @@ object IncomeRateMain extends LocalDateSupport {
     }
   }
 
-  private def queryQuantities(portfolio: Portfolio): Map[StockbrokerAsset, Seq[(DateRange, Position)]] = {
+  private def queryQuantities(portfolio: PortfolioContent): Map[StockbrokerAsset, Seq[(DateRange, Position)]] = {
     for {
       (stockbrokerAsset, dateRanges) <- portfolio
       qs = queryQuantities(stockbrokerAsset, dateRanges)

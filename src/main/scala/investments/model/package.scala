@@ -3,8 +3,11 @@ package investments
 
 import io.getquill.{SnakeCase, SqliteJdbcContext}
 import scala.io.Source
+import utils.DateRanges
 
 package object model {
+  type PortfolioContent = Map[StockbrokerAsset, DateRanges]
+
   lazy val ctx: SqliteJdbcContext[SnakeCase.type] = {
     val ctx = new SqliteJdbcContext(SnakeCase, "ctx")
     ensureSchema(ctx)

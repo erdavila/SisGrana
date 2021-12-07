@@ -8,7 +8,7 @@ import java.time.LocalDate
 import utils.DateRange.Mode.DayChange
 import utils.DateRanges
 
-case class Portfolio(name: String, content: Map[StockbrokerAsset, DateRanges]) {
+case class Portfolio(name: String, content: PortfolioContent) {
   def add(stockbrokerAsset: StockbrokerAsset, beginDate: LocalDate, endDate: LocalDate): Portfolio = {
     val newContent = content.updatedWith(stockbrokerAsset) { dateRangesOpt =>
       val addedRange = DateRanges.single(beginDate, endDate)
