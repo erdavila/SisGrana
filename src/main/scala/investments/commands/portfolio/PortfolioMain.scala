@@ -31,7 +31,7 @@ object PortfolioMain {
 
   private def add(portfolioName: String, stockbrokerAsset: StockbrokerAsset, beginDate: LocalDate, endDateOpt: Option[LocalDate]): Unit = {
     val portfolio = Portfolio.load(portfolioName)
-      .getOrElse(Portfolio(portfolioName, Map.empty))
+      .getOrElse(Portfolio(portfolioName))
 
     val newPortfolio = portfolio.add(stockbrokerAsset, beginDate, endDateOpt.getOrElse(MaxDate))
 

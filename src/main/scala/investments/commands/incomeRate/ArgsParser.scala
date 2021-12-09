@@ -53,6 +53,6 @@ object ArgsParser extends ArgumentsParser[(Period, Seq[AssetFilter], Seq[AssetFi
     printStream.println("        DATA-INICIAL:DATA-FINAL")
     printStream.println()
     printStream.println("    FILTRO tem o formato:")
-    printStream.println("        [-][ATIVO][:CORRETORA][>DATA-INICIAL][<DATA-FINAL]")
+    printStream.println("        [-][ATIVO][:CORRETORA][@CARTEIRA][>DATA-INICIAL][<DATA-FINAL]")
   }
 }

@@ -2,7 +2,7 @@ package sisgrana
 package investments.commands.incomeRate
 
 import investments.model.AssetPeriodTest.DSL._
-import investments.model.{Persisted, StockbrokerAsset}
+import investments.model.{Persisted, Portfolio, StockbrokerAsset}
 import utils.DateRange.Mode.DayChange
 import utils.DateRangeTest.{int2Date, intPair2DateRange}
 import utils.{DateRange, DateRanges}
@@ -128,6 +128,46 @@ class FiltersResolverTest extends TestBase with Persisted {
     }
   }
 
+  test(".resolveFilter() with portfolio") {
+    persisted(
+      Portfolio("p1")
+        .add(StockbrokerAsset("stockbroker-1", "asset-1"), 2, 6)
+        .add(StockbrokerAsset("stockbroker-2", "asset-2"), 4, 8),
+      Portfolio("p2")
+        .add(StockbrokerAsset("stockbroker", "asset"), period.beginDate.minusDays(7), period.endDate.plusDays(7)),
+    )
+
+    val cases = Table(
+      "filter" -> "expected portfolio content",
+      AssetFilter(portfolio = Some("p1")) -> Map(
+        portfolioContentEntry("asset-1", "stockbroker-1")((2, 6)),
+        portfolioContentEntry("asset-2", "stockbroker-2")((4, 8)),
+      ),
+      AssetFilter(asset = Some("asset-1"), portfolio = Some("p1")) -> Map(
+        portfolioContentEntry("asset-1", "stockbroker-1")((2, 6)),
+      ),
+      AssetFilter(stockbroker = Some("stockbroker-2"), portfolio = Some("p1")) -> Map(
+        portfolioContentEntry("asset-2", "stockbroker-2")((4, 8)),
+      ),
+      AssetFilter(portfolio = Some("p1"), minDate = Some(5)) -> Map(
+        portfolioContentEntry("asset-1", "stockbroker-1")((5, 6)),
+        portfolioContentEntry("asset-2", "stockbroker-2")((5, 8)),
+      ),
+      AssetFilter(portfolio = Some("p1"), maxDate = Some(5)) -> Map(
+        portfolioContentEntry("asset-1", "stockbroker-1")((2, 5)),
+        portfolioContentEntry("asset-2", "stockbroker-2")((4, 5)),
+      ),
+      AssetFilter(portfolio = Some("p2")) -> Map(
+        portfolioContentEntry("asset", "stockbroker")(period.dateRange),
+      ),
+    )
+
+    forAll(cases) { case (filter, expectedPortfolio) =>
+      val portfolio = filtersResolver.resolveFilter(filter)
+      portfolio should equal (expectedPortfolio)
+    }
+  }
+
   test(".applyNegativeFilter()") {
     val portfolioContent = Map(
       portfolioContentEntry("asset-2", "stockbroker-1")((1, 8)),
@@ -186,6 +226,54 @@ class FiltersResolverTest extends TestBase with Persisted {
     forAll(cases) { case (filter, expectedPortfolioContent) =>
       val result = filtersResolver.applyNegativeFilter(portfolioContent, filter)
       result should equal (expectedPortfolioContent)
+    }
+  }
+
+  test(".applyNegativeFilter() with portfolio") {
+    persisted(
+      Portfolio("p1")
+        .add(StockbrokerAsset("stockbroker-1", "asset-1"), 2, 6)
+        .add(StockbrokerAsset("stockbroker-2", "asset-2"), 4, 8)
+    )
+
+    val portfolio = Map(
+      portfolioContentEntry("asset-1", "stockbroker-1")((1, 8)),
+      portfolioContentEntry("asset-1", "stockbroker-2")((2, 9)),
+      portfolioContentEntry("asset-2", "stockbroker-2")((3, 10)),
+    )
+
+    val cases = Table(
+      "filter" -> "expected portfolio content",
+      AssetFilter(portfolio = Some("p1")) -> Map(
+        portfolioContentEntry("asset-1", "stockbroker-1")((1, 2), (6, 8)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((2, 9)),
+        portfolioContentEntry("asset-2", "stockbroker-2")((3, 4), (8, 10)),
+      ),
+      AssetFilter(asset = Some("asset-2"), portfolio = Some("p1")) -> Map(
+        portfolioContentEntry("asset-1", "stockbroker-1")((1, 8)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((2, 9)),
+        portfolioContentEntry("asset-2", "stockbroker-2")((3, 4), (8, 10)),
+      ),
+      AssetFilter(stockbroker = Some("stockbroker-1"), portfolio = Some("p1")) -> Map(
+        portfolioContentEntry("asset-1", "stockbroker-1")((1, 2), (6, 8)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((2, 9)),
+        portfolioContentEntry("asset-2", "stockbroker-2")((3, 10)),
+      ),
+      AssetFilter(portfolio = Some("p1"), minDate = Some(5)) -> Map(
+        portfolioContentEntry("asset-1", "stockbroker-1")((1, 5), (6, 8)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((2, 9)),
+        portfolioContentEntry("asset-2", "stockbroker-2")((3, 5), (8, 10)),
+      ),
+      AssetFilter(portfolio = Some("p1"), maxDate = Some(5)) -> Map(
+        portfolioContentEntry("asset-1", "stockbroker-1")((1, 2), (5, 8)),
+        portfolioContentEntry("asset-1", "stockbroker-2")((2, 9)),
+        portfolioContentEntry("asset-2", "stockbroker-2")((3, 4), (5, 10)),
+      ),
+    )
+
+    forAll(cases) { case (filter, expectedPortfolio) =>
+      val result = filtersResolver.applyNegativeFilter(portfolio, filter)
+      result should equal (expectedPortfolio)
     }
   }
 

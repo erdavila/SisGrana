@@ -10,6 +10,7 @@ import utils.quoted
 case class AssetFilter(
   asset: Option[String] = None,
   stockbroker: Option[String] = None,
+  portfolio: Option[String] = None,
   minDate: Option[LocalDate] = None,
   maxDate: Option[LocalDate] = None,
 ) {
@@ -26,6 +27,7 @@ case class AssetFilter(
 
 object AssetFilter {
   private val StockbrokerDelimiter = ':'
+  private val PortfolioDelimiter = '@'
   private val MinDateDelimiter = '>'
   private val MaxDateDelimiter = '<'
 
@@ -33,9 +35,10 @@ object AssetFilter {
     val consumer = for {
       asset <- consumePart
       stockbroker <- consumePartStartingWith(StockbrokerDelimiter)
+      portfolio <- consumePartStartingWith(PortfolioDelimiter)
       minDate <- consumeDatePartStartingWith(MinDateDelimiter)
       maxDate <- consumeDatePartStartingWith(MaxDateDelimiter)
-    } yield AssetFilter(asset, stockbroker, minDate, maxDate)
+    } yield AssetFilter(asset, stockbroker, portfolio, minDate, maxDate)
 
     try {
       val (remaining, filter) = consumer.run(string).value
@@ -70,7 +73,7 @@ object AssetFilter {
 
   private[incomeRate] def consumePart: State[String, Option[String]] =
     State { string =>
-      val Delimiters = Set(StockbrokerDelimiter, MinDateDelimiter, MaxDateDelimiter)
+      val Delimiters = Set(StockbrokerDelimiter, PortfolioDelimiter, MinDateDelimiter, MaxDateDelimiter)
 
       val consumed = new StringBuilder
 

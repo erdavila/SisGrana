@@ -21,9 +21,9 @@ class FiltersResolver(
   }
 
   private[incomeRate] def resolveFilter(filter: AssetFilter): PortfolioContent =
-    dateRange(filter) match {
-      case None => Map.empty
-      case Some(dateRange) =>
+    (dateRange(filter), filter.portfolio) match {
+      case (None, _) => Map.empty
+      case (Some(dateRange), None) =>
         val assetPeriods = ctx.run(
           //noinspection ComparingUnrelatedTypes
           AssetPeriod.inDateRangeQuery(dateRange)
@@ -42,6 +42,17 @@ class FiltersResolver(
           .filter(_._2.nonEmpty)
           .mapValues(_ => periodDateRanges)
           .to(Map)
+      case (Some(dateRange), Some(_)) =>
+        val periodDateRanges = DateRanges.single(dateRange)
+        portfolioContentFromFilter(filter) match {
+          case Some(portfolioContent) =>
+            portfolioContent
+              .view
+              .mapValues(_ `intersect` periodDateRanges)
+              .filter { case (_, dateRanges) => dateRanges.nonEmpty }
+              .toMap
+          case None => Map.empty
+        }
     }
 
   private[incomeRate] def applyNegativeFilter(portfolioContent: PortfolioContent, filter: AssetFilter): PortfolioContent = {
@@ -49,14 +60,15 @@ class FiltersResolver(
       Seq(
         filter.asset,
         filter.stockbroker,
+        filter.portfolio,
         filter.minDate,
         filter.maxDate,
       ).exists(_.nonEmpty)
     )
 
-    dateRange(filter) match {
-      case None => portfolioContent
-      case Some(dateRange) =>
+    (dateRange(filter), filter.portfolio) match {
+      case (None, _) => portfolioContent
+      case (Some(dateRange), None) =>
         val predicate: StockbrokerAsset => Boolean =
           (filter.asset, filter.stockbroker) match {
             case (Some(asset), Some(stockbroker)) =>
@@ -79,6 +91,19 @@ class FiltersResolver(
               Some(stockbrokerAsset -> dateRanges)
             }
           }
+      case (_, Some(_)) =>
+        portfolioContentFromFilter(filter) match {
+          case Some(filterPortfolioContent) =>
+            portfolioContent.flatMap { case (stockbrokerAsset, dateRanges) =>
+              filterPortfolioContent.get(stockbrokerAsset) match {
+                case Some(filterDateRanges) =>
+                  val resultDateRanges = dateRanges `diff` filterDateRanges
+                  Option.when(resultDateRanges.nonEmpty)(stockbrokerAsset -> resultDateRanges)
+                case None => Some(stockbrokerAsset -> dateRanges)
+              }
+            }
+          case None => portfolioContent
+        }
     }
   }
 
@@ -89,6 +114,16 @@ class FiltersResolver(
     Option.when(!(minDate `isAfter` maxDate)) {
       DateRange(minDate, maxDate)
     }
+  }
+
+  private def portfolioContentFromFilter(filter: AssetFilter): Option[PortfolioContent] = {
+    require(filter.portfolio.isDefined)
+    for (portfolio <- Portfolio.load(filter.portfolio.get))
+      yield portfolio.content
+        .pipeWhenMatched(filter.asset) { case Some(asset) => _.filter(_._1.asset == asset) }
+        .pipeWhenMatched(filter.stockbroker) { case Some(stockbroker) => _.filter(_._1.stockbroker == stockbroker) }
+        .pipeWhenMatched(filter.minDate) { case Some(minDate) => _.view.mapValues(_ `intersect` DateRanges.single(minDate, LocalDate.MAX)).toMap }
+        .pipeWhenMatched(filter.maxDate) { case Some(maxDate) => _.view.mapValues(_ `intersect` DateRanges.single(LocalDate.MIN, maxDate)).toMap }
   }
 }
 
