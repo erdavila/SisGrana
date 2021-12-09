@@ -7,7 +7,8 @@ import investments.model.{Portfolio => _, _}
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit.{DAYS, MONTHS, YEARS}
 import scala.annotation.tailrec
-import utils.{AnyOps, BrNumber, DateRange, DateRanges}
+import sisgrana.investments.commands.portfolio.PortfolioMain
+import utils.{AnyOps, BrNumber, DateRange, DateRanges, IndentedPrinter}
 
 object IncomeRateMain extends LocalDateSupport {
   private[incomeRate] case class Position(quantity: Int, convertedTo: Option[ConvertedTo]) {
@@ -33,16 +34,25 @@ object IncomeRateMain extends LocalDateSupport {
   }
 
   def main(args: Array[String]): Unit = {
-    val (period, positiveFilters, negativeFilters) = ArgsParser.parse(args)
+    val (resolvePortfolio, period, positiveFilters, negativeFilters) = ArgsParser.parse(args)
 
     val filtersResolver = new FiltersResolver(period)
-    val portfolio = filtersResolver.resolve(positiveFilters, negativeFilters)
+    val portfolioContent = filtersResolver.resolve(positiveFilters, negativeFilters)
       .filter {
         case (stockbrokerAsset, _) =>
           !AssetType.Resolver.isOption(stockbrokerAsset.asset)
       }
 
-    val quantities = queryQuantities(portfolio)
+    if (resolvePortfolio) {
+      val printer = new IndentedPrinter
+      PortfolioMain.printPortfolioContent(portfolioContent, printer)
+    } else {
+      calculateAndShowIncomeRate(period, portfolioContent)
+    }
+  }
+
+  private def calculateAndShowIncomeRate(period: Period, portfolioContent: PortfolioContent): Unit = {
+    val quantities = queryQuantities(portfolioContent)
     val dateRangesQuantities = regularizeDateRanges(quantities)
     val quantitiesAndQuotes = toQuantitiesAndQuotes(dateRangesQuantities)
     val dateRangesIncomeRates =

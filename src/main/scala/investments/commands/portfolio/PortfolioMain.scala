@@ -1,7 +1,7 @@
 package sisgrana
 package investments.commands.portfolio
 
-import investments.model.{Portfolio, StockbrokerAsset}
+import investments.model.{Portfolio, PortfolioContent, StockbrokerAsset}
 import java.time.LocalDate
 import utils.{Exit, IndentedPrinter}
 
@@ -64,19 +64,23 @@ object PortfolioMain {
   private def printPortfolio(portfolio: Portfolio): Unit = {
     val printer = new IndentedPrinter
     printer.context(portfolio.name) {
-      val dateRangesByAssetByStockbroker =
-        portfolio.content
-          .groupMap(_._1.stockbroker) { case (stockbrokerAsset, dateRanges) => stockbrokerAsset.asset -> dateRanges }
-          .view
-          .mapValues(_.toMap)
-          .toMap
-      for ((stockbroker, dateRangesByAsset) <- dateRangesByAssetByStockbroker.toSeq.sortBy(_._1)) {
-        printer.context(stockbroker) {
-          for ((asset, dateRanges) <- dateRangesByAsset.toSeq.sortBy(_._1)) {
-            printer.context(asset) {
-              for (dateRange <- dateRanges.indexedSeq) {
-                printer.println(s"${dateRange.beginDate} a ${dateRange.endDate}")
-              }
+      printPortfolioContent(portfolio.content, printer)
+    }
+  }
+
+  def printPortfolioContent(portfolioContent: PortfolioContent, printer: IndentedPrinter): Unit = {
+    val dateRangesByAssetByStockbroker =
+      portfolioContent
+        .groupMap(_._1.stockbroker) { case (stockbrokerAsset, dateRanges) => stockbrokerAsset.asset -> dateRanges }
+        .view
+        .mapValues(_.toMap)
+        .toMap
+    for ((stockbroker, dateRangesByAsset) <- dateRangesByAssetByStockbroker.toSeq.sortBy(_._1)) {
+      printer.context(stockbroker) {
+        for ((asset, dateRanges) <- dateRangesByAsset.toSeq.sortBy(_._1)) {
+          printer.context(asset) {
+            for (dateRange <- dateRanges.indexedSeq) {
+              printer.println(s"${dateRange.beginDate} a ${dateRange.endDate}")
             }
           }
         }

@@ -5,14 +5,17 @@ import investments.ArgumentsParser
 import java.io.PrintStream
 import utils.quoted
 
-object ArgsParser extends ArgumentsParser[(Period, Seq[AssetFilter], Seq[AssetFilter])] {
-  override protected def spec: Parser[(Period, Seq[AssetFilter], Seq[AssetFilter])] =
+object ArgsParser extends ArgumentsParser[(Boolean, Period, Seq[AssetFilter], Seq[AssetFilter])] {
+  val ResolvePortfolioOption = "--resolve-portfolio"
+
+  override protected def spec: Parser[(Boolean, Period, Seq[AssetFilter], Seq[AssetFilter])] =
     for {
+      resolvePortfolio <- takeOption(ResolvePortfolioOption)
       period <- takePeriod
       qualifiedFilters <- takeQualifiedFilters
       (positiveFilters, negativeFilters) = separateByQualification(qualifiedFilters)
       _ = if (positiveFilters.isEmpty) error("Ao menos um filtro positivo é obrigatório")
-    } yield (period, positiveFilters, negativeFilters)
+    } yield (resolvePortfolio, period, positiveFilters, negativeFilters)
 
   private def takePeriod: Parser[Period] =
     for (str <- takeNext)
@@ -43,7 +46,7 @@ object ArgsParser extends ArgumentsParser[(Period, Seq[AssetFilter], Seq[AssetFi
       }
 
   override protected def printUsage(printStream: PrintStream): Unit = {
-    printStream.println("Parâmetros esperados: PERÍODO FILTRO...")
+    printStream.println(s"Parâmetros esperados: [$ResolvePortfolioOption] PERÍODO FILTRO...")
     printStream.println()
     printStream.println("    PERÍODO pode ser:")
     printStream.println("        ANO")
