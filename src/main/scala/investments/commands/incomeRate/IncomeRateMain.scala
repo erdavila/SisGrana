@@ -2,13 +2,12 @@ package sisgrana
 package investments.commands.incomeRate
 
 import investments.AssetType
+import investments.commands.portfolio.PortfolioMain
+import investments.model._
 import investments.model.ctx.{localDateDecoder => _, localDateEncoder => _, _}
-import investments.model.{Portfolio => _, _}
 import java.time.LocalDate
-import java.time.temporal.ChronoUnit.{DAYS, MONTHS, YEARS}
 import scala.annotation.tailrec
-import sisgrana.investments.commands.portfolio.PortfolioMain
-import utils.{AnyOps, BrNumber, DateRange, DateRanges, IndentedPrinter}
+import utils.{BrNumber, DateRange, DateRanges, IndentedPrinter}
 
 object IncomeRateMain extends LocalDateSupport {
   private[incomeRate] case class Position(quantity: Int, convertedTo: Option[ConvertedTo]) {
@@ -34,20 +33,22 @@ object IncomeRateMain extends LocalDateSupport {
   }
 
   def main(args: Array[String]): Unit = {
-    val (resolvePortfolio, period, positiveFilters, negativeFilters) = ArgsParser.parse(args)
+    val (resolvePortfolio, periodSpec, positiveFilters, negativeFilters) = ArgsParser.parse(args)
 
-    val filtersResolver = new FiltersResolver(period)
-    val portfolioContent = filtersResolver.resolve(positiveFilters, negativeFilters)
-      .filter {
-        case (stockbrokerAsset, _) =>
-          !AssetType.Resolver.isOption(stockbrokerAsset.asset)
+    for (period <- periodSpec.periods) {
+      val filtersResolver = new FiltersResolver(period)
+      val portfolioContent = filtersResolver.resolve(positiveFilters, negativeFilters)
+        .filter {
+          case (stockbrokerAsset, _) =>
+            !AssetType.Resolver.isOption(stockbrokerAsset.asset)
+        }
+
+      if (resolvePortfolio) {
+        val printer = new IndentedPrinter
+        PortfolioMain.printPortfolioContent(portfolioContent, printer)
+      } else {
+        calculateAndShowIncomeRate(period, portfolioContent)
       }
-
-    if (resolvePortfolio) {
-      val printer = new IndentedPrinter
-      PortfolioMain.printPortfolioContent(portfolioContent, printer)
-    } else {
-      calculateAndShowIncomeRate(period, portfolioContent)
     }
   }
 
@@ -69,24 +70,15 @@ object IncomeRateMain extends LocalDateSupport {
         incomeRate = subPeriodRates.reduce((r1, r2) => r1 * r2 + r1 + r2)
       } yield subPeriod.dateRange -> incomeRate
 
-
-    val nonDataSubPeriods = calculateNonDataSubPeriods(incomeRateSubPeriods, period.dateRange)
-
-    if (nonDataSubPeriods.isEmpty) {
-      assert(incomeRateSubPeriods.lengthIs == 1)
-      assert(incomeRateSubPeriods.head._1 == period.dateRange)
-      val (_, rate) = incomeRateSubPeriods.head
-      showRate(period, rate)
-    } else {
-      for ((dateRange, rate) <- incomeRateSubPeriods) {
-        showRate(Period.DateRange(dateRange), rate)
-      }
-
-      println()
-      println("Nenhum ativo com quantia positiva no(s) intervalo(s):")
-      for (dateRange <- nonDataSubPeriods) {
-        println(s"  ${dateRange.beginDate} a ${dateRange.endDate}")
-      }
+    incomeRateSubPeriods match {
+      case Seq((`period`.dateRange, rate)) => showRate(period, rate)
+      case _ =>
+        for ((dateRange, rate) <- fillSubPeriods(incomeRateSubPeriods, period.dateRange)) {
+          rate match {
+            case Some(rate) => showRate(Period.DateRange(dateRange), rate)
+            case None => println(s"${dateRange.beginDate} a ${dateRange.endDate}: Nenhum ativo com quantia positiva")
+          }
+        }
     }
   }
 
@@ -276,28 +268,23 @@ object IncomeRateMain extends LocalDateSupport {
     loop(dateRangesData, Vector.empty)
   }
 
-  private[incomeRate] def calculateNonDataSubPeriods[A](subPeriods: Seq[(DateRange, A)], dateRange: DateRange): Seq[DateRange] =
-    if (subPeriods.isEmpty) {
-      Seq(dateRange)
-    } else {
-      def compareLimits(beginDateLimit: LocalDate, endDateLimit: LocalDate) =
-        Option.when(beginDateLimit != endDateLimit) {
-          DateRange(beginDateLimit, endDateLimit)
-        }
-
-      val begin = compareLimits(dateRange.beginDate, subPeriods.head._1.beginDate)
-
-      val middle =
-        for (Seq(sub1, sub2) <- subPeriods.sliding(2))
-          yield {
-            assert(sub1._1.endDate != sub2._1.beginDate)
-            DateRange(sub1._1.endDate, sub2._1.beginDate)
-          }
-
-      val end = compareLimits(subPeriods.last._1.endDate, dateRange.endDate)
-
-      (begin ++ middle ++ end).toSeq
+  private[incomeRate] def fillSubPeriods[A](subPeriods: Seq[(DateRange, A)], dateRange: DateRange): Seq[(DateRange, Option[A])] = {
+    @tailrec
+    def loop(subPeriods: Seq[(DateRange, A)], date: LocalDate, results: Seq[(DateRange, Option[A])]): Seq[(DateRange, Option[A])] = {
+      def existing(subPeriod: (DateRange, A)) = subPeriod._1 -> Some(subPeriod._2)
+      def filling(endDate: LocalDate) = DateRange(date, endDate) -> None
+      subPeriods match {
+        case sub +: t if sub._1.beginDate == date => loop(t, sub._1.endDate, results :+ existing(sub))
+        case sub +: t =>
+          assert(date `isBefore` sub._1.beginDate)
+          loop(t, sub._1.endDate, results :+ filling(sub._1.beginDate) :+ existing(sub))
+        case _ if date == dateRange.endDate => results
+        case _ => results :+ filling(dateRange.endDate)
+      }
     }
+
+    loop(subPeriods, dateRange.beginDate, Vector.empty)
+  }
 
   private def showRate(period: Period, rate: Double): Unit = {
     val yearPercentSuffix = "a.a."
@@ -308,7 +295,7 @@ object IncomeRateMain extends LocalDateSupport {
         val monthPercent = BrNumber.formatPercent(convertRate(rate, 12, 1)) ++ monthPercentSuffix
         println(s"$year: $yearPercent ($monthPercent)")
       case Period.YearRange(beginYear, endYear) =>
-        val yearCount = (YEARS.between(beginYear, endYear) + 1).toInt
+        val yearCount = period.lengthInChronoUnits
         val percent = BrNumber.formatPercent(rate)
         val yearPercent = BrNumber.formatPercent(convertRate(rate, yearCount, 1)) ++ yearPercentSuffix
         val monthPercent = BrNumber.formatPercent(convertRate(rate, yearCount * 12, 1)) ++ monthPercentSuffix
@@ -318,13 +305,13 @@ object IncomeRateMain extends LocalDateSupport {
         val yearPercent = BrNumber.formatPercent(convertRate(rate, 1, 12)) ++ yearPercentSuffix
         println(s"$yearMonth: $monthPercent ($yearPercent)")
       case Period.MonthRange(beginYearMonth, endYearMonth) =>
-        val monthCount = (MONTHS.between(beginYearMonth, endYearMonth) + 1).toInt
+        val monthCount = period.lengthInChronoUnits
         val percent = BrNumber.formatPercent(rate)
         val yearPercent = BrNumber.formatPercent(convertRate(rate, monthCount, 12)) ++ yearPercentSuffix
         val monthPercent = BrNumber.formatPercent(convertRate(rate, monthCount, 1)) ++ monthPercentSuffix
         println(s"$beginYearMonth a $endYearMonth: $percent ($yearPercent; $monthPercent)")
       case Period.DateRange(beginDate, endDate) =>
-        val dayCount = (DAYS.between(beginDate, endDate) + 1).toInt
+        val dayCount = period.lengthInChronoUnits
         val percent = BrNumber.formatPercent(rate)
         val DaysPerYear = 365.2425
         val monthPercent = BrNumber.formatPercent(convertRate(rate, dayCount, DaysPerYear / 12)) ++ monthPercentSuffix

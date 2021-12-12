@@ -3,11 +3,12 @@ package investments.commands.incomeRate
 
 import investments.model.NonQuoteDate
 import java.time
-import java.time.{LocalDate, Year => JYear, YearMonth}
+import java.time.temporal.ChronoUnit
+import java.time.{LocalDate, YearMonth, Year => JYear}
 import scala.util.{Failure, Try}
 import utils.{DateRange, quoted}
 
-sealed abstract class Period(minDate: time.LocalDate, maxDate: time.LocalDate) {
+sealed abstract class Period(minDate: time.LocalDate, maxDate: time.LocalDate, val lengthInChronoUnits: Int) {
   val dateRange: DateRange = {
     val adjustedMinDate = NonQuoteDate.adjustToQuoteDate(minDate)
     val adjustedMaxDate = NonQuoteDate.adjustToQuoteDate(maxDate)
@@ -18,23 +19,40 @@ sealed abstract class Period(minDate: time.LocalDate, maxDate: time.LocalDate) {
       adjustedMaxDate,
     )
   }
+
+  def offset(offset: Int): Period
 }
 
 object Period {
   case class Year(year: time.Year)
-    extends Period(minDateFor(year), maxDateFor(year))
+    extends Period(minDateFor(year), maxDateFor(year), 1)
+  {
+    override def offset(offset: Int): Year = Year(year.plusYears(offset))
+  }
 
   case class YearRange(beginYear: time.Year, endYear: time.Year)
-    extends Period(minDateFor(beginYear), maxDateFor(endYear))
+    extends Period(minDateFor(beginYear), maxDateFor(endYear), (ChronoUnit.YEARS.between(beginYear, endYear) + 1).toInt)
+  {
+    override def offset(offset: Int): YearRange = YearRange(beginYear.plusYears(offset), endYear.plusYears(offset))
+  }
 
   case class Month(yearMonth: time.YearMonth)
-    extends Period(minDateFor(yearMonth), maxDateFor(yearMonth))
+    extends Period(minDateFor(yearMonth), maxDateFor(yearMonth), 1)
+  {
+    override def offset(offset: Int): Month = Month(yearMonth.plusMonths(offset))
+  }
 
   case class MonthRange(beginYearMonth: time.YearMonth, endYearMonth: time.YearMonth)
-    extends Period(minDateFor(beginYearMonth), maxDateFor(endYearMonth))
+    extends Period(minDateFor(beginYearMonth), maxDateFor(endYearMonth), (ChronoUnit.MONTHS.between(beginYearMonth, endYearMonth) + 1).toInt)
+  {
+    override def offset(offset: Int): MonthRange = MonthRange(beginYearMonth.plusMonths(offset), endYearMonth.plusMonths(offset))
+  }
 
   case class DateRange(beginDate: time.LocalDate, endDate: time.LocalDate)
-    extends Period(beginDate, endDate)
+    extends Period(beginDate, endDate, ChronoUnit.DAYS.between(beginDate, endDate).toInt)
+  {
+    override def offset(offset: Int): DateRange = DateRange(beginDate.plusDays(offset), endDate.plusDays(offset))
+  }
 
   object DateRange {
     def apply(dr: utils.DateRange): DateRange = DateRange(dr.beginDate, dr.endDate)
@@ -67,8 +85,8 @@ object Period {
         }
     }
 
-    t.recoverWith { _ =>
-      Failure(new IllegalArgumentException(s"Período inválido: ${quoted(string)}"))
+    t.recoverWith { e =>
+      Failure(new IllegalArgumentException(s"Período inválido: ${quoted(string)}", e))
     }.get
   }
 

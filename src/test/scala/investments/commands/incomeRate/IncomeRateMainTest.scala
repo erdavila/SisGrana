@@ -202,37 +202,50 @@ class IncomeRateMainTest extends TestBase with Persisted {
     )
   }
 
-  test(".calculateNonDataSubPeriods()") {
+  test(".fillSubPeriods()") {
     val periodDateRange = DateRange(1, 10)
 
     val cases = Table(
       "subPeriods" -> "expected nonDataSubPeriods",
 
       Seq(
+        periodDateRange -> 'A',
+      ) -> Seq(
+        periodDateRange -> Some('A'),
+      ),
+
+      Seq(
         DateRange(1, 4) -> 'A',
         DateRange(6, 8) -> 'B',
         DateRange(9, 10) -> 'C',
       ) -> Seq(
-        DateRange(4, 6),
-        DateRange(8, 9),
+        DateRange(1, 4) -> Some('A'),
+        DateRange(4, 6) -> None,
+        DateRange(6, 8) -> Some('B'),
+        DateRange(8, 9) -> None,
+        DateRange(9, 10) -> Some('C'),
       ),
 
       Seq(
         DateRange(3, 5) -> 'A',
         DateRange(6, 7) -> 'B',
       ) -> Seq(
-        DateRange(1, 3),
-        DateRange(5, 6),
-        DateRange(7, 10),
+        DateRange(1, 3) -> None,
+        DateRange(3, 5) -> Some('A'),
+        DateRange(5, 6) -> None,
+        DateRange(6, 7) -> Some('B'),
+        DateRange(7, 10) -> None,
       ),
 
-      Seq.empty -> Seq(periodDateRange),
+      Seq.empty -> Seq(
+        periodDateRange -> None,
+      ),
     )
 
-    forAll(cases) { case (dataSubPeriods, expectedNonDataSubPeriods) =>
-      val nonDataSubPeriods = IncomeRateMain.calculateNonDataSubPeriods(dataSubPeriods, periodDateRange)
+    forAll(cases) { case (dataSubPeriods, expectedSubPeriods) =>
+      val subPeriods = IncomeRateMain.fillSubPeriods(dataSubPeriods, periodDateRange)
 
-      nonDataSubPeriods should equal (expectedNonDataSubPeriods)
+      subPeriods should equal (expectedSubPeriods)
     }
   }
 
