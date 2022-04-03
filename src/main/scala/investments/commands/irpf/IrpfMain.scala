@@ -62,26 +62,32 @@ class IrpfMain(showDetails: Boolean) extends LocalDateSupport {
     }
 
   private case class TradesResults(
-    dayTrade: TradeResult,
+    stocksDayTrade: TradeResult,
+    optionsDayTrade: TradeResult,
     exemptableSwingTrade: TradeResult,
     totalExemptableSwingTradeSalesValueWithoutCost: Double,
-    nonExemptableSwingTrade: TradeResult,
+    nonExemptableStocksSwingTrade: TradeResult,
+    nonExemptableOptionsSwingTrade: TradeResult,
     fiisTrade: TradeResult,
   ) {
     def +(other: TradesResults): TradesResults =
       TradesResults(
-        this.dayTrade + other.dayTrade,
+        this.stocksDayTrade + other.stocksDayTrade,
+        this.optionsDayTrade + other.optionsDayTrade,
         this.exemptableSwingTrade + other.exemptableSwingTrade,
         this.totalExemptableSwingTradeSalesValueWithoutCost + other.totalExemptableSwingTradeSalesValueWithoutCost,
-        this.nonExemptableSwingTrade + other.nonExemptableSwingTrade,
+        this.nonExemptableStocksSwingTrade + other.nonExemptableStocksSwingTrade,
+        this.nonExemptableOptionsSwingTrade + other.nonExemptableOptionsSwingTrade,
         this.fiisTrade + other.fiisTrade,
       )
 
-    lazy val totalSwingTrade: TradeResult = exemptableSwingTrade + nonExemptableSwingTrade
+    lazy val totalDayTrade: TradeResult = stocksDayTrade + optionsDayTrade
+    lazy val totalNonExemptableSwingTrade: TradeResult = nonExemptableStocksSwingTrade + nonExemptableOptionsSwingTrade
+    lazy val totalSwingTrade: TradeResult = exemptableSwingTrade + totalNonExemptableSwingTrade
   }
 
   private object TradesResults {
-    val Zero: TradesResults = TradesResults(TradeResult.Zero, TradeResult.Zero, 0.0, TradeResult.Zero, TradeResult.Zero)
+    val Zero: TradesResults = TradesResults(TradeResult.Zero, TradeResult.Zero, TradeResult.Zero, 0.0, TradeResult.Zero, TradeResult.Zero, TradeResult.Zero)
   }
 
   private def processYearMonth(yearMonth: YearMonth, assetPeriods: Seq[AssetPeriod]): Unit =
@@ -92,13 +98,12 @@ class IrpfMain(showDetails: Boolean) extends LocalDateSupport {
         }
         .reduce(_ + _)
 
-      if (tradeResults.dayTrade.quantity != 0) {
+      if (tradeResults.stocksDayTrade.quantity != 0 || tradeResults.optionsDayTrade.quantity != 0) {
         printer.context("Day-Trade") {
-          val result = tradeResults.dayTrade.totalNetValue
-          val descr =
-            if (result <= 0.0) "prejuízo"
-            else "lucro"
-          printer.println(s"Resultado: ${BrNumber.formatMoney(result)} ($descr)")
+          mayPrintResult("Ações", tradeResults.stocksDayTrade)
+          mayPrintResult("Opções", tradeResults.optionsDayTrade)
+
+          val result = printResult(tradeResults.totalDayTrade)
           val tax = result * DayTradeTaxRate
           if (tax > 0.0) {
             printer.println(s"Imposto devido: ${BrNumber.formatMoney(tax)}")
@@ -133,13 +138,12 @@ class IrpfMain(showDetails: Boolean) extends LocalDateSupport {
             }
 
           val nonExemptableSwingTradeTax =
-            if (tradeResults.nonExemptableSwingTrade.quantity != 0) {
+            if (tradeResults.nonExemptableStocksSwingTrade.quantity != 0 || tradeResults.nonExemptableOptionsSwingTrade.quantity != 0) {
               printer.context("Não isentáveis") {
-                val result = tradeResults.nonExemptableSwingTrade.totalNetValue
-                val descr =
-                  if (result <= 0.0) "prejuízo"
-                  else "lucro"
-                printer.println(s"Resultado: ${BrNumber.formatMoney(result)} ($descr)")
+                mayPrintResult("Ações", tradeResults.nonExemptableStocksSwingTrade)
+                mayPrintResult("Opções", tradeResults.nonExemptableOptionsSwingTrade)
+
+                val result = printResult(tradeResults.totalNonExemptableSwingTrade)
                 val tax = result * SwingTradeTaxRate
                 if (tax > 0.0) {
                   printer.println(s"Imposto devido: ${BrNumber.formatMoney(tax)}")
@@ -151,11 +155,6 @@ class IrpfMain(showDetails: Boolean) extends LocalDateSupport {
             }
 
           printer.context("Totais") {
-            val result = tradeResults.totalSwingTrade.totalNetValue
-            val descr =
-              if (result <= 0.0) "prejuízo"
-              else "lucro"
-            printer.println(s"Resultado: ${BrNumber.formatMoney(result)} ($descr)")
             val tax = exemptableSwingTradeTax + nonExemptableSwingTradeTax
             if (tax > 0.0) {
               printer.println(s"Imposto devido: ${BrNumber.formatMoney(tax)}")
@@ -166,11 +165,7 @@ class IrpfMain(showDetails: Boolean) extends LocalDateSupport {
 
       if (tradeResults.fiisTrade.quantity != 0) {
         printer.context("FIIs") {
-          val result = tradeResults.fiisTrade.totalNetValue
-          val descr =
-            if (result <= 0.0) "prejuízo"
-            else "lucro"
-          printer.println(s"Resultado: ${BrNumber.formatMoney(result)} ($descr)")
+          val result = printResult(tradeResults.fiisTrade)
           val tax = result * FIIsTaxRate
           if (tax > 0.0) {
             printer.println(s"Imposto devido: ${BrNumber.formatMoney(tax)}")
@@ -180,6 +175,23 @@ class IrpfMain(showDetails: Boolean) extends LocalDateSupport {
 
       printer.println()
     }
+
+  private def mayPrintResult(context: Any, tradeResult: TradeResult): Unit = {
+    if (tradeResult.quantity != 0) {
+      printer.context(context) {
+        printResult(tradeResult)
+      }
+    }
+  }
+
+  private def printResult(tradeResult: TradeResult): Double = {
+    val result = tradeResult.totalNetValue
+    val descr =
+      if (result <= 0.0) "prejuízo"
+      else "lucro"
+    printer.println(s"Resultado: ${BrNumber.formatMoney(result)} ($descr)")
+    result
+  }
 
   private def processDate(date: LocalDate, assetPeriods: Seq[AssetPeriod]): TradesResults =
     printer.context(date, showDetails) {
@@ -202,29 +214,51 @@ class IrpfMain(showDetails: Boolean) extends LocalDateSupport {
             printer.hierarchy.print(details)
           }
 
-          typeResolver(ap.asset).taxation match {
+          val assetType = typeResolver(ap.asset)
+
+          val (stocksDayTrade, optionsDayTrade) =
+            if (assetType == AssetType.Option) (TradeResult.Zero, ap.dayTradeResult)
+            else (ap.dayTradeResult, TradeResult.Zero)
+
+          assetType.taxation match {
             case Taxation.ExemptableSwingTrade =>
               TradesResults(
-                dayTrade = ap.dayTradeResult,
+                stocksDayTrade = stocksDayTrade,
+                optionsDayTrade = optionsDayTrade,
                 exemptableSwingTrade = ap.swingTradeResult,
                 totalExemptableSwingTradeSalesValueWithoutCost = ap.swingTradeResult.totalSaleValue,
-                nonExemptableSwingTrade = TradeResult.Zero,
+                nonExemptableStocksSwingTrade = TradeResult.Zero,
+                nonExemptableOptionsSwingTrade = TradeResult.Zero,
                 fiisTrade = TradeResult.Zero,
               )
-            case Taxation.NonExemptableSwingTrade =>
+            case Taxation.NonExemptableStocksSwingTrade =>
               TradesResults(
-                dayTrade = ap.dayTradeResult,
+                stocksDayTrade = stocksDayTrade,
+                optionsDayTrade = optionsDayTrade,
                 exemptableSwingTrade = TradeResult.Zero,
                 totalExemptableSwingTradeSalesValueWithoutCost = 0.0,
-                nonExemptableSwingTrade = ap.swingTradeResult,
+                nonExemptableStocksSwingTrade = ap.swingTradeResult,
+                nonExemptableOptionsSwingTrade = TradeResult.Zero,
+                fiisTrade = TradeResult.Zero,
+              )
+            case Taxation.NonExemptableOptionsSwingTrade =>
+              TradesResults(
+                stocksDayTrade = stocksDayTrade,
+                optionsDayTrade = optionsDayTrade,
+                exemptableSwingTrade = TradeResult.Zero,
+                totalExemptableSwingTradeSalesValueWithoutCost = 0.0,
+                nonExemptableStocksSwingTrade = TradeResult.Zero,
+                nonExemptableOptionsSwingTrade = ap.swingTradeResult,
                 fiisTrade = TradeResult.Zero,
               )
             case Taxation.FII =>
               TradesResults(
-                dayTrade = ap.dayTradeResult,
+                stocksDayTrade = stocksDayTrade,
+                optionsDayTrade = optionsDayTrade,
                 exemptableSwingTrade = TradeResult.Zero,
                 totalExemptableSwingTradeSalesValueWithoutCost = 0.0,
-                nonExemptableSwingTrade = TradeResult.Zero,
+                nonExemptableStocksSwingTrade = TradeResult.Zero,
+                nonExemptableOptionsSwingTrade = TradeResult.Zero,
                 fiisTrade = ap.swingTradeResult,
               )
             case Taxation.NonVariableIncome => TradesResults.Zero

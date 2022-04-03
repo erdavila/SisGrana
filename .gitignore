@@ -2,5 +2,5 @@ target/
 project/project/
 .bsp/
 .idea/
-data/
+data
 quotes/*.ZIP

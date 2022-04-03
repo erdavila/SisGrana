@@ -14,7 +14,7 @@ object AssetType {
   }
 
   case object ETF extends AssetType("ETF") {
-    override def taxation: Taxation = Taxation.NonExemptableSwingTrade
+    override def taxation: Taxation = Taxation.NonExemptableStocksSwingTrade
   }
 
   case object EtfRendaFixa extends AssetType("ETFRF") {
@@ -26,7 +26,7 @@ object AssetType {
   }
 
   case object Option extends AssetType("option") {
-    override def taxation: Taxation = Taxation.NonExemptableSwingTrade
+    override def taxation: Taxation = Taxation.NonExemptableOptionsSwingTrade
 
     sealed trait Type
 
