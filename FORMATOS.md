@@ -73,6 +73,7 @@ MAIS-NOTAS-DE-CORRETAGEM :=
 CONTEÚDO := LINHA*
 LINHA := 'convert'  [NOME:s]  [QUANTIA:i]  ->  [QUANTIA:i]  [NOME:s]
        | 'bonus'  [NOME:s]  [QUANTIA:i]  ->  [QUANTIA:i]  [NOME:s]  [PREÇO:n]
+       | 'transfer'  [NOME:s]  [CORRETORA:s]  ->  [CORRETORA:s]
 ```
 
 ## Exemplos

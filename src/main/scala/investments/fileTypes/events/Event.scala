@@ -18,4 +18,9 @@ object Event {
     require(toPrice > 0.0)
     override def subjectAssets: Set[String] = Set(fromAsset, toAsset)
   }
+
+  case class Transference(asset: String, fromStockbroker: String, toStockbroker: String) extends Event {
+    require(fromStockbroker != toStockbroker)
+    override def subjectAssets: Set[String] = Set(asset)
+  }
 }

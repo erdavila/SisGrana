@@ -1,7 +1,7 @@
 package sisgrana
 package investments.fileTypes.events
 
-import investments.fileTypes.events.Event.{Bonus, Conversion}
+import investments.fileTypes.events.Event.{Bonus, Conversion, Transference}
 import investments.files.SSV
 import java.io.InputStream
 import utils.BrNumber
@@ -17,5 +17,7 @@ object EventsFileReader {
         Conversion(fromAsset, BrNumber.parse(fromQty), toAsset, BrNumber.parse(toQty))
       case Seq("bonus", fromAsset, fromQty, "->", toQty, toAsset, toPrice) =>
         Bonus(fromAsset, BrNumber.parse(fromQty), toAsset, BrNumber.parse(toQty), BrNumber.parse(toPrice))
+      case Seq("transfer", asset, fromStockbroker, "->", toStockbroker) =>
+        Transference(asset, fromStockbroker, toStockbroker)
     }
 }

@@ -1,7 +1,7 @@
 package sisgrana
 package investments.commands.multiImport.eventsAndBrokerageNotes
 
-import investments.commands.multiImport.eventsAndBrokerageNotes.EventProcessor.{mergeOutcomeByAsset, processBonus, processConversion}
+import investments.commands.multiImport.eventsAndBrokerageNotes.EventProcessor.{mergeOutcomeByAsset, processBonus, processConversion, processTransference}
 import investments.fileTypes.events.Event
 import investments.model.{Amount, PurchaseAmount, StockbrokerAsset}
 
@@ -12,21 +12,28 @@ class EventProcessor(event: Event) {
 
     assetsPositionsByStockbroker
       .map { case (stockbroker, assetsPositions) =>
-        processEventOnStockbrokerAssets(assetsPositions.toMap)
-          .map { case (asset, eventOutcome) => StockbrokerAsset(stockbroker, asset) -> eventOutcome }
+        processEventOnStockbrokerAssets(assetsPositions.toMap, stockbroker)
       }
       .reduceOption(mergeOutcomeByAsset)
       .getOrElse(Map.empty)
   }
 
-  private def processEventOnStockbrokerAssets(positionByAsset: Map[String, Amount]): Map[String, EventOutcome] =
-    event match {
-      case c@Event.Conversion(_, _, _, _) => processConversion(c, positionByAsset)
-      case b@Event.Bonus(_, _, _, _, _) => processBonus(b, positionByAsset)
+  private def processEventOnStockbrokerAssets(positionByAsset: Map[String, Amount], stockbroker: String): Map[StockbrokerAsset, EventOutcome] = {
+    def withStockbroker(data: (String, EventOutcome)) = {
+      val (asset, outcome) = data
+      StockbrokerAsset(stockbroker, asset) -> outcome
     }
+
+    event match {
+      case c@Event.Conversion(_, _, _, _) => processConversion(c, positionByAsset).map(withStockbroker)
+      case b@Event.Bonus(_, _, _, _, _) => processBonus(b, positionByAsset).map(withStockbroker)
+      case t@Event.Transference(_, _, _) => processTransference(t, positionByAsset, stockbroker)
+    }
+  }
 }
 
 object EventProcessor {
+
   def mergeOutcomeByAsset(
     outcomes1: Map[StockbrokerAsset, EventOutcome],
     outcomes2: Map[StockbrokerAsset, EventOutcome],
@@ -83,5 +90,23 @@ object EventProcessor {
           bonus.toAsset -> EventOutcome.AddToPosition(amount)
         )
       case _ => Map.empty
+    }
+
+  private[eventsAndBrokerageNotes] def processTransference(
+    transference: Event.Transference,
+    positionByAsset: Map[String, Amount],
+    stockbroker: String
+  ): Map[StockbrokerAsset, EventOutcome] =
+    if (transference.fromStockbroker == stockbroker) {
+      positionByAsset.get(transference.asset) match {
+        case Some(amount) =>
+          Map(
+            StockbrokerAsset(transference.fromStockbroker, transference.asset) -> EventOutcome.SetPosition(Amount.Zero, transference.asset, amount.signedQuantity),
+            StockbrokerAsset(transference.toStockbroker, transference.asset) -> EventOutcome.AddToPosition(amount),
+          )
+        case None => throw new Exception(s"Corretora ${transference.fromStockbroker} não tem ativo ${transference.asset} para ser transferido para corretora ${transference.toStockbroker}")
+      }
+    } else {
+      Map.empty
     }
 }

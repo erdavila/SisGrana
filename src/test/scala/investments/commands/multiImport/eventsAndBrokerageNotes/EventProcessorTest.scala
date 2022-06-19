@@ -2,7 +2,7 @@ package sisgrana
 package investments.commands.multiImport.eventsAndBrokerageNotes
 
 import investments.fileTypes.events.Event
-import investments.model.Amount
+import investments.model.{Amount, StockbrokerAsset}
 
 class EventProcessorTest extends TestBase {
   test("EventProcessor.processConversion()") {
@@ -146,6 +146,53 @@ class EventProcessorTest extends TestBase {
 
     forAll(cases) { case (bonus, positions, expectedOutcomes) =>
       val outcomes = EventProcessor.processBonus(bonus, positions)
+
+      outcomes should equal (expectedOutcomes)
+    }
+  }
+
+  test("EventProcessor.processTransference()") {
+    val StockbrokerFrom = "stockbroker-from"
+    val StockbrokerTo = "stockbroker-to"
+    val AnotherStockbroker = "another-stockbroker"
+
+    val cases = Table(
+      (
+        "transference",
+        "positions",
+        "expected outcomes",
+      ),
+      (
+        Event.Transference("X", StockbrokerFrom, StockbrokerTo),
+        Map(
+          "X" -> Amount.fromSignedQuantityAndAverages(20, 2.00, 0.02),
+        ),
+        Map(
+          StockbrokerAsset(StockbrokerFrom, "X") -> EventOutcome.SetPosition(Amount.Zero, "X", 20),
+          StockbrokerAsset(StockbrokerTo, "X") -> EventOutcome.AddToPosition(Amount.fromSignedQuantityAndAverages(20, 2.00, 0.02)),
+        ),
+      ),
+      (
+        Event.Transference("X", StockbrokerFrom, StockbrokerTo),
+        Map(
+          "X" -> Amount.fromSignedQuantityAndAverages(-20, 2.00, 0.02),
+        ),
+        Map(
+          StockbrokerAsset(StockbrokerFrom, "X") -> EventOutcome.SetPosition(Amount.Zero, "X", -20),
+          StockbrokerAsset(StockbrokerTo, "X") -> EventOutcome.AddToPosition(Amount.fromSignedQuantityAndAverages(-20, 2.00, 0.02)),
+        ),
+      ),
+      (
+        Event.Transference("X", AnotherStockbroker, StockbrokerTo),
+        Map(
+          "X" -> Amount.fromSignedQuantityAndAverages(20, 2.00, 0.02),
+        ),
+        Map(),
+      ),
+    )
+
+    forAll(cases) { case (transference, positions, expectedOutcomes) =>
+      val outcomes = EventProcessor.processTransference(transference, positions, StockbrokerFrom)
 
       outcomes should equal (expectedOutcomes)
     }
