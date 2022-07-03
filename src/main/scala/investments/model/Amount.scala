@@ -72,6 +72,12 @@ object Amount {
       case (p@PurchaseAmount(_, _, _), s@SaleAmount(_, _, _)) => TradeResult.from(p, s).swap
       case (s@SaleAmount(_, _, _), p@PurchaseAmount(_, _, _)) => TradeResult.from(p, s).swap
     }
+
+  private val TruncateScale = 8
+  private val TruncateMask = math.pow(10, TruncateScale)
+
+  private[model] def truncate(value: Double) =
+    math.round(TruncateMask * value) / TruncateMask
 }
 
 case class PurchaseAmount(quantity: Int, averagePrice: Double, averageCost: Double) extends Amount {
@@ -95,7 +101,7 @@ object PurchaseAmount {
     new PurchaseAmount(quantity, averagePrice, averageCost)
 
   def fromAverages(quantity: Int, averagePrice: Double, averageCost: Double): PurchaseAmount =
-    PurchaseAmount(quantity, averagePrice, averageCost)
+    PurchaseAmount(quantity, averagePrice, Amount.truncate(averageCost))
 
   def fromTotals(quantity: Int, grossValue: Double, totalCost: Double): PurchaseAmount =
     if (quantity == 0) {
