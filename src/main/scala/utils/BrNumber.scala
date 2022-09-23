@@ -16,6 +16,13 @@ object BrNumber {
     number
   }
 
+  def parseBigDecimal(string: String): BigDecimal = {
+    val cleanedString = string
+      .replace(".", "")
+      .replace(",", ".")
+    BigDecimal(cleanedString)
+  }
+
   def format(number: Double): String =
     NF.format(number)
 
