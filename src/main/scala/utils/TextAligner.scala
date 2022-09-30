@@ -18,6 +18,13 @@ object TextAligner {
   object Chunk {
     def apply(text: String, alignment: Alignment): Chunk =
       Chunk(text, text.length, alignment)
+
+    def leftAligned(anchor: Anchor, text: String, width: Anchor): Chunk = Chunk(text, width, Alignment.Left(anchor))
+    def leftAligned(anchor: Anchor, text: String): Chunk = Chunk(text, Alignment.Left(anchor))
+    def rightAligned(anchor: Anchor, text: String, width: Anchor): Chunk = Chunk(text, width, Alignment.Right(anchor))
+    def rightAligned(anchor: Anchor, text: String): Chunk = Chunk(text, Alignment.Right(anchor))
+    def centerAligned(leftAnchor: Anchor, rightAnchor: Anchor, text: String, width: Anchor): Chunk = Chunk(text, width, Alignment.Center(leftAnchor, rightAnchor))
+    def centerAligned(leftAnchor: Anchor, rightAnchor: Anchor, text: String): Chunk = Chunk(text, Alignment.Center(leftAnchor, rightAnchor))
   }
 
   case class AlignedChunk(chunk: Chunk, column: Int, leftPaddingWidth: Int)
