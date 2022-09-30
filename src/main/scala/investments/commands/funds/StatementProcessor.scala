@@ -25,7 +25,7 @@ object StatementProcessor {
     val (_, remainingDaysRecords) = statement.entries
       .toSeq.sortBy { case (date, _) => date }
       .foldFlatMapLeft(initialRecordSet: PreviousRecordSet) { case (previousRecordSet, (date, entries)) =>
-        val recordSet = recordSetFromX(entries, date, previousRecordSet)
+        val recordSet = recordSetFrom(entries, date, previousRecordSet)
         (recordSet, Some(recordSet))
       }
 
@@ -40,23 +40,23 @@ object StatementProcessor {
       note = initialEntry.note,
     )
 
-  private def recordSetFromX(dayEntries: Map[String, FundsStatement.Entry], date: LocalDate, previousRecordSet: PreviousRecordSet)(implicit daysCounter: DaysCounter): RecordSet = {
+  private def recordSetFrom(dayEntries: Map[String, FundsStatement.Entry], date: LocalDate, previousRecordSet: PreviousRecordSet)(implicit daysCounter: DaysCounter): RecordSet = {
     val days = daysCounter.count(previousRecordSet.date, date)
-    val records = recordsFrom(dayEntries, previousRecordSet)
-    recordSetFromY(records, date, days, previousRecordSet)
+    val records = recordsFrom(dayEntries, days, previousRecordSet)
+    recordSetFrom(records, date, days, previousRecordSet)
   }
 
-  private def recordsFrom(dayEntries: Map[String, FundsStatement.Entry], previousRecordSet: PreviousRecordSet): Map[String, Record] =
+  private def recordsFrom(dayEntries: Map[String, FundsStatement.Entry], days: Int, previousRecordSet: PreviousRecordSet): Map[String, Record] =
     (dayEntries.keys ++ previousRecordSet.records.keys).toSeq
       .distinct
       .map { fund =>
         val entry = dayEntries.get(fund)
         val previousRecord = previousRecordSet.records.get(fund)
-        fund -> recordFrom(entry, previousRecord)
+        fund -> recordFrom(entry, days, previousRecord)
       }
       .toMap
 
-  private[funds] def recordSetFromY(records: Map[String, Record], date: LocalDate, days: Int, previousRecordSet: PreviousRecordSet): RecordSet = {
+  private[funds] def recordSetFrom(records: Map[String, Record], date: LocalDate, days: Int, previousRecordSet: PreviousRecordSet): RecordSet = {
     val totalInitialBalance = sumIfAny(records.values.flatMap(_.initialBalance))
     val totalYieldRate = (totalInitialBalance, previousRecordSet.totalFinalBalance).mapN(_ / _ - 1)
     val totalYieldResult = sumIfAny(records.values.flatMap(_.yieldResult))
@@ -71,13 +71,22 @@ object StatementProcessor {
       totalInitialBalance = totalInitialBalance,
       totalBalanceChange = totalBalanceChange,
       totalFinalBalance = sumIfAny(records.values.flatMap(_.finalBalance)),
+      accumulatedDays = previousRecordSet.accumulatedDays + days,
+      accumulatedTotalYieldRate = composeRatesIfAny(previousRecordSet.accumulatedTotalYieldRate ++ totalYieldRate),
+      accumulatedTotalYieldResult = sumIfAny(previousRecordSet.accumulatedTotalYieldResult ++ totalYieldResult),
+      accumulatedTotalBalanceChange = sumIfAny(previousRecordSet.accumulatedTotalBalanceChange ++ totalBalanceChange),
     )
   }
 
-  private[funds] def recordFrom(entry: Option[FundsStatement.Entry], previousRecord: Option[PreviousRecord]) = {
+  private[funds] def recordFrom(entry: Option[FundsStatement.Entry], days: Int, previousRecord: Option[PreviousRecord]) = {
     val previousSharePrice = previousRecord.flatMap(_.sharePrice)
     val previousFinalBalance = previousRecord.flatMap(_.finalBalance)
     val previousShareAmount = previousRecord.flatMap(_.shareAmount)
+    val previousAccumulatedDays = previousRecord.map(_.accumulatedDays)
+    val previousAccumulatedYieldRate = previousRecord.flatMap(_.accumulatedYieldRate)
+    val previousAccumulatedYieldResult = previousRecord.flatMap(_.accumulatedYieldResult)
+    val previousAccumulatedShareAmountChange = previousRecord.flatMap(_.accumulatedShareAmountChange)
+    val previousAccumulatedBalanceChange = previousRecord.flatMap(_.accumulatedBalanceChange)
 
     val sharePrice = entry.map(_.sharePrice)
     val yieldRate = (sharePrice, previousSharePrice).mapN(_ / _ - 1)
@@ -96,6 +105,11 @@ object StatementProcessor {
       shareAmount = shareAmount,
       finalBalance = (shareAmount, sharePrice).mapN(_.toDouble * _),
       note = entry.flatMap(_.note),
+      accumulatedDays = (previousAccumulatedDays ++ Option.when(yieldRate.isDefined)(days)).sum,
+      accumulatedYieldRate = composeRatesIfAny(previousAccumulatedYieldRate ++ yieldRate),
+      accumulatedYieldResult = sumIfAny(previousAccumulatedYieldResult ++ yieldResult),
+      accumulatedShareAmountChange = sumIfAny(previousAccumulatedShareAmountChange ++ shareAmountChange),
+      accumulatedBalanceChange = sumIfAny(previousAccumulatedBalanceChange ++ balanceChange)
     )
   }
 }
