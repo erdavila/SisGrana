@@ -1,12 +1,14 @@
 package sisgrana
 package investments.commands.funds
 
-import investments.fileTypes.fundsMonthStatement._
-import utils.TextAligner.Chunk
-import utils.{BrNumber, TextAligner}
 import cats.instances.option._
 import cats.syntax.apply._
+import com.softwaremill.quicklens._
+import investments.fileTypes.fundsMonthStatement._
 import java.time.YearMonth
+import utils.AnsiString.{Code, StringOps}
+import utils.TextAligner.Chunk
+import utils.{AnsiString, BrNumber, TextAligner}
 
 object FundsMain {
   // TODO: warn when there is no sharePrice for a previousRecord with shareAmount > 0
@@ -83,7 +85,7 @@ object FundsMain {
         None,
       )
 
-      titleRowChunks +: recordRowsChunks :+ totalRowChunks
+      titleRowChunks +: recordRowsChunks :+ toBoldChunks(totalRowChunks)
     }
   }
 
@@ -114,7 +116,7 @@ object FundsMain {
         None,
       )
 
-    dayRowChunks +: recordRowsChunks :+ totalRowChunks
+    dayRowChunks +: recordRowsChunks :+ toBoldChunks(totalRowChunks)
   }
 
   private def toDataChunks(
@@ -125,7 +127,12 @@ object FundsMain {
     balanceChange: Option[Double], shareAmountChange: Option[BigDecimal],
     finalBalance: Option[Double], shareAmount: Option[BigDecimal],
     note: Option[String],
-  ): Seq[Chunk] =
+  ): Seq[Chunk] = {
+    def colorize(value: Double)(format: Double => String): AnsiString = {
+      val colorCode = if (value > 0) Code.Blue else Code.Red
+      colorCode ++ format(value) ++ Code.DefaultColor
+    }
+
     Seq(
       Seq(
         Chunk.leftAligned(Anchors.Leftmost, s"    $name"),
@@ -135,22 +142,27 @@ object FundsMain {
       Seq(Chunk.leftAligned(Anchors.PostSharePriceSeparator, " | ")),
       (yieldResult, yieldRate)
         .mapN { (yieldResult, yieldRate) =>
+          val yieldRateText = " (" ++ colorize(yieldRate)(formatRate) ++ ")"
           Seq(
             Chunk.rightAligned(Anchors.YieldResult, formatMoneyChange(yieldResult)),
-            Chunk.rightAligned(Anchors.YieldRate, s" (${formatRate(yieldRate)})"),
+            Chunk.rightAligned(Anchors.YieldRate, yieldRateText.toString, yieldRateText.length),
           )
         }
         .toSeq.flatten,
       Seq(Chunk.leftAligned(Anchors.PostYieldSeparator, " | ")),
       initialBalance.map(initialBalance => Chunk.rightAligned(Anchors.InitialBalance, formatMoney(initialBalance))),
       Seq(Chunk.leftAligned(Anchors.PostInitialBalanceSeparator, " | ")),
-      balanceChange.map(balanceChange => Chunk.rightAligned(Anchors.BalanceChange, formatMoneyChange(balanceChange))),
+      balanceChange.map { balanceChange =>
+        val balanceChangeText = colorize(balanceChange)(formatMoneyChange)
+        Chunk.rightAligned(Anchors.BalanceChange, balanceChangeText.toString, balanceChangeText.length)
+      },
       shareAmountChange.map(shareAmountChange => Chunk.rightAligned(Anchors.ShareAmountChange, s" (${formatShareAmountChange(shareAmountChange)})")),
       Seq(Chunk.leftAligned(Anchors.PostChangeSeparator, " | ")),
       finalBalance.map(finalBalance => Chunk.rightAligned(Anchors.FinalBalance, formatMoney(finalBalance))),
       shareAmount.map(shareAmount => Chunk.rightAligned(Anchors.End, s" (${formatShareAmount(shareAmount)})")),
       note.map(note => Chunk.leftAligned(Anchors.End, s"  $note")),
     ).flatten
+  }
 
   private object Words {
     def day(count: Int): String = if (count == 1) "dia" else "dias"
@@ -184,4 +196,9 @@ object FundsMain {
   private def formatShareAmount(shareAmount: BigDecimal) = EightDigitsNumberFormat.format(shareAmount.toDouble)
   private def formatShareAmountChange(shareAmountChange: BigDecimal) = EightDigitsSignedNumberFormat.format(shareAmountChange.toDouble)
   private def formatRate(rate: Double) = FourDigitsSignedNumberFormat.formatPercent(rate)
+
+  private def toBoldChunks(chunks: Seq[Chunk]): Seq[Chunk] =
+    chunks
+      .modify(_.at(0).text).using(text => (Code.Bold ++ text).toString)
+      .modify(_.at(chunks.length - 1).text).using(text => (text ++ Code.NormalIntensity).toString)
 }
