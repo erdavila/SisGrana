@@ -27,8 +27,9 @@ object FundsMain {
     val yearMonthRowChunk = Seq(Chunk.leftAligned(Anchors.Leftmost, yearMonth.toString));
     val initialRecordSetRowsChunks = toInitialRecordSetChunks(initialRecordSet)
     val recordSetsRowsChunks = recordSets.flatMap(toRecordSetChunks)
+    val monthSummaryRowsChunks = recordSets.lastOption.toSeq.flatMap(toMonthSummaryChunks)
 
-    val chunks = yearMonthRowChunk +: initialRecordSetRowsChunks ++: recordSetsRowsChunks
+    val chunks = yearMonthRowChunk +: initialRecordSetRowsChunks ++: recordSetsRowsChunks ++: monthSummaryRowsChunks
 
     TextAligner.alignAndRender(chunks)
       .foreach(println)
@@ -41,14 +42,16 @@ object FundsMain {
     val PostSharePriceSeparator = 3
     val YieldResult = 4
     val YieldRate = 5
-    val PostYieldSeparator = 6
-    val InitialBalance = 7
-    val PostInitialBalanceSeparator = 8
-    val BalanceChange = 9
-    val ShareAmountChange = 10
-    val PostChangeSeparator = 11
-    val FinalBalance = 12
-    val End = 13
+    val AccumulatedDays = 6
+    val MonthYieldRate = 7
+    val PostYieldSeparator = 8
+    val InitialBalance = 9
+    val PostInitialBalanceSeparator = 10
+    val BalanceChange = 11
+    val ShareAmountChange = 12
+    val PostChangeSeparator = 13
+    val FinalBalance = 14
+    val End = 15
   }
 
   private def toInitialRecordSetChunks(initialRecordSet: InitialRecordSet): Seq[Seq[Chunk]] = {
@@ -69,6 +72,7 @@ object FundsMain {
             fund,
             initialRecord.sharePrice,
             None, None,
+            initialRecord.accumulatedDays, None,
             None,
             None, None,
             initialRecord.finalBalance, initialRecord.shareAmount,
@@ -79,6 +83,7 @@ object FundsMain {
         "Total",
         None,
         None, None,
+        initialRecordSet.accumulatedDays, None,
         None,
         None, None,
         initialRecordSet.totalFinalBalance, None,
@@ -99,6 +104,7 @@ object FundsMain {
             fund,
             record.sharePrice,
             record.yieldResult, record.yieldRate,
+            record.accumulatedDays, None,
             record.initialBalance,
             record.balanceChange, record.shareAmountChange,
             record.finalBalance, record.shareAmount,
@@ -110,6 +116,7 @@ object FundsMain {
         "Total",
         None,
         recordSet.totalYieldResult, recordSet.totalYieldRate,
+        recordSet.accumulatedDays, None,
         recordSet.totalInitialBalance,
         recordSet.totalBalanceChange, None,
         recordSet.totalFinalBalance, None,
@@ -119,10 +126,53 @@ object FundsMain {
     dayRowChunks +: recordRowsChunks :+ toBoldChunks(totalRowChunks)
   }
 
+  private def toMonthSummaryChunks(recordSet: RecordSet): Seq[Seq[Chunk]] =
+    Seq(
+      Seq(Seq(Chunk.leftAligned(Anchors.Leftmost, s"  Mês (${recordSet.accumulatedDays} ${Words.day(recordSet.accumulatedDays)})"))),
+      recordSet.records
+        .toSeq.sortBy { case (fund, _) => fund }
+        .map { case (fund, record) => toMonthSummaryRecordChunks(fund, record, recordSet.accumulatedDays) },
+      Seq(toMonthSummaryTotalChunks(recordSet)),
+  ).flatten
+
+  private def toMonthSummaryRecordChunks(fund: String, record: Record, recordSetAccumulatedDays: Int): Seq[Chunk] = {
+    val monthYieldRate =
+      for {
+        accumulatedYieldRate <- record.accumulatedYieldRate
+        if record.accumulatedDays != recordSetAccumulatedDays && record.accumulatedDays != 0
+      } yield math.pow(1 + accumulatedYieldRate, recordSetAccumulatedDays / record.accumulatedDays.toDouble) - 1
+    toDataChunks(
+      fund,
+      None,
+      record.accumulatedYieldResult, record.accumulatedYieldRate,
+      record.accumulatedDays, monthYieldRate,
+      None,
+      record.accumulatedBalanceChange, record.accumulatedShareAmountChange,
+      None, None,
+      None,
+    )
+  }
+
+  private def toMonthSummaryTotalChunks(recordSet: RecordSet): Seq[Chunk] = {
+    val chunks = toDataChunks(
+      "Total",
+      None,
+      recordSet.accumulatedTotalYieldResult, recordSet.accumulatedTotalYieldRate,
+      recordSet.accumulatedDays, None,
+      None,
+      recordSet.accumulatedTotalBalanceChange, None,
+      None, None,
+      None,
+    )
+
+    toBoldChunks(chunks)
+  }
+
   private def toDataChunks(
     name: String,
     sharePrice: Option[Double],
     yieldResult: Option[Double], yieldRate: Option[Double],
+    accumulatedDays: Int, monthYieldRate: Option[Double],
     initialBalance: Option[Double],
     balanceChange: Option[Double], shareAmountChange: Option[BigDecimal],
     finalBalance: Option[Double], shareAmount: Option[BigDecimal],
@@ -142,11 +192,21 @@ object FundsMain {
       Seq(Chunk.leftAligned(Anchors.PostSharePriceSeparator, " | ")),
       (yieldResult, yieldRate)
         .mapN { (yieldResult, yieldRate) =>
-          val yieldRateText = " (" ++ colorize(yieldRate)(formatRate) ++ ")"
+          val yieldRateText = " (" ++ colorize(yieldRate)(formatRate)
           Seq(
-            Chunk.rightAligned(Anchors.YieldResult, formatMoneyChange(yieldResult)),
-            Chunk.rightAligned(Anchors.YieldRate, yieldRateText.toString, yieldRateText.length),
-          )
+            Seq(
+              Chunk.rightAligned(Anchors.YieldResult, formatMoneyChange(yieldResult)),
+              Chunk.rightAligned(Anchors.YieldRate, yieldRateText.toString, yieldRateText.length),
+            ),
+            monthYieldRate.fold(
+              Seq(Chunk.leftAligned(Anchors.YieldRate, ")"))
+            )(monthYieldRate =>
+              Seq(
+                Chunk.rightAligned(Anchors.AccumulatedDays, s" em $accumulatedDays ${Words.day(accumulatedDays)};"),
+                Chunk.rightAligned(Anchors.MonthYieldRate, s" ${formatRate(monthYieldRate)} no mês)"),
+              )
+            ),
+          ).flatten
         }
         .toSeq.flatten,
       Seq(Chunk.leftAligned(Anchors.PostYieldSeparator, " | ")),
