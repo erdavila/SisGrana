@@ -5,8 +5,7 @@ import investments.fileTypes.fundsMonthStatement._
 import java.time.YearMonth
 
 object FundsMain {
-  // TODO: warn when there is no sharePrice for a previousRecord with shareAmount > 0
-  // TODO: warn when there is no no data for the last day of the month
+  // TODO: warn when there is no data for the last day of the month
   // TODO: when listing multiple months, check if final recordSet from previous month matches initialRecordSet of current month
 
   def main(args: Array[String]): Unit = {

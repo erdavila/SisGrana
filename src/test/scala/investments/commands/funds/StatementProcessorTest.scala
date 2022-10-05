@@ -697,6 +697,7 @@ class StatementProcessorTest extends TestBase {
 
   private def anyRecord(): Record =
     Record(
+      missingData = false,
       sharePrice = None,
       yieldRate = None,
       yieldResult = None,
@@ -717,6 +718,7 @@ class StatementProcessorTest extends TestBase {
     date = yearMonth.atDay(1),
     days = 0,
     records = Map.empty,
+    missingData = false,
     totalYieldRate = None,
     totalYieldResult = None,
     totalInitialBalance = None,

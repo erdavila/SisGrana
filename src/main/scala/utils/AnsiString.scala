@@ -48,9 +48,11 @@ object AnsiString {
     val Blue: Code = Code(34)
     val Magenta: Code = Code(35)
     val Cyan: Code = Code(36)
+    val White: Code = Code(37)
     val DefaultColor: Code = Code(39)
     val DefaultBgColor: Code = Code(49)
     def BG(colorCode: Code): Code = Code(colorCode.value + 10)
+    def Bright(colorCode: Code): Code = Code(colorCode.value + 60)
   }
 
   implicit def fromString(string: String): AnsiString = content(string)

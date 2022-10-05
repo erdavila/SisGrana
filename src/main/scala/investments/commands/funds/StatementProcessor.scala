@@ -66,6 +66,7 @@ object StatementProcessor {
       date = date,
       days = days,
       records = records,
+      missingData = previousRecordSet.missingData || records.values.exists(_.missingData),
       totalYieldRate = totalYieldRate,
       totalYieldResult = totalYieldResult,
       totalInitialBalance = totalInitialBalance,
@@ -79,6 +80,7 @@ object StatementProcessor {
   }
 
   private[funds] def recordFrom(entry: Option[FundsStatement.Entry], days: Int, previousRecord: Option[PreviousRecord]) = {
+    val previousMissingData = previousRecord.map(_.missingData)
     val previousSharePrice = previousRecord.flatMap(_.sharePrice)
     val previousFinalBalance = previousRecord.flatMap(_.finalBalance)
     val previousShareAmount = previousRecord.flatMap(_.shareAmount)
@@ -96,6 +98,7 @@ object StatementProcessor {
     val shareAmount = Some((previousShareAmount ++ shareAmountChange).sum).filter(_ != 0)
 
     Record(
+      missingData = previousMissingData.getOrElse(false) || (sharePrice.isEmpty && shareAmount.nonEmpty),
       sharePrice = sharePrice,
       yieldRate = yieldRate,
       yieldResult = yieldResult,

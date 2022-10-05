@@ -6,6 +6,7 @@ import java.time.LocalDate
 sealed trait PreviousRecordSet {
   def date: LocalDate
   def records: Map[String, PreviousRecord]
+  def missingData: Boolean
   def totalFinalBalance: Option[Double]
 
   def accumulatedDays: Int
@@ -19,6 +20,7 @@ case class InitialRecordSet(
   records: Map[String, InitialRecord],
   totalFinalBalance: Option[Double],
 ) extends PreviousRecordSet {
+  override def missingData: Boolean = false
   override def accumulatedDays: Int = 0
   def accumulatedTotalYieldRate: Option[Double] = None
   def accumulatedTotalYieldResult: Option[Double] = None
@@ -29,6 +31,7 @@ case class RecordSet(
   date: LocalDate,
   days: Int,
   records: Map[String, Record],
+  missingData: Boolean,
 
   // Totals
   totalYieldRate: Option[Double],

@@ -66,7 +66,7 @@ class Printer(
           .toSeq.sortBy { case (fund, _) => fund }
           .map { case (fund, initialRecord) =>
             toDataChunks(
-              fund,
+              fund, missingData = false,
               initialRecord.sharePrice,
               None, None,
               initialRecord.accumulatedDays, initialRecordSet.accumulatedDays, None,
@@ -78,7 +78,7 @@ class Printer(
           }
       }
       val totalRowChunks = toDataChunks(
-        "Total",
+        "Total", missingData = false,
         None,
         None, None,
         initialRecordSet.accumulatedDays, initialRecordSet.accumulatedDays, None,
@@ -104,12 +104,12 @@ class Printer(
       Seq.empty
     } else {
       recordSet.records
-        .filter { case (_, record) => accumulated || record.initialBalance.isDefined || record.finalBalance.isDefined }
+        .filter { case (_, record) => accumulated || record.shareAmountChange.isDefined || record.shareAmount.isDefined }
         .toSeq.sortBy { case (fund, _) => fund }
         .map { case (fund, record) =>
           if (accumulated) {
             toDataChunks(
-              fund,
+              fund, record.missingData,
               record.sharePrice,
               record.accumulatedYieldResult, record.accumulatedYieldRate,
               record.accumulatedDays, recordSet.accumulatedDays, record.accumulatedYieldRate,
@@ -120,7 +120,7 @@ class Printer(
             )
           } else {
             toDataChunks(
-              fund,
+              fund, record.missingData,
               record.sharePrice,
               record.yieldResult, record.yieldRate,
               record.accumulatedDays, recordSet.accumulatedDays, None,
@@ -135,7 +135,7 @@ class Printer(
 
     val totalRowChunks = if (accumulated) {
       toDataChunks(
-        "Total",
+        "Total", recordSet.missingData,
         None,
         recordSet.accumulatedTotalYieldResult, recordSet.accumulatedTotalYieldRate,
         recordSet.accumulatedDays, recordSet.accumulatedDays, None,
@@ -146,7 +146,7 @@ class Printer(
       )
     } else {
       toDataChunks(
-        "Total",
+        "Total", recordSet.missingData,
         None,
         recordSet.totalYieldResult, recordSet.totalYieldRate,
         recordSet.accumulatedDays, recordSet.accumulatedDays, None,
@@ -176,7 +176,7 @@ class Printer(
 
   private def toMonthSummaryRecordChunks(fund: String, record: Record, recordSetAccumulatedDays: Int): Seq[Chunk] =
     toDataChunks(
-      fund,
+      fund, record.missingData,
       None,
       record.accumulatedYieldResult, record.accumulatedYieldRate,
       record.accumulatedDays, recordSetAccumulatedDays, record.accumulatedYieldRate,
@@ -188,7 +188,7 @@ class Printer(
 
   private def toMonthSummaryTotalChunks(recordSet: RecordSet): Seq[Chunk] = {
     val chunks = toDataChunks(
-      "Total",
+      "Total", recordSet.missingData,
       None,
       recordSet.accumulatedTotalYieldResult, recordSet.accumulatedTotalYieldRate,
       recordSet.accumulatedDays, recordSet.accumulatedDays, None,
@@ -202,7 +202,7 @@ class Printer(
   }
 
   private def toDataChunks(
-    name: String,
+    name: String, missingData: Boolean,
     sharePrice: Option[Double],
     yieldResult: Option[Double], yieldRate: Option[Double],
     accumulatedDays: Int, recordSetAccumulatedDays: Int, accumulatedYieldRate: Option[Double],
@@ -225,8 +225,14 @@ class Printer(
     Seq(
       Seq(
         Chunk.leftAligned(Anchors.Leftmost, s"    $name"),
-        Chunk.leftAligned(Anchors.PostNameSpacing, "  "),
+        Chunk.rightAligned(Anchors.PostNameSpacing, "  "),
       ),
+      Option.when(missingData) {
+        val FormatOn = AnsiString.escape(Code.Bright(Code.White), Code.BG(Code.Red), Code.Bold)
+        val FormatOff = AnsiString.escape(Code.DefaultColor, Code.DefaultBgColor, Code.NormalIntensity)
+        val message = FormatOn ++ " DADOS FALTANDO " ++ FormatOff
+        Chunk.leftAligned(Anchors.PostNameSpacing, message.toString, message.length)
+      },
       sharePrice.map(sharePrice => Chunk.rightAligned(Anchors.SharePrice, formatSharePrice(sharePrice))),
       Seq(Chunk.leftAligned(Anchors.PostSharePriceSeparator, " | ")),
       (yieldResult, yieldRate)
