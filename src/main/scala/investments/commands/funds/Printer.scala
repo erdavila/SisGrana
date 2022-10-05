@@ -9,12 +9,16 @@ import utils.AnsiString.{Code, StringOps}
 import utils.TextAligner.Chunk
 import utils.{AnsiString, BrNumber, TextAligner}
 
-class Printer {
+class Printer(accumulated: Boolean) {
   def printMonthRecordSets(yearMonth: YearMonth, initialRecordSet: InitialRecordSet, recordSets: Seq[RecordSet]): Unit = {
-    val yearMonthRowChunk = Seq(Chunk.leftAligned(Anchors.Leftmost, yearMonth.toString));
+    val yearMonthRowChunk = Seq(Chunk.leftAligned(Anchors.Leftmost, yearMonth.toString))
     val initialRecordSetRowsChunks = toInitialRecordSetChunks(initialRecordSet)
     val recordSetsRowsChunks = recordSets.flatMap(toRecordSetChunks)
-    val monthSummaryRowsChunks = recordSets.lastOption.toSeq.flatMap(toMonthSummaryChunks)
+    val monthSummaryRowsChunks = if (accumulated) {
+      Seq.empty
+    } else {
+      recordSets.lastOption.toSeq.flatMap(toMonthSummaryChunks)
+    }
 
     val chunks = yearMonthRowChunk +: initialRecordSetRowsChunks ++: recordSetsRowsChunks ++: monthSummaryRowsChunks
 
@@ -59,7 +63,7 @@ class Printer {
             fund,
             initialRecord.sharePrice,
             None, None,
-            initialRecord.accumulatedDays, None,
+            initialRecord.accumulatedDays, initialRecordSet.accumulatedDays, None,
             None,
             None, None,
             initialRecord.finalBalance, initialRecord.shareAmount,
@@ -70,7 +74,7 @@ class Printer {
         "Total",
         None,
         None, None,
-        initialRecordSet.accumulatedDays, None,
+        initialRecordSet.accumulatedDays, initialRecordSet.accumulatedDays, None,
         None,
         None, None,
         initialRecordSet.totalFinalBalance, None,
@@ -82,70 +86,95 @@ class Printer {
   }
 
   private def toRecordSetChunks(recordSet: RecordSet): Seq[Seq[Chunk]] = {
-    val dayRowChunks = Seq(Chunk.leftAligned(Anchors.Leftmost, s"  ${recordSet.date.getDayOfMonth} (+${recordSet.days} ${Words.day(recordSet.days)})"))
+    val dayDetail = if (accumulated) {
+      Words.WithCount.day(recordSet.accumulatedDays)
+    } else {
+      s"+${Words.WithCount.day(recordSet.days)}"
+    }
+
+    val dayRowChunks = Seq(Chunk.leftAligned(Anchors.Leftmost, s"  ${recordSet.date.getDayOfMonth} ($dayDetail)"))
     val recordRowsChunks = recordSet.records
-      .filter { case (_, record) => record.initialBalance.isDefined || record.finalBalance.isDefined }
+      .filter { case (_, record) => accumulated || record.initialBalance.isDefined || record.finalBalance.isDefined }
       .toSeq.sortBy { case (fund, _) => fund }
       .map { case (fund, record) =>
-        toDataChunks(
-          fund,
-          record.sharePrice,
-          record.yieldResult, record.yieldRate,
-          record.accumulatedDays, None,
-          record.initialBalance,
-          record.balanceChange, record.shareAmountChange,
-          record.finalBalance, record.shareAmount,
-          record.note,
-        )
+        if (accumulated) {
+          toDataChunks(
+            fund,
+            record.sharePrice,
+            record.accumulatedYieldResult, record.accumulatedYieldRate,
+            record.accumulatedDays, recordSet.accumulatedDays, record.accumulatedYieldRate,
+            None,
+            record.accumulatedBalanceChange, record.accumulatedShareAmountChange,
+            record.finalBalance, record.shareAmount,
+            record.note,
+          )
+        } else {
+          toDataChunks(
+            fund,
+            record.sharePrice,
+            record.yieldResult, record.yieldRate,
+            record.accumulatedDays, recordSet.accumulatedDays, None,
+            record.initialBalance,
+            record.balanceChange, record.shareAmountChange,
+            record.finalBalance, record.shareAmount,
+            record.note,
+          )
+        }
       }
-    val totalRowChunks =
+    val totalRowChunks = if (accumulated) {
+      toDataChunks(
+        "Total",
+        None,
+        recordSet.accumulatedTotalYieldResult, recordSet.accumulatedTotalYieldRate,
+        recordSet.accumulatedDays, recordSet.accumulatedDays, None,
+        None,
+        recordSet.accumulatedTotalBalanceChange, None,
+        recordSet.totalFinalBalance, None,
+        None,
+      )
+    } else {
       toDataChunks(
         "Total",
         None,
         recordSet.totalYieldResult, recordSet.totalYieldRate,
-        recordSet.accumulatedDays, None,
+        recordSet.accumulatedDays, recordSet.accumulatedDays, None,
         recordSet.totalInitialBalance,
         recordSet.totalBalanceChange, None,
         recordSet.totalFinalBalance, None,
         None,
       )
+    }
 
     dayRowChunks +: recordRowsChunks :+ toBoldChunks(totalRowChunks)
   }
 
   private def toMonthSummaryChunks(recordSet: RecordSet): Seq[Seq[Chunk]] =
     Seq(
-      Seq(Seq(Chunk.leftAligned(Anchors.Leftmost, s"  Mês (${recordSet.accumulatedDays} ${Words.day(recordSet.accumulatedDays)})"))),
+      Seq(Seq(Chunk.leftAligned(Anchors.Leftmost, s"  Mês (${Words.WithCount.day(recordSet.accumulatedDays)})"))),
       recordSet.records
         .toSeq.sortBy { case (fund, _) => fund }
         .map { case (fund, record) => toMonthSummaryRecordChunks(fund, record, recordSet.accumulatedDays) },
       Seq(toMonthSummaryTotalChunks(recordSet)),
     ).flatten
 
-  private def toMonthSummaryRecordChunks(fund: String, record: Record, recordSetAccumulatedDays: Int): Seq[Chunk] = {
-    val monthYieldRate =
-      for {
-        accumulatedYieldRate <- record.accumulatedYieldRate
-        if record.accumulatedDays != recordSetAccumulatedDays && record.accumulatedDays != 0
-      } yield math.pow(1 + accumulatedYieldRate, recordSetAccumulatedDays / record.accumulatedDays.toDouble) - 1
+  private def toMonthSummaryRecordChunks(fund: String, record: Record, recordSetAccumulatedDays: Int): Seq[Chunk] =
     toDataChunks(
       fund,
       None,
       record.accumulatedYieldResult, record.accumulatedYieldRate,
-      record.accumulatedDays, monthYieldRate,
+      record.accumulatedDays, recordSetAccumulatedDays, record.accumulatedYieldRate,
       None,
       record.accumulatedBalanceChange, record.accumulatedShareAmountChange,
       None, None,
       None,
     )
-  }
 
   private def toMonthSummaryTotalChunks(recordSet: RecordSet): Seq[Chunk] = {
     val chunks = toDataChunks(
       "Total",
       None,
       recordSet.accumulatedTotalYieldResult, recordSet.accumulatedTotalYieldRate,
-      recordSet.accumulatedDays, None,
+      recordSet.accumulatedDays, recordSet.accumulatedDays, None,
       None,
       recordSet.accumulatedTotalBalanceChange, None,
       None, None,
@@ -159,7 +188,7 @@ class Printer {
     name: String,
     sharePrice: Option[Double],
     yieldResult: Option[Double], yieldRate: Option[Double],
-    accumulatedDays: Int, monthYieldRate: Option[Double],
+    accumulatedDays: Int, recordSetAccumulatedDays: Int, accumulatedYieldRate: Option[Double],
     initialBalance: Option[Double],
     balanceChange: Option[Double], shareAmountChange: Option[BigDecimal],
     finalBalance: Option[Double], shareAmount: Option[BigDecimal],
@@ -169,6 +198,12 @@ class Printer {
       val colorCode = if (value > 0) Code.Blue else Code.Red
       colorCode ++ format(value) ++ Code.DefaultColor
     }
+
+    val monthYieldRate =
+      for {
+        accumulatedYieldRate <- accumulatedYieldRate
+        if accumulatedDays != recordSetAccumulatedDays && accumulatedDays != 0
+      } yield math.pow(1 + accumulatedYieldRate, recordSetAccumulatedDays / accumulatedDays.toDouble) - 1
 
     Seq(
       Seq(
@@ -189,7 +224,7 @@ class Printer {
               Seq(Chunk.leftAligned(Anchors.YieldRate, ")"))
             )(monthYieldRate =>
               Seq(
-                Chunk.rightAligned(Anchors.AccumulatedDays, s" em $accumulatedDays ${Words.day(accumulatedDays)};"),
+                Chunk.rightAligned(Anchors.AccumulatedDays, s" em ${Words.WithCount.day(accumulatedDays)};"),
                 Chunk.rightAligned(Anchors.MonthYieldRate, s" ${formatRate(monthYieldRate)} no mês)"),
               )
             ),
@@ -197,8 +232,14 @@ class Printer {
         }
         .toSeq.flatten,
       Seq(Chunk.leftAligned(Anchors.PostYieldSeparator, " | ")),
-      initialBalance.map(initialBalance => Chunk.rightAligned(Anchors.InitialBalance, formatMoney(initialBalance))),
-      Seq(Chunk.leftAligned(Anchors.PostInitialBalanceSeparator, " | ")),
+      if (accumulated) {
+        None
+      } else {
+        Seq(
+          initialBalance.map(initialBalance => Chunk.rightAligned(Anchors.InitialBalance, formatMoney(initialBalance))),
+          Seq(Chunk.leftAligned(Anchors.PostInitialBalanceSeparator, " | ")),
+        ).flatten
+      },
       balanceChange.map { balanceChange =>
         val balanceChangeText = colorize(balanceChange)(formatMoneyChange)
         Chunk.rightAligned(Anchors.BalanceChange, balanceChangeText.toString, balanceChangeText.length)
@@ -213,6 +254,10 @@ class Printer {
 
   private object Words {
     def day(count: Int): String = if (count == 1) "dia" else "dias"
+
+    object WithCount {
+      def day(count: Int): String = s"$count ${Words.day(count)}"
+    }
   }
 
   private val TwoDigitsNumberFormat = BrNumber
