@@ -14,7 +14,10 @@ object FundsMain {
     val statement = FundsMonthStatementFileReader.read(yearMonth)
     val (initialRecordSet, recordSets) = StatementProcessor.process(yearMonth, statement)
 
-    val printer = new Printer(accumulated = args.lift(1).contains("--accumulated"))
+    val printer = new Printer(
+      accumulated = args.contains("--accumulated"),
+      totalsOnly = args.contains("--totals-only"),
+    )
     printer.printMonthRecordSets(yearMonth, initialRecordSet, recordSets)
   }
 }
