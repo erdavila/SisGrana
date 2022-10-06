@@ -12,6 +12,8 @@ object ArgsParser extends ArgumentsParser[ParsedArgs] {
   private val NoTotalsOption = "--no-totals"
   private val SummaryOnlyOption = "--summary-only"
   private val NoSummaryOption = "--no-summary"
+  private val PositiveFilterOption = "--filter"
+  private val NegativeFilterOption = "--filter-not"
 
   private case class DetailsAndAggregationOptions(details: Boolean, aggregation: Boolean)
 
@@ -21,6 +23,8 @@ object ArgsParser extends ArgumentsParser[ParsedArgs] {
       fundsAndTotals <- takeFundsAndTotalsOptions
       daysAndSummary <- takeDaysAndSummaryOptions
       _ = if (accumulated && !daysAndSummary.details) incompatibleOptions(AccumulatedOption, SummaryOnlyOption)
+      positiveFilters <- takeFilters(PositiveFilterOption)
+      negativeFilters <- takeFilters(NegativeFilterOption)
       month <- takeMonth
     } yield ParsedArgs(
       month = month,
@@ -31,6 +35,8 @@ object ArgsParser extends ArgumentsParser[ParsedArgs] {
         days = daysAndSummary.details,
         summary = daysAndSummary.aggregation,
       ),
+      positiveFilters = positiveFilters,
+      negativeFilters = negativeFilters,
     )
 
   private def takeFundsAndTotalsOptions: Parser[DetailsAndAggregationOptions] =
@@ -52,12 +58,24 @@ object ArgsParser extends ArgumentsParser[ParsedArgs] {
   private def incompatibleOptions(option1: String, option2: String): Nothing =
     error(s"As opções ${option1} e ${option2} são incompatíveis")
 
+  private def takeFilters(forms: String*): Parser[Seq[String]] =
+    takeOptionParameter(forms: _*) $ {
+      case Some(option) => option.split(",").toSeq
+      case None => Seq.empty
+    }
+
   private def takeMonth: Parser[YearMonth] =
     for (str <- takeNext)
       yield YearMonth.parse(str)
 
   override protected def printUsage(printStream: PrintStream): Unit = {
-    printStream.println("Parâmetros esperados:")
-    printStream.println(s"  [$AccumulatedOption|$AccumulatedShortOption] [$TotalsOnlyOption|$NoTotalsOption] [$SummaryOnlyOption|$NoSummaryOption] ANO-MÊS")
+    printStream.println("Parâmetros esperados: OPÇÕES ANO-MÊS")
+    printStream.println()
+    printStream.println(s"  OPÇÕES:")
+    printStream.println(s"    $AccumulatedOption|$AccumulatedShortOption")
+    printStream.println(s"    $TotalsOnlyOption|$NoTotalsOption")
+    printStream.println(s"    $SummaryOnlyOption|$NoSummaryOption")
+    printStream.println(s"    $PositiveFilterOption NOME,...")
+    printStream.println(s"    $NegativeFilterOption NOME,...")
   }
 }
