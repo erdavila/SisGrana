@@ -17,7 +17,8 @@ object FundsMain {
 
     val printer = new Printer(
       accumulated = parsedArgs.accumulated,
-      totalsOnly = parsedArgs.totalsOnly,
+      funds = parsedArgs.funds,
+      totals = parsedArgs.totals,
     )
     printer.printMonthRecordSets(parsedArgs.month, initialRecordSet, recordSets)
   }
