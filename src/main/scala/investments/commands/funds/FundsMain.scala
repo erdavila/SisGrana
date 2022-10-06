@@ -9,17 +9,17 @@ object FundsMain {
   // TODO: when listing multiple months, check if final recordSet from previous month matches initialRecordSet of current month
 
   def main(args: Array[String]): Unit = {
-    val yearMonth = YearMonth.parse(args(0))
-    val statement = FundsMonthStatementFileReader.read(yearMonth)
-    val completeStatement = ensureLastDayOfMonth(statement, yearMonth)
+    val parsedArgs = ArgsParser.parse(args)
 
-    val (initialRecordSet, recordSets) = StatementProcessor.process(yearMonth, completeStatement)
+    val statement = FundsMonthStatementFileReader.read(parsedArgs.month)
+    val completeStatement = ensureLastDayOfMonth(statement, parsedArgs.month)
+    val (initialRecordSet, recordSets) = StatementProcessor.process(parsedArgs.month, completeStatement)
 
     val printer = new Printer(
-      accumulated = args.contains("--accumulated"),
-      totalsOnly = args.contains("--totals-only"),
+      accumulated = parsedArgs.accumulated,
+      totalsOnly = parsedArgs.totalsOnly,
     )
-    printer.printMonthRecordSets(yearMonth, initialRecordSet, recordSets)
+    printer.printMonthRecordSets(parsedArgs.month, initialRecordSet, recordSets)
   }
 
   private def ensureLastDayOfMonth(statement: FundsStatement, yearMonth: YearMonth): FundsStatement = {
