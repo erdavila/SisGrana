@@ -15,11 +15,7 @@ object FundsMain {
     val completeStatement = ensureLastDayOfMonth(statement, parsedArgs.month)
     val (initialRecordSet, recordSets) = StatementProcessor.process(parsedArgs.month, completeStatement)
 
-    val printer = new Printer(
-      accumulated = parsedArgs.accumulated,
-      funds = parsedArgs.funds,
-      totals = parsedArgs.totals,
-    )
+    val printer = new Printer(parsedArgs.printOptions)
     printer.printMonthRecordSets(parsedArgs.month, initialRecordSet, recordSets)
   }
 
