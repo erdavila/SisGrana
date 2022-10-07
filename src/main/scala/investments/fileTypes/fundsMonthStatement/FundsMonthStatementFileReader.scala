@@ -2,10 +2,13 @@ package sisgrana
 package investments.fileTypes.fundsMonthStatement
 
 import com.softwaremill.quicklens._
-import investments.files.SSV
-import java.io.{FileInputStream, InputStream}
+import investments.files.FilePathResolver.NonExistingPathException
+import investments.files.{DataPath, FilePathResolver, SSV}
+import java.io.InputStream
 import java.time.YearMonth
-import utils.BrNumber
+import scala.annotation.tailrec
+import scala.util.{Failure, Success, Try}
+import utils.{BrNumber, Exit}
 
 private[fundsMonthStatement] class FundsMonthStatementFileReader(yearMonth: YearMonth) {
   private object PositiveIntToString {
@@ -85,8 +88,35 @@ private[fundsMonthStatement] class FundsMonthStatementFileReader(yearMonth: Year
 
 object FundsMonthStatementFileReader {
   def read(yearMonth: YearMonth): FundsStatement = {
-    val fis = new FileInputStream(s"data/${yearMonth.getYear}/$yearMonth - FUNDS.ssv")
     val reader = new FundsMonthStatementFileReader(yearMonth)
-    reader.readFrom(fis)
+
+    val allPaths = Seq(
+      s"$DataPath/${yearMonth.getYear}/$yearMonth - FUNDS.ssv",
+      s"$DataPath/${yearMonth.getYear}.zip/$yearMonth - FUNDS.ssv",
+    )
+
+    @tailrec
+    def loop(paths: Seq[String]): FundsStatement =
+      paths match {
+        case path +: remainingPaths =>
+          Try(FilePathResolver.resolve(path)) match {
+            case Success(resolvedPaths) =>
+              assert(resolvedPaths.lengthIs == 1)
+              val resolvedPath = resolvedPaths.head
+              resolvedPath.read(reader.readFrom)
+            case Failure(_: NonExistingPathException) => loop(remainingPaths)
+            case Failure(e) => throw e
+          }
+
+        case _ =>
+          Exit.withErrorMessage { stream =>
+            stream.println("Nenhum dos seguintes arquivos foi encontrado:")
+            for (path <- allPaths) {
+              stream.println(s"  $path")
+            }
+          }
+      }
+
+    loop(allPaths)
   }
 }
