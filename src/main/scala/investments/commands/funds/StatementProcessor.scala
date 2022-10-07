@@ -1,11 +1,12 @@
 package sisgrana
 package investments.commands.funds
 
-import investments.fileTypes.fundsMonthStatement._
-import utils.Traversing._
 import cats.instances.option._
 import cats.syntax.apply._
+import com.softwaremill.quicklens._
+import investments.fileTypes.fundsMonthStatement._
 import java.time.{LocalDate, YearMonth}
+import utils.Traversing._
 
 object StatementProcessor {
   def process(yearMonth: YearMonth, statement: FundsStatement): (InitialRecordSet, Seq[RecordSet]) = {
@@ -114,5 +115,51 @@ object StatementProcessor {
       accumulatedShareAmountChange = sumIfAny(previousAccumulatedShareAmountChange ++ shareAmountChange),
       accumulatedBalanceChange = sumIfAny(previousAccumulatedBalanceChange ++ balanceChange)
     )
+  }
+
+  def sumAccumulatedValues(recordSets: Iterable[RecordSet]): RecordSet = {
+    val emptyRecordSet = RecordSet(
+      LocalDate.MIN, 0, Map.empty, missingData = false,
+      None, None, None, None, None, 0, None, None, None,
+    )
+    recordSets.foldLeft(emptyRecordSet) { (accumulatedRecordSet, recordSet) =>
+      accumulateRecordSetValues(accumulatedRecordSet, recordSet)
+    }
+  }
+
+  private def accumulateRecordSetValues(recordSet1: RecordSet, recordSet2: RecordSet): RecordSet = {
+    val accumulatedTotalYieldResult = sumIfAny(recordSet1.accumulatedTotalYieldResult ++ recordSet2.accumulatedTotalYieldResult)
+    val accumulatedTotalYieldRate = composeRatesIfAny(recordSet1.accumulatedTotalYieldRate ++ recordSet2.accumulatedTotalYieldRate)
+    val accumulatedTotalBalanceChange = sumIfAny(recordSet1.accumulatedTotalBalanceChange ++ recordSet2.accumulatedTotalBalanceChange)
+
+    recordSet1
+      .modify(_.accumulatedDays).using(_ + recordSet2.accumulatedDays)
+      .modify(_.records).using(records => accumulateRecordsValues(records, recordSet2.records))
+      .modify(_.accumulatedTotalYieldResult).setTo(accumulatedTotalYieldResult)
+      .modify(_.accumulatedTotalYieldRate).setTo(accumulatedTotalYieldRate)
+      .modify(_.accumulatedTotalBalanceChange).setTo(accumulatedTotalBalanceChange)
+  }
+
+  private def accumulateRecordsValues(records1: Map[String, Record], records2: Map[String, Record]): Map[String, Record] =
+    records1.foldLeft(records2) { case (records, fund -> record) =>
+      records.updatedWith(fund) {
+        case Some(existingRecord) => Some(accumulateRecordValues(existingRecord, record))
+        case None => Some(record)
+      }
+    }
+
+  private def accumulateRecordValues(record1: Record, record2: Record): Record = {
+    val accumulatedYieldRate = composeRatesIfAny(record1.accumulatedYieldRate ++ record2.accumulatedYieldRate)
+    val accumulatedYieldResult = sumIfAny(record1.accumulatedYieldResult ++ record2.accumulatedYieldResult)
+    val accumulatedShareAmountChange = sumIfAny(record1.accumulatedShareAmountChange ++ record2.accumulatedShareAmountChange)
+    val accumulatedBalanceChange = sumIfAny(record1.accumulatedBalanceChange ++ record2.accumulatedBalanceChange)
+
+    record1
+      .modify(_.accumulatedDays).using(_ + record2.accumulatedDays)
+      .modify(_.accumulatedYieldRate).setTo(accumulatedYieldRate)
+      .modify(_.accumulatedYieldResult).setTo(accumulatedYieldResult)
+      .modify(_.accumulatedShareAmountChange).setTo(accumulatedShareAmountChange)
+      .modify(_.accumulatedBalanceChange).setTo(accumulatedBalanceChange)
+      .modify(_.missingData).using(_ || record2.missingData)
   }
 }

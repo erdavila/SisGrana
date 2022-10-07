@@ -34,12 +34,21 @@ class ChunkMaker(options: ChunkMaker.Options) {
       initialRecordSetRowsChunks ++ recordSetsRowsChunks
     }
 
-    val monthSummaryRowsChunks = seqIf(options.summary && !options.accumulated) {
-      recordSets.lastOption.toSeq.flatMap(toMonthSummaryChunks)
-    }
+    val monthSummaryRowsChunks = recordSets.lastOption.toSeq.flatMap(toMonthSummaryChunks)
 
     yearMonthRowChunk +: (warningChunks ++ daysRowsChunks ++ monthSummaryRowsChunks)
   }
+
+  private case class DataRecord(
+    name: String, missingData: Boolean,
+    sharePrice: Option[Double],
+    yieldResult: Option[Double], yieldRate: Option[Double],
+    accumulatedDays: Int, recordSetAccumulatedDays: Int, months: Int,
+    initialBalance: Option[Double],
+    balanceChange: Option[Double], shareAmountChange: Option[BigDecimal],
+    finalBalance: Option[Double], shareAmount: Option[BigDecimal],
+    note: Option[String],
+  )
 
   private object Anchors {
     val Leftmost = 0
@@ -61,175 +70,151 @@ class ChunkMaker(options: ChunkMaker.Options) {
   }
 
   private def toInitialRecordSetChunks(initialRecordSet: InitialRecordSet): Seq[Seq[Chunk]] = {
-    val titleRowChunks = Seq(Chunk.leftAligned(Anchors.Leftmost, "  Início"))
+    val Title = "  Início"
 
     if (initialRecordSet.records.isEmpty) {
-      val noDataRowChunks = Seq(Chunk.leftAligned(Anchors.Leftmost, "    Nenhum dado"))
-
       Seq(
-        titleRowChunks,
-        noDataRowChunks,
+        Seq(Chunk.leftAligned(Anchors.Leftmost, Title)),
+        Seq(Chunk.leftAligned(Anchors.Leftmost, "    Nenhum dado")),
       )
     } else {
-      val recordRowsChunks = seqIf(options.funds) {
+      toDataRowsChunks(
+        Title,
         initialRecordSet.records
           .toSeq.sortBy { case (fund, _) => fund }
           .map { case (fund, initialRecord) =>
-            toDataChunks(
-              fund, missingData = false,
+            DataRecord(
+              s"    $fund", missingData = false,
               initialRecord.sharePrice,
               None, None,
-              initialRecord.accumulatedDays, initialRecordSet.accumulatedDays, None,
+              initialRecord.accumulatedDays, initialRecordSet.accumulatedDays, 0,
               None,
               None, None,
               initialRecord.finalBalance, initialRecord.shareAmount,
               initialRecord.note,
             )
-          }
-      }
-      val totalRowChunks = seqIf(options.totals) {
-        Seq(
-          toBoldChunks(
-            toDataChunks(
-              "Total", missingData = false,
-              None,
-              None, None,
-              initialRecordSet.accumulatedDays, initialRecordSet.accumulatedDays, None,
-              None,
-              None, None,
-              initialRecordSet.totalFinalBalance, None,
-              None,
-            )
-          )
+          },
+        DataRecord(
+          "    Total", missingData = false,
+          None,
+          None, None,
+          initialRecordSet.accumulatedDays, initialRecordSet.accumulatedDays, 0,
+          None,
+          None, None,
+          initialRecordSet.totalFinalBalance, None,
+          None,
         )
-      }
-
-      titleRowChunks +: (recordRowsChunks ++ totalRowChunks)
+      )
     }
   }
 
   private def toRecordSetChunks(recordSet: RecordSet): Seq[Seq[Chunk]] = {
-    val dayDetail = if (options.accumulated) {
-      Words.WithCount.day(recordSet.accumulatedDays)
-    } else {
-      s"+${Words.WithCount.day(recordSet.days)}"
-    }
+    val records = recordSet.records
+      .filter { case (_, record) => options.accumulated || record.shareAmountChange.isDefined || record.shareAmount.isDefined }
+      .toSeq.sortBy { case (fund, _) => fund }
 
-    val dayRowChunks = Seq(Chunk.leftAligned(Anchors.Leftmost, s"  ${recordSet.date.getDayOfMonth} ($dayDetail)"))
-    val recordRowsChunks = seqIf(options.funds) {
-      recordSet.records
-        .filter { case (_, record) => options.accumulated || record.shareAmountChange.isDefined || record.shareAmount.isDefined }
-        .toSeq.sortBy { case (fund, _) => fund }
-        .map { case (fund, record) =>
-          if (options.accumulated) {
-            toDataChunks(
-              fund, record.missingData,
-              record.sharePrice,
-              record.accumulatedYieldResult, record.accumulatedYieldRate,
-              record.accumulatedDays, recordSet.accumulatedDays, record.accumulatedYieldRate,
-              None,
-              record.accumulatedBalanceChange, record.accumulatedShareAmountChange,
-              record.finalBalance, record.shareAmount,
-              record.note,
-            )
-          } else {
-            toDataChunks(
-              fund, record.missingData,
-              record.sharePrice,
-              record.yieldResult, record.yieldRate,
-              record.accumulatedDays, recordSet.accumulatedDays, None,
-              record.initialBalance,
-              record.balanceChange, record.shareAmountChange,
-              record.finalBalance, record.shareAmount,
-              record.note,
-            )
-          }
-        }
-    }
-
-    val totalRowChunks = seqIf(options.totals) {
-      val chunks = if (options.accumulated) {
-        toDataChunks(
-          "Total", recordSet.missingData,
+    if (options.accumulated) {
+      toDataRowsChunks(
+        s"  ${recordSet.date.getDayOfMonth} (${Words.WithCount.day(recordSet.accumulatedDays)})",
+        records.map { case (fund, record) =>
+          DataRecord(
+            s"    $fund", record.missingData,
+            record.sharePrice,
+            record.accumulatedYieldResult, record.accumulatedYieldRate,
+            record.accumulatedDays, recordSet.accumulatedDays, 1,
+            None,
+            record.accumulatedBalanceChange, record.accumulatedShareAmountChange,
+            record.finalBalance, record.shareAmount,
+            record.note,
+          )
+        },
+        DataRecord(
+          "    Total", recordSet.missingData,
           None,
           recordSet.accumulatedTotalYieldResult, recordSet.accumulatedTotalYieldRate,
-          recordSet.accumulatedDays, recordSet.accumulatedDays, None,
+          recordSet.accumulatedDays, recordSet.accumulatedDays, 1,
           None,
           recordSet.accumulatedTotalBalanceChange, None,
           recordSet.totalFinalBalance, None,
           None,
         )
-      } else {
-        toDataChunks(
-          "Total", recordSet.missingData,
+      )
+    } else {
+      toDataRowsChunks(
+        s"  ${recordSet.date.getDayOfMonth} (${s"+${Words.WithCount.day(recordSet.days)}"})",
+        records.map { case (fund, record) =>
+          DataRecord(
+            s"    $fund", record.missingData,
+            record.sharePrice,
+            record.yieldResult, record.yieldRate,
+            record.accumulatedDays, recordSet.accumulatedDays, 1,
+            record.initialBalance,
+            record.balanceChange, record.shareAmountChange,
+            record.finalBalance, record.shareAmount,
+            record.note,
+          )
+        },
+        DataRecord(
+          s"    Total", recordSet.missingData,
           None,
           recordSet.totalYieldResult, recordSet.totalYieldRate,
-          recordSet.accumulatedDays, recordSet.accumulatedDays, None,
+          recordSet.accumulatedDays, recordSet.accumulatedDays, 1,
           recordSet.totalInitialBalance,
           recordSet.totalBalanceChange, None,
           recordSet.totalFinalBalance, None,
           None,
         )
-      }
-
-      Seq(toBoldChunks(chunks))
+      )
     }
-
-    dayRowChunks +: (recordRowsChunks ++ totalRowChunks)
   }
 
-  private def toMonthSummaryChunks(recordSet: RecordSet): Seq[Seq[Chunk]] = {
-    val titleRowChunks = Seq(Chunk.leftAligned(Anchors.Leftmost, s"  Mês (${Words.WithCount.day(recordSet.accumulatedDays)})"))
-    val recordsRowsChunks = seqIf(options.funds) {
-      recordSet.records
-        .toSeq.sortBy { case (fund, _) => fund }
-        .map { case (fund, record) => toMonthSummaryRecordChunks(fund, record, recordSet.accumulatedDays) }
-    }
-    val monthSummaryTotalRowsChunks = toMonthSummaryTotalChunks(recordSet)
+  private def toMonthSummaryChunks(recordSet: RecordSet): Seq[Seq[Chunk]] =
+    makeSummaryChunks(s"  Mês (${Words.WithCount.day(recordSet.accumulatedDays)})", recordSet, months = 1)
 
-    titleRowChunks +: (recordsRowsChunks ++ monthSummaryTotalRowsChunks)
-  }
-
-  private def toMonthSummaryRecordChunks(fund: String, record: Record, recordSetAccumulatedDays: Int): Seq[Chunk] =
-    toDataChunks(
-      fund, record.missingData,
-      None,
-      record.accumulatedYieldResult, record.accumulatedYieldRate,
-      record.accumulatedDays, recordSetAccumulatedDays, record.accumulatedYieldRate,
-      None,
-      record.accumulatedBalanceChange, record.accumulatedShareAmountChange,
-      None, None,
-      None,
-    )
-
-  private def toMonthSummaryTotalChunks(recordSet: RecordSet): Seq[Seq[Chunk]] =
-    seqIf(options.totals) {
-      Seq(
-        toBoldChunks(
-          toDataChunks(
-            "Total", recordSet.missingData,
-            None,
-            recordSet.accumulatedTotalYieldResult, recordSet.accumulatedTotalYieldRate,
-            recordSet.accumulatedDays, recordSet.accumulatedDays, None,
-            None,
-            recordSet.accumulatedTotalBalanceChange, None,
-            None, None,
-            None,
-          )
+  def makeSummaryChunks(title: String, recordSet: RecordSet, months: Int, nameIndentationSize: Int = 4): Seq[Seq[Chunk]] =
+    seqIf(options.summary && !options.accumulated) {
+      toDataRowsChunks(
+        title,
+        recordSet.records
+          .toSeq.sortBy { case (fund, _) => fund }
+          .map { case (fund, record) =>
+            DataRecord(
+              " " * nameIndentationSize ++ fund, record.missingData,
+              None,
+              record.accumulatedYieldResult, record.accumulatedYieldRate,
+              record.accumulatedDays, recordSet.accumulatedDays, months,
+              None,
+              record.accumulatedBalanceChange, record.accumulatedShareAmountChange,
+              None, None,
+              None,
+            )
+          },
+        DataRecord(
+          " " * nameIndentationSize ++ "Total", recordSet.missingData,
+          None,
+          recordSet.accumulatedTotalYieldResult, recordSet.accumulatedTotalYieldRate,
+          recordSet.accumulatedDays, recordSet.accumulatedDays, months,
+          None,
+          recordSet.accumulatedTotalBalanceChange, None,
+          None, None,
+          None,
         )
       )
     }
 
-  private def toDataChunks(
-    name: String, missingData: Boolean,
-    sharePrice: Option[Double],
-    yieldResult: Option[Double], yieldRate: Option[Double],
-    accumulatedDays: Int, recordSetAccumulatedDays: Int, accumulatedYieldRate: Option[Double],
-    initialBalance: Option[Double],
-    balanceChange: Option[Double], shareAmountChange: Option[BigDecimal],
-    finalBalance: Option[Double], shareAmount: Option[BigDecimal],
-    note: Option[String],
-  ): Seq[Chunk] = {
+  private def toDataRowsChunks(title: String, fundsDataRecords: => Seq[DataRecord], totalDataRecord: => DataRecord): Seq[Seq[Chunk]] = {
+    val titleRowChunks = Seq(Seq(Chunk.leftAligned(Anchors.Leftmost, title)))
+    val fundsRowsChunks = seqIf(options.funds) {
+      fundsDataRecords.map(toDataChunks)
+    }
+    val totalRowChunks = seqIf(options.totals) {
+      Seq(toBoldChunks(toDataChunks(totalDataRecord)))
+    }
+
+    titleRowChunks ++ fundsRowsChunks ++ totalRowChunks
+  }
+
+  private def toDataChunks(dataRecord: DataRecord): Seq[Chunk] = {
     def colorize(value: Double)(format: Double => String): AnsiString = {
       val colorCode = if (value > 0) Code.Blue else Code.Red
       colorCode ++ format(value) ++ Code.DefaultColor
@@ -237,22 +222,23 @@ class ChunkMaker(options: ChunkMaker.Options) {
 
     val monthYieldRate =
       for {
-        accumulatedYieldRate <- accumulatedYieldRate
-        if accumulatedDays != recordSetAccumulatedDays && accumulatedDays != 0
-      } yield math.pow(1 + accumulatedYieldRate, recordSetAccumulatedDays / accumulatedDays.toDouble) - 1
+        accumulatedYieldRate <- dataRecord.yieldRate
+        if (dataRecord.accumulatedDays != dataRecord.recordSetAccumulatedDays && dataRecord.accumulatedDays != 0) || dataRecord.months > 1
+        accumulatedDaysPerMonth = dataRecord.recordSetAccumulatedDays / dataRecord.months
+      } yield math.pow(1 + accumulatedYieldRate, accumulatedDaysPerMonth / dataRecord.accumulatedDays.toDouble) - 1
 
     Seq(
       Seq(
-        Chunk.leftAligned(Anchors.Leftmost, s"    $name"),
+        Chunk.leftAligned(Anchors.Leftmost, dataRecord.name),
         Chunk.rightAligned(Anchors.PostNameSpacing, "  "),
       ),
-      Option.when(missingData) {
+      Option.when(dataRecord.missingData) {
         val warning = toWarningAnsiString("DADOS FALTANDO")
         Chunk.leftAligned(Anchors.PostNameSpacing, warning.toString, warning.length)
       },
-      sharePrice.map(sharePrice => Chunk.rightAligned(Anchors.SharePrice, formatSharePrice(sharePrice))),
+      dataRecord.sharePrice.map(sharePrice => Chunk.rightAligned(Anchors.SharePrice, formatSharePrice(sharePrice))),
       Seq(Chunk.leftAligned(Anchors.PostSharePriceSeparator, " | ")),
-      (yieldResult, yieldRate)
+      (dataRecord.yieldResult, dataRecord.yieldRate)
         .mapN { (yieldResult, yieldRate) =>
           val yieldRateText = " (" ++ colorize(yieldRate)(formatRate)
           Seq(
@@ -264,8 +250,8 @@ class ChunkMaker(options: ChunkMaker.Options) {
               Seq(Chunk.leftAligned(Anchors.YieldRate, ")"))
             )(monthYieldRate =>
               Seq(
-                Chunk.rightAligned(Anchors.AccumulatedDays, s" em ${Words.WithCount.day(accumulatedDays)};"),
-                Chunk.rightAligned(Anchors.MonthYieldRate, s" ${formatRate(monthYieldRate)} no mês)"),
+                Chunk.rightAligned(Anchors.AccumulatedDays, s" em ${Words.WithCount.day(dataRecord.accumulatedDays)};"),
+                Chunk.rightAligned(Anchors.MonthYieldRate, s" ${formatRate(monthYieldRate)} ao mês)"),
               )
             ),
           ).flatten
@@ -274,19 +260,19 @@ class ChunkMaker(options: ChunkMaker.Options) {
       Seq(Chunk.leftAligned(Anchors.PostYieldSeparator, " | ")),
       seqIf(!options.accumulated) {
         Seq(
-          initialBalance.map(initialBalance => Chunk.rightAligned(Anchors.InitialBalance, formatMoney(initialBalance))),
+          dataRecord.initialBalance.map(initialBalance => Chunk.rightAligned(Anchors.InitialBalance, formatMoney(initialBalance))),
           Seq(Chunk.leftAligned(Anchors.PostInitialBalanceSeparator, " | ")),
         ).flatten
       },
-      balanceChange.map { balanceChange =>
+      dataRecord.balanceChange.map { balanceChange =>
         val balanceChangeText = colorize(balanceChange)(formatMoneyChange)
         Chunk.rightAligned(Anchors.BalanceChange, balanceChangeText.toString, balanceChangeText.length)
       },
-      shareAmountChange.map(shareAmountChange => Chunk.rightAligned(Anchors.ShareAmountChange, s" (${formatShareAmountChange(shareAmountChange)})")),
+      dataRecord.shareAmountChange.map(shareAmountChange => Chunk.rightAligned(Anchors.ShareAmountChange, s" (${formatShareAmountChange(shareAmountChange)})")),
       Seq(Chunk.leftAligned(Anchors.PostChangeSeparator, " | ")),
-      finalBalance.map(finalBalance => Chunk.rightAligned(Anchors.FinalBalance, formatMoney(finalBalance))),
-      shareAmount.map(shareAmount => Chunk.rightAligned(Anchors.End, s" (${formatShareAmount(shareAmount)})")),
-      note.map(note => Chunk.leftAligned(Anchors.End, s"  $note")),
+      dataRecord.finalBalance.map(finalBalance => Chunk.rightAligned(Anchors.FinalBalance, formatMoney(finalBalance))),
+      dataRecord.shareAmount.map(shareAmount => Chunk.rightAligned(Anchors.End, s" (${formatShareAmount(shareAmount)})")),
+      dataRecord.note.map(note => Chunk.leftAligned(Anchors.End, s"  $note")),
     ).flatten
   }
 

@@ -17,7 +17,7 @@ object FundsMain {
     val months = Iterator.iterate(parsedArgs.initialMonth)(_.plusMonths(1))
       .takeWhile(month => !month.isAfter(parsedArgs.finalMonth))
 
-    val (_, chunks) = months
+    val (_, chunksAndFinalRecordSets) = months
       .foldFlatMapLeft(Option.empty[Map[String, MonthTurnFundData]]) { (previousMonthFinalData, month) =>
         val statement = FundsMonthStatementFileReader.read(month) |>
           (applyFilters(_, parsedArgs.positiveFilters, parsedArgs.negativeFilters)) |>
@@ -35,10 +35,24 @@ object FundsMain {
 
         val chunks = chunkMaker.makeChunks(month, warning, initialRecordSetOpt, recordSets)
         val monthFinalData = toMonthTurnData(recordSets.last.records)
-        (Some(monthFinalData), chunks)
+        (Some(monthFinalData), Some((chunks, recordSets.last)))
       }
 
-    TextAligner.alignAndRender(chunks.toSeq)
+    val (chunks, finalRecordSets) = chunksAndFinalRecordSets.unzip
+
+    val monthRangeSummaryChunks = if (finalRecordSets.sizeIs > 1) {
+      val monthRangeSummaryRecordSet = StatementProcessor.sumAccumulatedValues(finalRecordSets)
+      chunkMaker.makeSummaryChunks(
+        s"Meses de ${parsedArgs.initialMonth} a ${parsedArgs.finalMonth} (${monthRangeSummaryRecordSet.accumulatedDays} dias)",
+        monthRangeSummaryRecordSet,
+        months = finalRecordSets.size,
+        nameIndentationSize = 2,
+      )
+    } else {
+      Seq.empty
+    }
+
+    TextAligner.alignAndRender(chunks.flatten.toSeq ++ monthRangeSummaryChunks)
       .foreach(println)
   }
 
