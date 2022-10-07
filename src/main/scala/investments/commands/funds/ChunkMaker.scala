@@ -10,10 +10,26 @@ import utils.TextAligner.Chunk
 import utils.{AnsiString, BrNumber}
 
 class ChunkMaker(options: ChunkMaker.Options) {
-  def makeChunks(yearMonth: YearMonth, initialRecordSet: InitialRecordSet, recordSets: Seq[RecordSet]): Seq[Seq[Chunk]] = {
+  def makeChunks(
+    yearMonth: YearMonth,
+    warningText: Option[String],
+    initialRecordSet: Option[InitialRecordSet],
+    recordSets: Seq[RecordSet],
+  ): Seq[Seq[Chunk]] = {
     val yearMonthRowChunk = Seq(Chunk.leftAligned(Anchors.Leftmost, yearMonth.toString))
+
+    val warningChunks = warningText
+      .toSeq
+      .map { text =>
+        val warning = "  " ++ toWarningAnsiString(text)
+        Seq(Chunk.leftAligned(Anchors.Leftmost, warning.toString, warning.length))
+      }
+
     val daysRowsChunks = seqIf(options.days) {
-      val initialRecordSetRowsChunks = toInitialRecordSetChunks(initialRecordSet)
+      val initialRecordSetRowsChunks = initialRecordSet
+        .toSeq
+        .flatMap(toInitialRecordSetChunks)
+
       val recordSetsRowsChunks = recordSets.flatMap(toRecordSetChunks)
       initialRecordSetRowsChunks ++ recordSetsRowsChunks
     }
@@ -22,7 +38,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
       recordSets.lastOption.toSeq.flatMap(toMonthSummaryChunks)
     }
 
-    yearMonthRowChunk +: (daysRowsChunks ++ monthSummaryRowsChunks)
+    yearMonthRowChunk +: (warningChunks ++ daysRowsChunks ++ monthSummaryRowsChunks)
   }
 
   private object Anchors {
@@ -231,10 +247,8 @@ class ChunkMaker(options: ChunkMaker.Options) {
         Chunk.rightAligned(Anchors.PostNameSpacing, "  "),
       ),
       Option.when(missingData) {
-        val FormatOn = AnsiString.escape(Code.Bright(Code.White), Code.BG(Code.Red), Code.Bold)
-        val FormatOff = AnsiString.escape(Code.DefaultColor, Code.DefaultBgColor, Code.NormalIntensity)
-        val message = FormatOn ++ " DADOS FALTANDO " ++ FormatOff
-        Chunk.leftAligned(Anchors.PostNameSpacing, message.toString, message.length)
+        val warning = toWarningAnsiString("DADOS FALTANDO")
+        Chunk.leftAligned(Anchors.PostNameSpacing, warning.toString, warning.length)
       },
       sharePrice.map(sharePrice => Chunk.rightAligned(Anchors.SharePrice, formatSharePrice(sharePrice))),
       Seq(Chunk.leftAligned(Anchors.PostSharePriceSeparator, " | ")),
@@ -322,6 +336,12 @@ class ChunkMaker(options: ChunkMaker.Options) {
     chunks
       .modify(_.at(0).text).using(text => (Code.Bold ++ text).toString)
       .modify(_.at(chunks.length - 1).text).using(text => (text ++ Code.NormalIntensity).toString)
+
+  private def toWarningAnsiString(text: String): AnsiString = {
+    val FormatOn = AnsiString.escape(Code.Bright(Code.White), Code.BG(Code.Red), Code.Bold)
+    val FormatOff = AnsiString.escape(Code.DefaultColor, Code.DefaultBgColor, Code.NormalIntensity)
+    FormatOn ++ s" $text " ++ FormatOff
+  }
 
   private def seqIf[A](condition: Boolean)(`then`: => Seq[A]): Seq[A] =
     if (condition) `then` else Seq.empty
