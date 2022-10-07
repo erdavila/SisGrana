@@ -25,10 +25,12 @@ object ArgsParser extends ArgumentsParser[ParsedArgs] {
       _ = if (accumulated && !daysAndSummary.details) incompatibleOptions(AccumulatedOption, SummaryOnlyOption)
       positiveFilters <- takeFilters(PositiveFilterOption)
       negativeFilters <- takeFilters(NegativeFilterOption)
-      month <- takeMonth
+      monthRange <- takeMonthRange
+      _ = if (accumulated && monthRange._1 != monthRange._2) error(s"A opção $AccumulatedOption é incompatível com intervalo de meses")
     } yield ParsedArgs(
-      month = month,
-      printOptions = Printer.Options(
+      initialMonth = monthRange._1,
+      finalMonth = monthRange._2,
+      printOptions = ChunkMaker.Options(
         accumulated = accumulated,
         funds = fundsAndTotals.details,
         totals = fundsAndTotals.aggregation,
@@ -56,7 +58,7 @@ object ArgsParser extends ArgumentsParser[ParsedArgs] {
     } yield DetailsAndAggregationOptions(details, aggregation)
 
   private def incompatibleOptions(option1: String, option2: String): Nothing =
-    error(s"As opções ${option1} e ${option2} são incompatíveis")
+    error(s"As opções $option1 e $option2 são incompatíveis")
 
   private def takeFilters(forms: String*): Parser[Seq[String]] =
     takeOptionParameter(forms: _*) $ {
@@ -64,18 +66,36 @@ object ArgsParser extends ArgumentsParser[ParsedArgs] {
       case None => Seq.empty
     }
 
-  private def takeMonth: Parser[YearMonth] =
+  private def takeMonthRange: Parser[(YearMonth, YearMonth)] =
     for (str <- takeNext)
-      yield YearMonth.parse(str)
+      yield parseMonthRange(str)
+
+  private def parseMonthRange(string: String): (YearMonth, YearMonth) =
+    string match {
+      case s"$initialMonthString:$finalMonthString" =>
+        val initialMonth = YearMonth.parse(initialMonthString)
+        val finalMonth = YearMonth.parse(finalMonthString)
+        if (initialMonth `isAfter` finalMonth) {
+          error("O ANO-MÊS-INICIAL não pode ser posterior ao ANO-MÊS-FINAL")
+        }
+        (initialMonth, finalMonth)
+      case s =>
+        val month = YearMonth.parse(s)
+        (month, month)
+    }
 
   override protected def printUsage(printStream: PrintStream): Unit = {
-    printStream.println("Parâmetros esperados: OPÇÕES ANO-MÊS")
+    printStream.println("Parâmetros esperados: [OPÇÕES] MESES")
     printStream.println()
-    printStream.println(s"  OPÇÕES:")
+    printStream.println(s"  OPÇÕES podem ser:")
     printStream.println(s"    $AccumulatedOption|$AccumulatedShortOption")
     printStream.println(s"    $TotalsOnlyOption|$NoTotalsOption")
     printStream.println(s"    $SummaryOnlyOption|$NoSummaryOption")
     printStream.println(s"    $PositiveFilterOption NOME,...")
     printStream.println(s"    $NegativeFilterOption NOME,...")
+    printStream.println()
+    printStream.println(s"  MESES pode ser:")
+    printStream.println(s"    ANO-MÊS (ex.: 2022-08)")
+    printStream.println(s"    ANO-MÊS-INICIAL:ANO-MÊS-FINAL (ex.: 2022-07:2022-09)")
   }
 }

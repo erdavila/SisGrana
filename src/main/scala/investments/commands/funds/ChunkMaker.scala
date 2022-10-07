@@ -7,10 +7,10 @@ import com.softwaremill.quicklens._
 import java.time.YearMonth
 import utils.AnsiString.{Code, StringOps}
 import utils.TextAligner.Chunk
-import utils.{AnsiString, BrNumber, TextAligner}
+import utils.{AnsiString, BrNumber}
 
-class Printer(options: Printer.Options) {
-  def printMonthRecordSets(yearMonth: YearMonth, initialRecordSet: InitialRecordSet, recordSets: Seq[RecordSet]): Unit = {
+class ChunkMaker(options: ChunkMaker.Options) {
+  def makeChunks(yearMonth: YearMonth, initialRecordSet: InitialRecordSet, recordSets: Seq[RecordSet]): Seq[Seq[Chunk]] = {
     val yearMonthRowChunk = Seq(Chunk.leftAligned(Anchors.Leftmost, yearMonth.toString))
     val daysRowsChunks = seqIf(options.days) {
       val initialRecordSetRowsChunks = toInitialRecordSetChunks(initialRecordSet)
@@ -22,10 +22,7 @@ class Printer(options: Printer.Options) {
       recordSets.lastOption.toSeq.flatMap(toMonthSummaryChunks)
     }
 
-    val chunks = yearMonthRowChunk +: (daysRowsChunks ++ monthSummaryRowsChunks)
-
-    TextAligner.alignAndRender(chunks)
-      .foreach(println)
+    yearMonthRowChunk +: (daysRowsChunks ++ monthSummaryRowsChunks)
   }
 
   private object Anchors {
@@ -330,7 +327,7 @@ class Printer(options: Printer.Options) {
     if (condition) `then` else Seq.empty
 }
 
-object Printer {
+object ChunkMaker {
   case class Options(
     accumulated: Boolean,
     funds: Boolean,

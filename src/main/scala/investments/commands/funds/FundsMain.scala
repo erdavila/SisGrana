@@ -4,20 +4,30 @@ package investments.commands.funds
 import com.softwaremill.quicklens._
 import investments.fileTypes.fundsMonthStatement._
 import java.time.YearMonth
+import utils.TextAligner
 
 object FundsMain {
   // TODO: when listing multiple months, check if final recordSet from previous month matches initialRecordSet of current month
 
   def main(args: Array[String]): Unit = {
     val parsedArgs = ArgsParser.parse(args)
+    val chunkMaker = new ChunkMaker(parsedArgs.printOptions)
 
-    val statement = FundsMonthStatementFileReader.read(parsedArgs.month)
-    val filteredStatement = applyFilters(statement, parsedArgs.positiveFilters, parsedArgs.negativeFilters)
-    val completeStatement = ensureLastDayOfMonth(filteredStatement, parsedArgs.month)
-    val (initialRecordSet, recordSets) = StatementProcessor.process(parsedArgs.month, completeStatement)
+    val months = Iterator.iterate(parsedArgs.initialMonth)(_.plusMonths(1))
+      .takeWhile(month => !month.isAfter(parsedArgs.finalMonth))
 
-    val printer = new Printer(parsedArgs.printOptions)
-    printer.printMonthRecordSets(parsedArgs.month, initialRecordSet, recordSets)
+    val chunks = months
+      .map { month =>
+        val statement = FundsMonthStatementFileReader.read(month)
+        val filteredStatement = applyFilters(statement, parsedArgs.positiveFilters, parsedArgs.negativeFilters)
+        val completeStatement = ensureLastDayOfMonth(filteredStatement, month)
+        val (initialRecordSet, recordSets) = StatementProcessor.process(month, completeStatement)
+        chunkMaker.makeChunks(month, initialRecordSet, recordSets)
+      }
+      .reduce(_ ++ _)
+
+    TextAligner.alignAndRender(chunks)
+      .foreach(println)
   }
 
   private def applyFilters(statement: FundsStatement, positive: Seq[String], negative: Seq[String]): FundsStatement = {
