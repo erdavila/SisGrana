@@ -35,6 +35,7 @@ case class RecordSet(
 object RecordSet {
   case class Accumulated(
     days: Int,
+    records: Map[String, Record.Accumulated],
     totalYieldRate: Option[Double],
     totalYieldResult: Option[Double],
     totalBalanceChange: Option[Double],

@@ -35,7 +35,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
       initialRecordSetRowsChunks ++ recordSetsRowsChunks
     }
 
-    val monthSummaryRowsChunks = recordSets.lastOption.toSeq.flatMap(toMonthSummaryChunks(_, recordSetAccumulated))
+    val monthSummaryRowsChunks = toMonthSummaryChunks(recordSetAccumulated)
 
     yearMonthRowChunk +: (warningChunks ++ daysRowsChunks ++ monthSummaryRowsChunks)
   }
@@ -139,23 +139,23 @@ class ChunkMaker(options: ChunkMaker.Options) {
     )
   }
 
-  private def toMonthSummaryChunks(recordSet: RecordSet, recordSetAccumulated: RecordSet.Accumulated): Seq[Seq[Chunk]] =
-    makeSummaryChunks(s"  Mês (${Words.WithCount.day(recordSetAccumulated.days)})", recordSet, recordSetAccumulated, months = 1)
+  private def toMonthSummaryChunks(recordSetAccumulated: RecordSet.Accumulated): Seq[Seq[Chunk]] =
+    makeSummaryChunks(s"  Mês (${Words.WithCount.day(recordSetAccumulated.days)})", recordSetAccumulated, months = 1)
 
-  def makeSummaryChunks(title: String, recordSet: RecordSet, recordSetAccumulated: RecordSet.Accumulated, months: Int, nameIndentationSize: Int = 4): Seq[Seq[Chunk]] =
+  def makeSummaryChunks(title: String, recordSetAccumulated: RecordSet.Accumulated, months: Int, nameIndentationSize: Int = 4): Seq[Seq[Chunk]] =
     seqIf(options.summary) {
       toDataRowsChunks(
         title,
-        recordSet.records
+        recordSetAccumulated.records
           .toSeq.sortBy { case (fund, _) => fund }
-          .map { case (fund, record) =>
+          .map { case (fund, recordAccumulated) =>
             DataRecord(
-              " " * nameIndentationSize ++ fund, record.missingData,
+              " " * nameIndentationSize ++ fund, recordAccumulated.missingData,
               None,
-              record.accumulatedYieldResult, record.accumulatedYieldRate,
-              Some(record.accumulatedDays), Some(recordSetAccumulated.days), months,
+              recordAccumulated.yieldResult, recordAccumulated.yieldRate,
+              Some(recordAccumulated.days), Some(recordSetAccumulated.days), months,
               None,
-              record.accumulatedBalanceChange, record.accumulatedShareAmountChange,
+              recordAccumulated.balanceChange, recordAccumulated.shareAmountChange,
               None, None,
               None,
             )

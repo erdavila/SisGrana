@@ -8,9 +8,8 @@ import java.time.{LocalDate, Month, YearMonth}
 class StatementProcessorTest extends TestBase {
   private val yearMonth = YearMonth.of(2022, Month.JANUARY)
 
-  private case class RecordFromInputs(entry: Option[FundsStatement.Entry], days: Int = 1, previousRecord: Option[PreviousRecord])
+  private case class RecordFromInputs(entry: Option[FundsStatement.Entry], previousRecord: Option[PreviousRecord])
   private case class RecordSetFromInputs(records: Map[String, Record], date: LocalDate = yearMonth.atDay(1), days: Int = 1, previousRecordSet: PreviousRecordSet)
-  private case class ExpectedCurrentAndAccumulated[T](current: Option[T], accumulated: Option[T])
 
   test(".recordFrom().sharePrice") {
     val entry = anyEntry().modify(_.sharePrice).setTo(1.23456789)
@@ -28,134 +27,97 @@ class StatementProcessorTest extends TestBase {
     )
 
     forAll(cases) { case inputs -> expectedSharePrice =>
-      val record = StatementProcessor.recordFrom(inputs.entry, inputs.days, inputs.previousRecord)
+      val record = StatementProcessor.recordFrom(inputs.entry, inputs.previousRecord)
       record.sharePrice should equal (expectedSharePrice)
     }
   }
 
-  test(".recordFrom().yieldRate and accumulated") {
+  test(".recordFrom().yieldRate") {
     val entry = anyEntry().modify(_.sharePrice).setTo(12.34567890)
 
     val previousSharePrice = 13.34567890
-    val previousAccumulatedYieldRate = 0.03
-    val previousRecordWithSharePrice = anyRecord()
-      .modify(_.sharePrice).setTo(Some(previousSharePrice))
-      .modify(_.accumulatedYieldRate).setTo(Some(previousAccumulatedYieldRate))
-    val previousRecordWithoutSharePrice = anyRecord()
-      .modify(_.sharePrice).setTo(None)
-      .modify(_.accumulatedYieldRate).setTo(Some(previousAccumulatedYieldRate))
+    val previousRecordWithSharePrice = anyRecord().modify(_.sharePrice).setTo(Some(previousSharePrice))
+    val previousRecordWithoutSharePrice = anyRecord().modify(_.sharePrice).setTo(None)
 
     val expectedRate = entry.sharePrice / previousSharePrice - 1
 
     val cases = Table(
-      "inputs" -> "expectedYieldRateAndAccumulated",
+      "inputs" -> "expectedYieldRate",
 
       RecordFromInputs(
         entry = Some(entry),
         previousRecord = Some(previousRecordWithSharePrice),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = Some(expectedRate),
-        accumulated = Some((1 + previousAccumulatedYieldRate) * (1 + expectedRate) - 1),
-      ),
+      ) -> Some(expectedRate),
 
       RecordFromInputs(
         entry = Some(entry),
         previousRecord = Some(previousRecordWithoutSharePrice),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = None,
-        accumulated = Some(previousAccumulatedYieldRate),
-      ),
+      ) -> None,
 
       RecordFromInputs(
         entry = Some(entry),
         previousRecord = None,
-      ) -> ExpectedCurrentAndAccumulated(
-        current = None,
-        accumulated = None,
-      ),
+      ) -> None,
 
       RecordFromInputs(
         entry = None,
         previousRecord = Some(previousRecordWithSharePrice),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = None,
-        accumulated = Some(previousAccumulatedYieldRate),
-      ),
+      ) -> None,
     )
 
-    forAll(cases) { case inputs -> expectedYieldRateAndAccumulated =>
-      val record = StatementProcessor.recordFrom(inputs.entry, inputs.days, inputs.previousRecord)
-      record.yieldRate should equal (expectedYieldRateAndAccumulated.current)
-      expectedYieldRateAndAccumulated.accumulated match {
-        case Some(expectedAccumulatedYieldRate: Double) => record.accumulatedYieldRate.value should equal (expectedAccumulatedYieldRate +- 1e-16)
-        case None => record.accumulatedYieldRate should be (None)
-      }
+    forAll(cases) { case inputs -> expectedYieldRate =>
+      val record = StatementProcessor.recordFrom(inputs.entry, inputs.previousRecord)
+      record.yieldRate should equal (expectedYieldRate)
     }
   }
 
-  test(".recordFrom().yieldResult and accumulated") {
+  test(".recordFrom().yieldResult") {
     val entry = anyEntry().modify(_.sharePrice).setTo(1.23456789)
 
     val previousSharePrice = 1.34567890
     val previousFinalBalance = 123.45
-    val previousAccumulatedYieldResult = 1234.56
     val previousRecordWithSharePriceAndBalance =
       anyRecord()
         .modify(_.sharePrice).setTo(Some(previousSharePrice))
         .modify(_.finalBalance).setTo(Some(previousFinalBalance))
-        .modify(_.accumulatedYieldResult).setTo(Some(previousAccumulatedYieldResult))
     val previousRecordWithSharePriceButWithoutBalance =
       anyRecord()
         .modify(_.sharePrice).setTo(Some(previousSharePrice))
         .modify(_.finalBalance).setTo(None)
-        .modify(_.accumulatedYieldResult).setTo(Some(previousAccumulatedYieldResult))
 
     val expectedRate = entry.sharePrice / previousSharePrice - 1
     val expectedYieldResult = previousFinalBalance * expectedRate
 
     val cases = Table(
-      "inputs" -> "expectedYieldResultAndAccumulated",
+      "inputs" -> "expectedYieldResult",
 
       RecordFromInputs(
         entry = Some(entry),
         previousRecord = Some(previousRecordWithSharePriceAndBalance),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = Some(expectedYieldResult),
-        accumulated = Some(previousAccumulatedYieldResult + expectedYieldResult),
-      ),
+      ) -> Some(expectedYieldResult),
 
       RecordFromInputs(
         entry = Some(entry),
         previousRecord = Some(previousRecordWithSharePriceButWithoutBalance),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = None,
-        accumulated = previousRecordWithSharePriceButWithoutBalance.accumulatedYieldResult,
-      ),
+      ) -> None,
 
       RecordFromInputs(
         entry = Some(entry),
         previousRecord = None,
-      ) -> ExpectedCurrentAndAccumulated(
-        current = None,
-        accumulated = None,
-      ),
+      ) -> None,
 
       RecordFromInputs(
         entry = None,
         previousRecord = Some(previousRecordWithSharePriceAndBalance),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = None,
-        accumulated = previousRecordWithSharePriceAndBalance.accumulatedYieldResult,
-      ),
+      ) -> None,
     )
 
-    forAll(cases) { case inputs -> expectedYieldResultAndAccumulated =>
-      val record = StatementProcessor.recordFrom(inputs.entry, inputs.days, inputs.previousRecord)
-      expectedYieldResultAndAccumulated.current match {
-        case Some(expectedYieldResult: Double) => record.yieldResult.value should equal (expectedYieldResult +- 1e-14)
+    forAll(cases) { case inputs -> expectedYieldResult =>
+      val record = StatementProcessor.recordFrom(inputs.entry, inputs.previousRecord)
+      expectedYieldResult match {
+        case Some(expectedYieldResult) => record.yieldResult.value should equal (expectedYieldResult +- 1e-14)
         case None => record.yieldResult should be (None)
       }
-      record.accumulatedYieldResult should equal (expectedYieldResultAndAccumulated.accumulated)
     }
   }
 
@@ -182,64 +144,48 @@ class StatementProcessorTest extends TestBase {
     )
 
     forAll(cases) { case inputs -> expectedInitialBalance =>
-      val record = StatementProcessor.recordFrom(inputs.entry, inputs.days, inputs.previousRecord)
+      val record = StatementProcessor.recordFrom(inputs.entry, inputs.previousRecord)
       record.initialBalance should equal (expectedInitialBalance)
     }
   }
 
-  test(".recordFrom().shareAmountChange and accumulated") {
+  test(".recordFrom().shareAmountChange") {
     val shareAmountChange = BigDecimal(123.456789)
 
     val entryWithShareAmountChange = anyEntry().modify(_.shareAmountChange).setTo(Some(shareAmountChange))
     val entryWithoutShareAmountChange = anyEntry().modify(_.shareAmountChange).setTo(None)
 
-    val previousAccumulatedShareAmountChange = BigDecimal(1234.56)
-    val previousRecord = anyRecord().modify(_.accumulatedShareAmountChange).setTo(Some(previousAccumulatedShareAmountChange))
-
     val cases = Table(
-      "inputs" -> "expectedShareAmountChangeAndAccumulated",
+      "inputs" -> "expectedShareAmountChange",
 
       RecordFromInputs(
         entry = Some(entryWithShareAmountChange),
-        previousRecord = Some(previousRecord),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = Some(shareAmountChange),
-        accumulated = Some(previousAccumulatedShareAmountChange + shareAmountChange),
-      ),
+        previousRecord = Some(anyRecord()),
+      ) -> Some(shareAmountChange),
 
       RecordFromInputs(
         entry = Some(entryWithoutShareAmountChange),
-        previousRecord = Some(previousRecord),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = None,
-        accumulated = previousRecord.accumulatedShareAmountChange,
-      ),
+        previousRecord = Some(anyRecord()),
+      ) -> None,
 
       RecordFromInputs(
         entry = Some(entryWithShareAmountChange),
         previousRecord = None,
-      ) -> ExpectedCurrentAndAccumulated(
-        current = Some(shareAmountChange),
-        accumulated = Some(shareAmountChange),
-      ),
+      ) -> Some(shareAmountChange),
 
       RecordFromInputs(
         entry = Some(entryWithoutShareAmountChange),
         previousRecord = None,
-      ) -> ExpectedCurrentAndAccumulated(
-        current = None,
-        accumulated = None,
-      ),
+      ) -> None,
     )
 
-    forAll(cases) { case inputs -> expectedShareAmountChangeAndAccumulated =>
-      val record = StatementProcessor.recordFrom(inputs.entry, inputs.days, inputs.previousRecord)
-      record.shareAmountChange should equal (expectedShareAmountChangeAndAccumulated.current)
-      record.accumulatedShareAmountChange should equal (expectedShareAmountChangeAndAccumulated.accumulated)
+    forAll(cases) { case inputs -> expectedShareAmountChange =>
+      val record = StatementProcessor.recordFrom(inputs.entry, inputs.previousRecord)
+      record.shareAmountChange should equal (expectedShareAmountChange)
     }
   }
 
-  test(".recordFrom().balanceChange and accumulated") {
+  test(".recordFrom().balanceChange") {
     val sharePrice: Double = 1.23456789
     val shareAmount = BigDecimal(123.456789)
 
@@ -250,51 +196,35 @@ class StatementProcessorTest extends TestBase {
       .modify(_.sharePrice).setTo(sharePrice)
       .modify(_.shareAmountChange).setTo(None)
 
-    val previousAccumulatedBalanceChange = 1234.56
-    val previousRecord = anyRecord().modify(_.accumulatedBalanceChange).setTo(Some(previousAccumulatedBalanceChange))
-
     val expectedBalanceChange = shareAmount.toDouble * entryWithShareAmountChange.sharePrice
 
     val cases = Table(
-      "inputs" -> "expectedBalanceChangeAndAccumulated",
+      "inputs" -> "expectedBalanceChange",
 
       RecordFromInputs(
         entry = Some(entryWithShareAmountChange),
-        previousRecord = Some(previousRecord),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = Some(expectedBalanceChange),
-        accumulated = Some(previousAccumulatedBalanceChange + expectedBalanceChange),
-      ),
+        previousRecord = Some(anyRecord()),
+      ) -> Some(expectedBalanceChange),
 
       RecordFromInputs(
         entry = Some(entryWithoutShareAmountChange),
-        previousRecord = Some(previousRecord),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = None,
-        accumulated = previousRecord.accumulatedBalanceChange,
-      ),
+        previousRecord = Some(anyRecord()),
+      ) -> None,
 
       RecordFromInputs(
         entry = Some(entryWithShareAmountChange),
         previousRecord = None,
-      ) -> ExpectedCurrentAndAccumulated(
-        current = Some(expectedBalanceChange),
-        accumulated = Some(expectedBalanceChange),
-      ),
+      ) -> Some(expectedBalanceChange),
 
       RecordFromInputs(
         entry = Some(entryWithoutShareAmountChange),
         previousRecord = None,
-      ) -> ExpectedCurrentAndAccumulated(
-        current = None,
-        accumulated = None,
-      ),
+      ) -> None,
     )
 
-    forAll(cases) { case inputs -> expectedBalanceChangeAndAccumulated =>
-      val record = StatementProcessor.recordFrom(inputs.entry, inputs.days, inputs.previousRecord)
-      record.balanceChange should equal (expectedBalanceChangeAndAccumulated.current)
-      record.accumulatedBalanceChange should equal (expectedBalanceChangeAndAccumulated.accumulated)
+    forAll(cases) { case inputs -> expectedBalanceChange =>
+      val record = StatementProcessor.recordFrom(inputs.entry, inputs.previousRecord)
+      record.balanceChange should equal (expectedBalanceChange)
     }
   }
 
@@ -345,7 +275,7 @@ class StatementProcessorTest extends TestBase {
     )
 
     forAll(cases) { case inputs -> expectedShareAmount =>
-      val record = StatementProcessor.recordFrom(inputs.entry, inputs.days, inputs.previousRecord)
+      val record = StatementProcessor.recordFrom(inputs.entry, inputs.previousRecord)
       record.shareAmount should equal(expectedShareAmount)
     }
   }
@@ -397,7 +327,7 @@ class StatementProcessorTest extends TestBase {
     )
 
     forAll(cases) { case inputs -> expectedFinalBalance =>
-      val record = StatementProcessor.recordFrom(inputs.entry, inputs.days, inputs.previousRecord)
+      val record = StatementProcessor.recordFrom(inputs.entry, inputs.previousRecord)
       record.finalBalance should equal (expectedFinalBalance)
     }
   }
@@ -423,49 +353,8 @@ class StatementProcessorTest extends TestBase {
     )
 
     forAll(cases) { case inputs -> expectedNote =>
-      val record = StatementProcessor.recordFrom(inputs.entry, inputs.days, inputs.previousRecord)
+      val record = StatementProcessor.recordFrom(inputs.entry, inputs.previousRecord)
       record.note should equal (expectedNote)
-    }
-  }
-
-  test(".recordFrom().accumulatedDays") {
-    val days = 3
-    val sharePrice = 12.34567890
-
-    val previousRecordWithSharePrice = anyRecord()
-      .modify(_.accumulatedDays).setTo(4)
-      .modify(_.sharePrice).setTo(Some(sharePrice))
-    val previousRecordWithoutSharePrice = anyRecord()
-      .modify(_.accumulatedDays).setTo(4)
-      .modify(_.sharePrice).setTo(None)
-
-    val cases = Table(
-      "inputs" -> "expectedAccumulatedDays",
-      RecordFromInputs(
-        entry = Some(anyEntry()),
-        days = days,
-        previousRecord = Some(previousRecordWithSharePrice),
-      ) -> (previousRecordWithSharePrice.accumulatedDays + days),
-      RecordFromInputs(
-        entry = Some(anyEntry()),
-        days = days,
-        previousRecord = Some(previousRecordWithoutSharePrice),
-      ) -> previousRecordWithoutSharePrice.accumulatedDays,
-      RecordFromInputs(
-        entry = Some(anyEntry()),
-        days = days,
-        previousRecord = None,
-      ) -> 0,
-      RecordFromInputs(
-        entry = None,
-        days = days,
-        previousRecord = Some(previousRecordWithSharePrice),
-      ) -> previousRecordWithSharePrice.accumulatedDays,
-    )
-
-    forAll(cases) { case inputs -> expectedAccumulatedDays =>
-      val record = StatementProcessor.recordFrom(inputs.entry, inputs.days, inputs.previousRecord)
-      record.accumulatedDays should equal (expectedAccumulatedDays)
     }
   }
 
@@ -659,11 +548,6 @@ class StatementProcessorTest extends TestBase {
       shareAmount = None,
       finalBalance = None,
       note = None,
-      accumulatedDays = 0,
-      accumulatedYieldRate = None,
-      accumulatedYieldResult = None,
-      accumulatedShareAmountChange = None,
-      accumulatedBalanceChange = None,
     )
 
   private def anyRecordSet(): RecordSet = RecordSet(
