@@ -22,7 +22,7 @@ object FundsMain {
         val statement = FundsMonthStatementFileReader.read(month) |>
           (applyFilters(_, parsedArgs.positiveFilters, parsedArgs.negativeFilters)) |>
           (ensureLastDayOfMonth(_, month))
-        val (initialRecordSet, recordSets) = StatementProcessor.process(month, statement)
+        val (initialRecordSet, recordSets, recordSetAccumulated) = StatementProcessor.process(month, statement)
 
         val monthInitialData = toMonthTurnData(initialRecordSet.records)
         val warning = Option.when(previousMonthFinalData.exists(_ != monthInitialData)) {
@@ -33,18 +33,20 @@ object FundsMain {
           initialRecordSet
         }
 
-        val chunks = chunkMaker.makeChunks(month, warning, initialRecordSetOpt, recordSets)
+        val chunks = chunkMaker.makeChunks(month, warning, initialRecordSetOpt, recordSets, recordSetAccumulated)
         val monthFinalData = toMonthTurnData(recordSets.last.records)
-        (Some(monthFinalData), Some((chunks, recordSets.last)))
+        (Some(monthFinalData), Some((chunks, recordSets.last, recordSetAccumulated)))
       }
 
-    val (chunks, finalRecordSets) = chunksAndFinalRecordSets.unzip
+    val (chunks, finalRecordSets, recordSetsAccumulated) = chunksAndFinalRecordSets.unzip3
 
-    val monthRangeSummaryChunks = if (finalRecordSets.sizeIs > 1) {
+    val monthRangeSummaryChunks = if (recordSetsAccumulated.sizeIs > 1) {
       val monthRangeSummaryRecordSet = StatementProcessor.sumAccumulatedValues(finalRecordSets)
+      val monthRangeRecordSetAccumulated = StatementProcessor.sumRecordSetsAccumulated(recordSetsAccumulated)
       chunkMaker.makeSummaryChunks(
-        s"Meses de ${parsedArgs.initialMonth} a ${parsedArgs.finalMonth} (${monthRangeSummaryRecordSet.accumulatedDays} dias)",
+        s"Meses de ${parsedArgs.initialMonth} a ${parsedArgs.finalMonth} (${monthRangeRecordSetAccumulated.days} dias)",
         monthRangeSummaryRecordSet,
+        monthRangeRecordSetAccumulated,
         months = finalRecordSets.size,
         nameIndentationSize = 2,
       )

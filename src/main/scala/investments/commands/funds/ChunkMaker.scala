@@ -15,6 +15,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
     warningText: Option[String],
     initialRecordSet: Option[InitialRecordSet],
     recordSets: Seq[RecordSet],
+    recordSetAccumulated: RecordSet.Accumulated,
   ): Seq[Seq[Chunk]] = {
     val yearMonthRowChunk = Seq(Chunk.leftAligned(Anchors.Leftmost, yearMonth.toString))
 
@@ -34,7 +35,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
       initialRecordSetRowsChunks ++ recordSetsRowsChunks
     }
 
-    val monthSummaryRowsChunks = recordSets.lastOption.toSeq.flatMap(toMonthSummaryChunks)
+    val monthSummaryRowsChunks = recordSets.lastOption.toSeq.flatMap(toMonthSummaryChunks(_, recordSetAccumulated))
 
     yearMonthRowChunk +: (warningChunks ++ daysRowsChunks ++ monthSummaryRowsChunks)
   }
@@ -43,7 +44,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
     name: String, missingData: Boolean,
     sharePrice: Option[Double],
     yieldResult: Option[Double], yieldRate: Option[Double],
-    accumulatedDays: Int, recordSetAccumulatedDays: Int, months: Int,
+    accumulatedDays: Option[Int], recordSetAccumulatedDays: Option[Int], months: Int,
     initialBalance: Option[Double],
     balanceChange: Option[Double], shareAmountChange: Option[BigDecimal],
     finalBalance: Option[Double], shareAmount: Option[BigDecimal],
@@ -87,7 +88,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
               s"    $fund", missingData = false,
               initialRecord.sharePrice,
               None, None,
-              initialRecord.accumulatedDays, initialRecordSet.accumulatedDays, 0,
+              None, None, 0,
               None,
               None, None,
               initialRecord.finalBalance, initialRecord.shareAmount,
@@ -98,7 +99,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
           "    Total", missingData = false,
           None,
           None, None,
-          initialRecordSet.accumulatedDays, initialRecordSet.accumulatedDays, 0,
+          None, None, 0,
           None,
           None, None,
           initialRecordSet.totalFinalBalance, None,
@@ -118,7 +119,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
             s"    $fund", record.missingData,
             record.sharePrice,
             record.yieldResult, record.yieldRate,
-            record.accumulatedDays, recordSet.accumulatedDays, 1,
+            None, None, 1,
             record.initialBalance,
             record.balanceChange, record.shareAmountChange,
             record.finalBalance, record.shareAmount,
@@ -129,7 +130,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
         s"    Total", recordSet.missingData,
         None,
         recordSet.totalYieldResult, recordSet.totalYieldRate,
-        recordSet.accumulatedDays, recordSet.accumulatedDays, 1,
+        None, None, 1,
         recordSet.totalInitialBalance,
         recordSet.totalBalanceChange, None,
         recordSet.totalFinalBalance, None,
@@ -138,10 +139,10 @@ class ChunkMaker(options: ChunkMaker.Options) {
     )
   }
 
-  private def toMonthSummaryChunks(recordSet: RecordSet): Seq[Seq[Chunk]] =
-    makeSummaryChunks(s"  Mês (${Words.WithCount.day(recordSet.accumulatedDays)})", recordSet, months = 1)
+  private def toMonthSummaryChunks(recordSet: RecordSet, recordSetAccumulated: RecordSet.Accumulated): Seq[Seq[Chunk]] =
+    makeSummaryChunks(s"  Mês (${Words.WithCount.day(recordSetAccumulated.days)})", recordSet, recordSetAccumulated, months = 1)
 
-  def makeSummaryChunks(title: String, recordSet: RecordSet, months: Int, nameIndentationSize: Int = 4): Seq[Seq[Chunk]] =
+  def makeSummaryChunks(title: String, recordSet: RecordSet, recordSetAccumulated: RecordSet.Accumulated, months: Int, nameIndentationSize: Int = 4): Seq[Seq[Chunk]] =
     seqIf(options.summary) {
       toDataRowsChunks(
         title,
@@ -152,7 +153,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
               " " * nameIndentationSize ++ fund, record.missingData,
               None,
               record.accumulatedYieldResult, record.accumulatedYieldRate,
-              record.accumulatedDays, recordSet.accumulatedDays, months,
+              Some(record.accumulatedDays), Some(recordSetAccumulated.days), months,
               None,
               record.accumulatedBalanceChange, record.accumulatedShareAmountChange,
               None, None,
@@ -160,12 +161,12 @@ class ChunkMaker(options: ChunkMaker.Options) {
             )
           },
         DataRecord(
-          " " * nameIndentationSize ++ "Total", recordSet.missingData,
+          " " * nameIndentationSize ++ "Total", recordSetAccumulated.missingData,
           None,
-          recordSet.accumulatedTotalYieldResult, recordSet.accumulatedTotalYieldRate,
-          recordSet.accumulatedDays, recordSet.accumulatedDays, months,
+          recordSetAccumulated.totalYieldResult, recordSetAccumulated.totalYieldRate,
+          Some(recordSetAccumulated.days), Some(recordSetAccumulated.days), months,
           None,
-          recordSet.accumulatedTotalBalanceChange, None,
+          recordSetAccumulated.totalBalanceChange, None,
           None, None,
           None,
         )
@@ -192,10 +193,12 @@ class ChunkMaker(options: ChunkMaker.Options) {
 
     val monthYieldRate =
       for {
-        accumulatedYieldRate <- dataRecord.yieldRate
-        if (dataRecord.accumulatedDays != dataRecord.recordSetAccumulatedDays && dataRecord.accumulatedDays != 0) || dataRecord.months > 1
-        accumulatedDaysPerMonth = dataRecord.recordSetAccumulatedDays / dataRecord.months
-      } yield math.pow(1 + accumulatedYieldRate, accumulatedDaysPerMonth / dataRecord.accumulatedDays.toDouble) - 1
+        yieldRate <- dataRecord.yieldRate
+        accumulatedDays <- dataRecord.accumulatedDays
+        recordSetAccumulatedDays <- dataRecord.recordSetAccumulatedDays
+        if (dataRecord.accumulatedDays != dataRecord.recordSetAccumulatedDays && accumulatedDays != 0) || dataRecord.months > 1
+        accumulatedDaysPerMonth = recordSetAccumulatedDays / dataRecord.months
+      } yield math.pow(1 + yieldRate, accumulatedDaysPerMonth / accumulatedDays.toDouble) - 1
 
     Seq(
       Seq(
@@ -216,14 +219,15 @@ class ChunkMaker(options: ChunkMaker.Options) {
               Chunk.rightAligned(Anchors.YieldResult, formatMoneyChange(yieldResult)),
               Chunk.rightAligned(Anchors.YieldRate, yieldRateText.toString, yieldRateText.length),
             ),
-            monthYieldRate.fold(
-              Seq(Chunk.leftAligned(Anchors.YieldRate, ")"))
-            )(monthYieldRate =>
-              Seq(
-                Chunk.rightAligned(Anchors.AccumulatedDays, s" em ${Words.WithCount.day(dataRecord.accumulatedDays)};"),
-                Chunk.rightAligned(Anchors.MonthYieldRate, s" ${formatRate(monthYieldRate)} ao mês)"),
-              )
-            ),
+            (monthYieldRate, dataRecord.accumulatedDays).tupled
+              .fold(
+                Seq(Chunk.leftAligned(Anchors.YieldRate, ")"))
+              ) { case (monthYieldRate, accumulatedDays) =>
+                Seq(
+                  Chunk.rightAligned(Anchors.AccumulatedDays, s" em ${Words.WithCount.day(accumulatedDays)};"),
+                  Chunk.rightAligned(Anchors.MonthYieldRate, s" ${formatRate(monthYieldRate)} ao mês)"),
+                )
+              },
           ).flatten
         }
         .toSeq.flatten,

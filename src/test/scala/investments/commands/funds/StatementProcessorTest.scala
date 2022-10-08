@@ -469,71 +469,50 @@ class StatementProcessorTest extends TestBase {
     }
   }
 
-  test(".recordSetFrom().totalYieldRate and accumulated") {
+  test(".recordSetFrom().totalYieldRate") {
     val previousFinalBalance = 122.4567890
     val initialBalance = 123.4567890
     val expectedTotalYieldRate = initialBalance / previousFinalBalance - 1
-    val previousAccumulatedTotalYieldRate = 0.03
 
     val cases = Table(
-      "inputs" -> "expectedTotalYieldRateAndAccumulated",
+      "inputs" -> "expectedTotalYieldRate",
 
       RecordSetFromInputs(
         records = Map(
           "A" -> anyRecord().modify(_.initialBalance).setTo(Some(initialBalance))
         ),
-        previousRecordSet = anyRecordSet()
-          .modify(_.totalFinalBalance).setTo(Some(previousFinalBalance))
-          .modify(_.accumulatedTotalYieldRate).setTo(Some(previousAccumulatedTotalYieldRate)),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = Some(expectedTotalYieldRate),
-        accumulated = Some((1 + previousAccumulatedTotalYieldRate) * (1 + expectedTotalYieldRate) - 1),
-      ),
+        previousRecordSet = anyRecordSet().modify(_.totalFinalBalance).setTo(Some(previousFinalBalance))
+      ) -> Some(expectedTotalYieldRate),
 
       RecordSetFromInputs(
         records = Map(
           "A" -> anyRecord().modify(_.initialBalance).setTo(None)
         ),
-        previousRecordSet = anyRecordSet()
-          .modify(_.totalFinalBalance).setTo(Some(previousFinalBalance))
-          .modify(_.accumulatedTotalYieldRate).setTo(Some(previousAccumulatedTotalYieldRate)),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = None,
-        accumulated = Some(previousAccumulatedTotalYieldRate),
-      ),
+        previousRecordSet = anyRecordSet().modify(_.totalFinalBalance).setTo(Some(previousFinalBalance))
+      ) -> None,
 
       RecordSetFromInputs(
         records = Map(
           "A" -> anyRecord().modify(_.initialBalance).setTo(Some(initialBalance))
         ),
-        previousRecordSet = anyRecordSet()
-          .modify(_.totalFinalBalance).setTo(None)
-          .modify(_.accumulatedTotalYieldRate).setTo(Some(previousAccumulatedTotalYieldRate)),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = None,
-        accumulated = Some(previousAccumulatedTotalYieldRate),
-      ),
+        previousRecordSet = anyRecordSet().modify(_.totalFinalBalance).setTo(None)
+      ) -> None,
     )
 
-    forAll(cases) { case inputs -> expectedTotalYieldRateAndAccumulated =>
+    forAll(cases) { case inputs -> expectedTotalYieldRate =>
       val recordSet = StatementProcessor.recordSetFrom(inputs.records, inputs.date, inputs.days, inputs.previousRecordSet)
-      recordSet.totalYieldRate should equal (expectedTotalYieldRateAndAccumulated.current)
-      expectedTotalYieldRateAndAccumulated.accumulated match {
-        case Some(expectedAccumulatedTotalYieldRate) => recordSet.accumulatedTotalYieldRate.value should equal (expectedAccumulatedTotalYieldRate +- 1e-10)
-        case None => recordSet.accumulatedTotalYieldRate should be (None)
-      }
+      recordSet.totalYieldRate should equal (expectedTotalYieldRate)
     }
   }
 
-  test(".recordSetFrom().totalYieldResult and accumulated") {
+  test(".recordSetFrom().totalYieldResult") {
     val yieldResultA = 12.34567890
     val yieldResultB = 123.4567890
-    val previousAccumulatedTotalYieldResult = 1234.567890
 
     val expectedTotalYieldResult = yieldResultA + yieldResultB
 
     val cases = Table(
-      "inputs" -> "expectedTotalYieldResultAndAccumulated",
+      "inputs" -> "expectedTotalYieldResult",
 
       RecordSetFromInputs(
         records = Map(
@@ -541,27 +520,20 @@ class StatementProcessorTest extends TestBase {
           "B" -> anyRecord().modify(_.yieldResult).setTo(Some(yieldResultB)),
           "C" -> anyRecord().modify(_.yieldResult).setTo(None),
         ),
-        previousRecordSet = anyRecordSet().modify(_.accumulatedTotalYieldResult).setTo(Some(previousAccumulatedTotalYieldResult)),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = Some(expectedTotalYieldResult),
-        accumulated = Some(previousAccumulatedTotalYieldResult + expectedTotalYieldResult),
-      ),
+        previousRecordSet = anyRecordSet(),
+      ) -> Some(expectedTotalYieldResult),
 
       RecordSetFromInputs(
         records = Map(
           "A" -> anyRecord().modify(_.yieldResult).setTo(None),
         ),
-        previousRecordSet = anyRecordSet().modify(_.accumulatedTotalYieldResult).setTo(Some(previousAccumulatedTotalYieldResult)),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = None,
-        accumulated = Some(previousAccumulatedTotalYieldResult),
-      ),
+        previousRecordSet = anyRecordSet(),
+      ) -> None,
     )
 
-    forAll(cases) { case inputs -> expectedTotalYieldResultAndAccumulated =>
+    forAll(cases) { case inputs -> expectedTotalYieldResult =>
       val recordSet = StatementProcessor.recordSetFrom(inputs.records, inputs.date, inputs.days, inputs.previousRecordSet)
-      recordSet.totalYieldResult should equal (expectedTotalYieldResultAndAccumulated.current)
-      recordSet.accumulatedTotalYieldResult should equal(expectedTotalYieldResultAndAccumulated.accumulated)
+      recordSet.totalYieldResult should equal (expectedTotalYieldResult)
     }
   }
 
@@ -599,15 +571,13 @@ class StatementProcessorTest extends TestBase {
     }
   }
 
-  test(".recordSetFrom().totalBalanceChange and accumulated") {
+  test(".recordSetFrom().totalBalanceChange") {
     val balanceChangeA = 123.4567890
     val balanceChangeB = 1234.567890
     val expectedBalanceChange = balanceChangeA + balanceChangeB
 
-    val previousAccumulatedTotalBalanceChange = 12345.67890
-
     val cases = Table(
-      "inputs" -> "expectedTotalBalanceChangeAndAccumulated",
+      "inputs" -> "expectedTotalBalanceChange",
 
       RecordSetFromInputs(
         records = Map(
@@ -615,31 +585,24 @@ class StatementProcessorTest extends TestBase {
           "B" -> anyRecord().modify(_.balanceChange).setTo(Some(balanceChangeB)),
           "C" -> anyRecord().modify(_.balanceChange).setTo(None),
         ),
-        previousRecordSet = anyRecordSet().modify(_.accumulatedTotalBalanceChange).setTo(Some(previousAccumulatedTotalBalanceChange)),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = Some(expectedBalanceChange),
-        accumulated = Some(previousAccumulatedTotalBalanceChange + expectedBalanceChange),
-      ),
+        previousRecordSet = anyRecordSet(),
+      ) -> Some(expectedBalanceChange),
 
       RecordSetFromInputs(
         records = Map(
           "A" -> anyRecord().modify(_.balanceChange).setTo(None),
           "B" -> anyRecord().modify(_.balanceChange).setTo(None),
         ),
-        previousRecordSet = anyRecordSet().modify(_.accumulatedTotalBalanceChange).setTo(Some(previousAccumulatedTotalBalanceChange)),
-      ) -> ExpectedCurrentAndAccumulated(
-        current = None,
-        accumulated = Some(previousAccumulatedTotalBalanceChange),
-      ),
+        previousRecordSet = anyRecordSet(),
+      ) -> None,
     )
 
-    forAll(cases) { case inputs -> expectedTotalBalanceChangeAndAccumulated =>
+    forAll(cases) { case inputs -> expectedTotalBalanceChange =>
       val recordSet = StatementProcessor.recordSetFrom(inputs.records, inputs.date, inputs.days, inputs.previousRecordSet)
-      expectedTotalBalanceChangeAndAccumulated.current match {
+      expectedTotalBalanceChange match {
         case Some(expectedTotalBalanceChange) => recordSet.totalBalanceChange.value should equal(expectedTotalBalanceChange)
         case None => recordSet.totalBalanceChange should be (None)
       }
-      recordSet.accumulatedTotalBalanceChange should equal (expectedTotalBalanceChangeAndAccumulated.accumulated)
     }
   }
 
@@ -675,17 +638,6 @@ class StatementProcessorTest extends TestBase {
         case None => recordSet.totalFinalBalance should be (None)
       }
     }
-  }
-
-  test(".recordSetFrom().accumulatedDays") {
-    val records = Map("A" -> anyRecord())
-    val date = yearMonth.atDay(1)
-    val days = 3
-    val previousRecordSet = anyRecordSet().modify(_.accumulatedDays).setTo(3)
-
-    val recordSet = StatementProcessor.recordSetFrom(records, date, days, previousRecordSet)
-
-    recordSet.accumulatedDays should equal (previousRecordSet.accumulatedDays + days)
   }
 
   private def anyEntry(): FundsStatement.Entry =
@@ -724,9 +676,5 @@ class StatementProcessorTest extends TestBase {
     totalInitialBalance = None,
     totalBalanceChange = None,
     totalFinalBalance = None,
-    accumulatedDays = 0,
-    accumulatedTotalYieldRate = None,
-    accumulatedTotalYieldResult = None,
-    accumulatedTotalBalanceChange = None,
   )
 }

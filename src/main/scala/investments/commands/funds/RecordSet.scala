@@ -8,11 +8,6 @@ sealed trait PreviousRecordSet {
   def records: Map[String, PreviousRecord]
   def missingData: Boolean
   def totalFinalBalance: Option[Double]
-
-  def accumulatedDays: Int
-  def accumulatedTotalYieldRate: Option[Double]
-  def accumulatedTotalYieldResult: Option[Double]
-  def accumulatedTotalBalanceChange: Option[Double]
 }
 
 case class InitialRecordSet(
@@ -21,10 +16,6 @@ case class InitialRecordSet(
   totalFinalBalance: Option[Double],
 ) extends PreviousRecordSet {
   override def missingData: Boolean = false
-  override def accumulatedDays: Int = 0
-  def accumulatedTotalYieldRate: Option[Double] = None
-  def accumulatedTotalYieldResult: Option[Double] = None
-  def accumulatedTotalBalanceChange: Option[Double] = None
 }
 
 case class RecordSet(
@@ -39,10 +30,14 @@ case class RecordSet(
   totalInitialBalance: Option[Double],
   totalBalanceChange: Option[Double],
   totalFinalBalance: Option[Double],
-
-  // Accumulations
-  accumulatedDays: Int,
-  accumulatedTotalYieldRate: Option[Double],
-  accumulatedTotalYieldResult: Option[Double],
-  accumulatedTotalBalanceChange: Option[Double],
 ) extends PreviousRecordSet
+
+object RecordSet {
+  case class Accumulated(
+    days: Int,
+    totalYieldRate: Option[Double],
+    totalYieldResult: Option[Double],
+    totalBalanceChange: Option[Double],
+    missingData: Boolean,
+  )
+}
