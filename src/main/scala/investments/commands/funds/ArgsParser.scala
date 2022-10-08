@@ -6,8 +6,6 @@ import java.io.PrintStream
 import java.time.YearMonth
 
 object ArgsParser extends ArgumentsParser[ParsedArgs] {
-  private val AccumulatedOption = "--accumulated"
-  private val AccumulatedShortOption = "--acc"
   private val TotalsOnlyOption = "--totals-only"
   private val NoTotalsOption = "--no-totals"
   private val SummaryOnlyOption = "--summary-only"
@@ -19,19 +17,15 @@ object ArgsParser extends ArgumentsParser[ParsedArgs] {
 
   override protected def spec: Parser[ParsedArgs] =
     for {
-      accumulated <- takeOption(AccumulatedOption, AccumulatedShortOption)
       fundsAndTotals <- takeFundsAndTotalsOptions
       daysAndSummary <- takeDaysAndSummaryOptions
-      _ = if (accumulated && !daysAndSummary.details) incompatibleOptions(AccumulatedOption, SummaryOnlyOption)
       positiveFilters <- takeFilters(PositiveFilterOption)
       negativeFilters <- takeFilters(NegativeFilterOption)
       monthRange <- takeMonthRange
-      _ = if (accumulated && monthRange._1 != monthRange._2) error(s"A opção $AccumulatedOption é incompatível com intervalo de meses")
     } yield ParsedArgs(
       initialMonth = monthRange._1,
       finalMonth = monthRange._2,
       printOptions = ChunkMaker.Options(
-        accumulated = accumulated,
         funds = fundsAndTotals.details,
         totals = fundsAndTotals.aggregation,
         days = daysAndSummary.details,
@@ -88,7 +82,6 @@ object ArgsParser extends ArgumentsParser[ParsedArgs] {
     printStream.println("Parâmetros esperados: [OPÇÕES] MESES")
     printStream.println()
     printStream.println(s"  OPÇÕES podem ser:")
-    printStream.println(s"    $AccumulatedOption|$AccumulatedShortOption")
     printStream.println(s"    $TotalsOnlyOption|$NoTotalsOption")
     printStream.println(s"    $SummaryOnlyOption|$NoSummaryOption")
     printStream.println(s"    $PositiveFilterOption NOME,...")
