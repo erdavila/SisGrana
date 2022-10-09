@@ -3,24 +3,31 @@ package investments.commands.funds
 
 import com.softwaremill.quicklens._
 import investments.fileTypes.fundsMonthStatement._
+import java.io.{File, FileOutputStream, PrintWriter}
 import java.time.YearMonth
-import utils.TextAligner
+import utils.TextAligner.Chunk
 import utils.Traversing._
+import utils.{BrNumber, Exit, TextAligner, quoted}
 
 object FundsMain {
   private case class MonthTurnFundData(sharePrice: Option[Double], shareAmount: Option[BigDecimal])
 
-  def main(args: Array[String]): Unit = {
-    val parsedArgs = ArgsParser.parse(args)
-    val chunkMaker = new ChunkMaker(parsedArgs.printOptions)
+  def main(args: Array[String]): Unit =
+    ArgsParser.parse(args) match {
+      case opArgs: OperationArguments.List => list(opArgs)
+      case opArgs: OperationArguments.Init => init(opArgs)
+    }
 
-    val months = Iterator.iterate(parsedArgs.initialMonth)(_.plusMonths(1))
-      .takeWhile(month => !month.isAfter(parsedArgs.finalMonth))
+  private def list(opArgs: OperationArguments.List): Unit = {
+    val chunkMaker = new ChunkMaker(opArgs.printOptions)
+
+    val months = Iterator.iterate(opArgs.initialMonth)(_.plusMonths(1))
+      .takeWhile(month => !month.isAfter(opArgs.finalMonth))
 
     val (_, chunksAndRecordSetsAccumulated) = months
       .foldFlatMapLeft(Option.empty[Map[String, MonthTurnFundData]]) { (previousMonthFinalData, month) =>
         val statement = FundsMonthStatementFileReader.read(month) |>
-          (applyFilters(_, parsedArgs.positiveFilters, parsedArgs.negativeFilters)) |>
+          (applyFilters(_, opArgs.positiveFilters, opArgs.negativeFilters)) |>
           (ensureLastDayOfMonth(_, month))
         val (initialRecordSet, recordSets, recordSetAccumulated) = StatementProcessor.process(month, statement)
 
@@ -43,7 +50,7 @@ object FundsMain {
     val monthRangeSummaryChunks = if (recordSetsAccumulated.sizeIs > 1) {
       val monthRangeRecordSetAccumulated = StatementProcessor.sumRecordSetsAccumulated(recordSetsAccumulated)
       chunkMaker.makeSummaryChunks(
-        s"Meses de ${parsedArgs.initialMonth} a ${parsedArgs.finalMonth} (${monthRangeRecordSetAccumulated.days} dias)",
+        s"Meses de ${opArgs.initialMonth} a ${opArgs.finalMonth} (${monthRangeRecordSetAccumulated.days} dias)",
         monthRangeRecordSetAccumulated,
         months = recordSetsAccumulated.size,
         nameIndentationSize = 2,
@@ -79,6 +86,68 @@ object FundsMain {
       .filter(_._2.shareAmount.nonEmpty)
       .mapValues(record => MonthTurnFundData(record.sharePrice, record.shareAmount))
       .toMap
+
+  private def init(opArgs: OperationArguments.Init): Unit = {
+    val filePath = FundsMonthStatementFileReader.terminalFilePath(opArgs.month)
+    val file = new File(filePath)
+    if (file.exists()) {
+      Exit.withErrorMessage { stream =>
+        stream.println(s"O arquivo já existe: $filePath")
+      }
+    }
+
+    val lastMonthEndRecordSet = readPreviousMonthEndRecordSet(opArgs.month)
+
+    val Separator = "  "
+    val headerRowChunks = Seq(
+      Chunk.leftAligned(0, s"# Day${Separator}Fund"),
+      Chunk.leftAligned(1, Separator),
+      Chunk.rightAligned(2, s"Share Price${Separator}"),
+      Chunk.rightAligned(3, s"Share Change"),
+      Chunk.leftAligned(3, s"${Separator}Note"),
+    )
+
+    val nf = BrNumber.modifyNumberFormat { nf =>
+      nf.setMinimumFractionDigits(8)
+      nf.setMaximumFractionDigits(8)
+    }
+    val fundsRowsChunks = lastMonthEndRecordSet.records
+      .toSeq
+      .sortBy { case (fund, _) => fund }
+      .map { case (fund, record) =>
+        Seq(
+          Chunk.leftAligned(0, s"INI${Separator}${quoted(fund)}"),
+          Chunk.leftAligned(1, Separator),
+          Chunk.rightAligned(2, s"${nf.format(record.sharePrice.get)}${Separator}"),
+          Chunk.rightAligned(3, s"${nf.format(record.shareAmount.get.toDouble)}"),
+        )
+      }
+
+    val rowsChunks = headerRowChunks +: Seq.empty +: fundsRowsChunks
+    val writer = new PrintWriter(new FileOutputStream(filePath))
+    for (row <- TextAligner.alignAndRender(rowsChunks)) {
+      writer.println(row)
+    }
+    writer.close()
+
+    println(s"O arquivo foi gravado: $filePath")
+  }
+
+  private def readPreviousMonthEndRecordSet(month: YearMonth): RecordSet = {
+    val previousMonth = month.minusMonths(1)
+    val statement = FundsMonthStatementFileReader.read(previousMonth)
+    val (_, recordSets, _) = StatementProcessor.process(previousMonth, statement)
+
+    val daysCounter = new DaysCounter(statement.noPriceDates)
+    val lastDate = daysCounter.lastDateOfYearMonth(previousMonth)
+
+    recordSets.lastOption match {
+      case Some(recordSet) if recordSet.date == lastDate && recordSet.records.forall(!_._2.missingData) => recordSet
+      case _ => Exit.withErrorMessage { stream =>
+        stream.println(s"Faltam dados no último dia do mês anterior ($lastDate)")
+      }
+    }
+  }
 
   private implicit class AnyOps[A](private val a: A) extends AnyVal {
     def |>[B](f: A => B): B = f(a)

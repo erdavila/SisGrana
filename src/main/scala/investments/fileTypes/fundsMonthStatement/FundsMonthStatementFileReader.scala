@@ -8,7 +8,7 @@ import java.io.InputStream
 import java.time.YearMonth
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
-import utils.{BrNumber, Exit}
+import utils.BrNumber
 
 private[fundsMonthStatement] class FundsMonthStatementFileReader(yearMonth: YearMonth) {
   private object PositiveIntToString {
@@ -87,12 +87,15 @@ private[fundsMonthStatement] class FundsMonthStatementFileReader(yearMonth: Year
 }
 
 object FundsMonthStatementFileReader {
+  def terminalFilePath(yearMonth: YearMonth): String = s"$DataPath/${yearMonth.getYear}/$yearMonth - FUNDS.ssv"
+  def insideZipFilePath(yearMonth: YearMonth): String = s"$DataPath/${yearMonth.getYear}.zip/$yearMonth - FUNDS.ssv"
+
   def read(yearMonth: YearMonth): FundsStatement = {
     val reader = new FundsMonthStatementFileReader(yearMonth)
 
     val allPaths = Seq(
-      s"$DataPath/${yearMonth.getYear}/$yearMonth - FUNDS.ssv",
-      s"$DataPath/${yearMonth.getYear}.zip/$yearMonth - FUNDS.ssv",
+      terminalFilePath(yearMonth),
+      insideZipFilePath(yearMonth),
     )
 
     @tailrec
@@ -109,12 +112,12 @@ object FundsMonthStatementFileReader {
           }
 
         case _ =>
-          Exit.withErrorMessage { stream =>
-            stream.println("Nenhum dos seguintes arquivos foi encontrado:")
-            for (path <- allPaths) {
-              stream.println(s"  $path")
-            }
-          }
+          throw new Exception(
+            (
+              "Nenhum dos seguintes arquivos foi encontrado:\n"
+              +: allPaths.map(_ ++ "\n")
+            ).mkString
+          )
       }
 
     loop(allPaths)

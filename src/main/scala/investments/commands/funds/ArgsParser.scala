@@ -5,7 +5,10 @@ import investments.ArgumentsParser
 import java.io.PrintStream
 import java.time.YearMonth
 
-object ArgsParser extends ArgumentsParser[ParsedArgs] {
+object ArgsParser extends ArgumentsParser[OperationArguments] {
+  private val ListOperation = "list"
+  private val InitOperation = "init"
+
   private val TotalsOnlyOption = "--totals-only"
   private val NoTotalsOption = "--no-totals"
   private val SummaryOnlyOption = "--summary-only"
@@ -15,14 +18,22 @@ object ArgsParser extends ArgumentsParser[ParsedArgs] {
 
   private case class DetailsAndAggregationOptions(details: Boolean, aggregation: Boolean)
 
-  override protected def spec: Parser[ParsedArgs] =
+  override protected def spec: Parser[OperationArguments] =
+    for {
+      operation <- takeNextIf(operation => operation == ListOperation || operation == InitOperation)
+      opArgs <-
+        if (operation.contains(InitOperation)) takeInitOpArgs
+        else takeListOpArgs
+    } yield opArgs
+
+  private def takeListOpArgs: Parser[OperationArguments.List] =
     for {
       fundsAndTotals <- takeFundsAndTotalsOptions
       daysAndSummary <- takeDaysAndSummaryOptions
       positiveFilters <- takeFilters(PositiveFilterOption)
       negativeFilters <- takeFilters(NegativeFilterOption)
       monthRange <- takeMonthRange
-    } yield ParsedArgs(
+    } yield OperationArguments.List(
       initialMonth = monthRange._1,
       finalMonth = monthRange._2,
       printOptions = ChunkMaker.Options(
@@ -34,6 +45,10 @@ object ArgsParser extends ArgumentsParser[ParsedArgs] {
       positiveFilters = positiveFilters,
       negativeFilters = negativeFilters,
     )
+
+  private def takeInitOpArgs: Parser[OperationArguments.Init] =
+    for (month <- takeMonth)
+      yield OperationArguments.Init(month)
 
   private def takeFundsAndTotalsOptions: Parser[DetailsAndAggregationOptions] =
     takeDetailsAndAggregationOptions(Seq(TotalsOnlyOption), Seq(NoTotalsOption))
@@ -51,14 +66,15 @@ object ArgsParser extends ArgumentsParser[ParsedArgs] {
       _ = assert(details || aggregation)
     } yield DetailsAndAggregationOptions(details, aggregation)
 
-  private def incompatibleOptions(option1: String, option2: String): Nothing =
-    error(s"As opções $option1 e $option2 são incompatíveis")
-
   private def takeFilters(forms: String*): Parser[Seq[String]] =
     takeOptionParameter(forms: _*) $ {
       case Some(option) => option.split(",").toSeq
       case None => Seq.empty
     }
+
+  private def takeMonth: Parser[YearMonth] =
+    for (str <- takeNext)
+      yield YearMonth.parse(str)
 
   private def takeMonthRange: Parser[(YearMonth, YearMonth)] =
     for (str <- takeNext)
@@ -78,8 +94,13 @@ object ArgsParser extends ArgumentsParser[ParsedArgs] {
         (month, month)
     }
 
+  private def incompatibleOptions(option1: String, option2: String): Nothing =
+    error(s"As opções $option1 e $option2 são incompatíveis")
+
   override protected def printUsage(printStream: PrintStream): Unit = {
-    printStream.println("Parâmetros esperados: [OPÇÕES] MESES")
+    printStream.println("Parâmetros esperados:")
+    printStream.println("  [list] [OPÇÕES] MESES")
+    printStream.println("  init ANO-MÊS")
     printStream.println()
     printStream.println(s"  OPÇÕES podem ser:")
     printStream.println(s"    $TotalsOnlyOption|$NoTotalsOption")
