@@ -18,21 +18,21 @@ case class InitialRecordSet(
   override def missingData: Boolean = false
 }
 
-case class RecordSet(
-  date: LocalDate,
-  days: Int,
-  positionRecords: Map[String, Record.Position],
-  missingData: Boolean,
-
-  // Totals
-  totalYieldRate: Option[Double],
-  totalYieldResult: Option[Double],
-  totalInitialBalance: Option[Double],
-  totalBalanceChange: Option[Double],
-  totalFinalBalance: Option[Double],
-) extends PreviousRecordSet
-
 object RecordSet {
+  case class Position(
+    date: LocalDate,
+    days: Int,
+    positionRecords: Map[String, Record.Position],
+    missingData: Boolean,
+
+    // Totals
+    totalYieldRate: Option[Double],
+    totalYieldResult: Option[Double],
+    totalInitialBalance: Option[Double],
+    totalBalanceChange: Option[Double],
+    totalFinalBalance: Option[Double],
+  ) extends PreviousRecordSet
+
   case class Accumulated(
     days: Int,
     records: Map[String, Record.Accumulated],

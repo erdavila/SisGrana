@@ -14,7 +14,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
     yearMonth: YearMonth,
     warningText: Option[String],
     initialRecordSet: Option[InitialRecordSet],
-    recordSets: Seq[RecordSet],
+    positionRecordSets: Seq[RecordSet.Position],
     recordSetAccumulated: RecordSet.Accumulated,
   ): Seq[Seq[Chunk]] = {
     val yearMonthRowChunk = Seq(Chunk.leftAligned(Anchors.Leftmost, yearMonth.toString))
@@ -31,7 +31,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
         .toSeq
         .flatMap(toInitialRecordSetChunks)
 
-      val recordSetsRowsChunks = recordSets.flatMap(toRecordSetChunks)
+      val recordSetsRowsChunks = positionRecordSets.flatMap(toRecordSetChunks)
       initialRecordSetRowsChunks ++ recordSetsRowsChunks
     }
 
@@ -109,10 +109,10 @@ class ChunkMaker(options: ChunkMaker.Options) {
     }
   }
 
-  private def toRecordSetChunks(recordSet: RecordSet): Seq[Seq[Chunk]] = {
+  private def toRecordSetChunks(positionRecordSet: RecordSet.Position): Seq[Seq[Chunk]] = {
     toDataRowsChunks(
-      s"  ${recordSet.date.getDayOfMonth} (${s"+${Words.WithCount.day(recordSet.days)}"})",
-      recordSet.positionRecords
+      s"  ${positionRecordSet.date.getDayOfMonth} (${s"+${Words.WithCount.day(positionRecordSet.days)}"})",
+      positionRecordSet.positionRecords
         .filter { case (_, positionRecord) => positionRecord.shareAmountChange.isDefined || positionRecord.shareAmount.isDefined }
         .toSeq.sortBy { case (fund, _) => fund }.map { case (fund, positionRecord) =>
           DataRecord(
@@ -127,13 +127,13 @@ class ChunkMaker(options: ChunkMaker.Options) {
           )
         },
       DataRecord(
-        s"    Total", recordSet.missingData,
+        s"    Total", positionRecordSet.missingData,
         None,
-        recordSet.totalYieldResult, recordSet.totalYieldRate,
+        positionRecordSet.totalYieldResult, positionRecordSet.totalYieldRate,
         None, None, 1,
-        recordSet.totalInitialBalance,
-        recordSet.totalBalanceChange, None,
-        recordSet.totalFinalBalance, None,
+        positionRecordSet.totalInitialBalance,
+        positionRecordSet.totalBalanceChange, None,
+        positionRecordSet.totalFinalBalance, None,
         None,
       )
     )

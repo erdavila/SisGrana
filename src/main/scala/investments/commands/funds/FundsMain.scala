@@ -133,15 +133,15 @@ object FundsMain {
     println(s"O arquivo foi gravado: $filePath")
   }
 
-  private def readPreviousMonthEndRecordSet(month: YearMonth): RecordSet = {
+  private def readPreviousMonthEndRecordSet(month: YearMonth): RecordSet.Position = {
     val previousMonth = month.minusMonths(1)
     val statement = FundsMonthStatementFileReader.read(previousMonth)
-    val (_, recordSets, _) = StatementProcessor.process(previousMonth, statement)
+    val (_, positionRecordSets, _) = StatementProcessor.process(previousMonth, statement)
 
     val daysCounter = new DaysCounter(statement.noPriceDates)
     val lastDate = daysCounter.lastDateOfYearMonth(previousMonth)
 
-    recordSets.lastOption match {
+    positionRecordSets.lastOption match {
       case Some(recordSet) if recordSet.date == lastDate && recordSet.positionRecords.forall(!_._2.missingData) => recordSet
       case _ => Exit.withErrorMessage { stream =>
         stream.println(s"Faltam dados no último dia do mês anterior ($lastDate)")
