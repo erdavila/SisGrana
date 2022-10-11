@@ -31,7 +31,7 @@ object FundsMain {
           (ensureLastDayOfMonth(_, month))
         val (initialRecordSet, recordSets, recordSetAccumulated) = StatementProcessor.process(month, statement)
 
-        val monthInitialData = toMonthTurnData(initialRecordSet.records)
+        val monthInitialData = toMonthTurnData(initialRecordSet.positionRecords)
         val warning = Option.when(previousMonthFinalData.exists(_ != monthInitialData)) {
           "DADOS INICIAIS DIFEREM DOS DADOS FINAIS DO MÊS ANTERIOR"
         }
@@ -41,7 +41,7 @@ object FundsMain {
         }
 
         val chunks = chunkMaker.makeChunks(month, warning, initialRecordSetOpt, recordSets, recordSetAccumulated)
-        val monthFinalData = toMonthTurnData(recordSets.last.records)
+        val monthFinalData = toMonthTurnData(recordSets.last.positionRecords)
         (Some(monthFinalData), Some((chunks, recordSetAccumulated)))
       }
 
@@ -111,15 +111,15 @@ object FundsMain {
       nf.setMinimumFractionDigits(8)
       nf.setMaximumFractionDigits(8)
     }
-    val fundsRowsChunks = lastMonthEndRecordSet.records
+    val fundsRowsChunks = lastMonthEndRecordSet.positionRecords
       .toSeq
       .sortBy { case (fund, _) => fund }
-      .map { case (fund, record) =>
+      .map { case (fund, positionRecord) =>
         Seq(
           Chunk.leftAligned(0, s"INI${Separator}${quoted(fund)}"),
           Chunk.leftAligned(1, Separator),
-          Chunk.rightAligned(2, s"${nf.format(record.sharePrice.get)}${Separator}"),
-          Chunk.rightAligned(3, s"${nf.format(record.shareAmount.get.toDouble)}"),
+          Chunk.rightAligned(2, s"${nf.format(positionRecord.sharePrice.get)}${Separator}"),
+          Chunk.rightAligned(3, s"${nf.format(positionRecord.shareAmount.get.toDouble)}"),
         )
       }
 
@@ -142,7 +142,7 @@ object FundsMain {
     val lastDate = daysCounter.lastDateOfYearMonth(previousMonth)
 
     recordSets.lastOption match {
-      case Some(recordSet) if recordSet.date == lastDate && recordSet.records.forall(!_._2.missingData) => recordSet
+      case Some(recordSet) if recordSet.date == lastDate && recordSet.positionRecords.forall(!_._2.missingData) => recordSet
       case _ => Exit.withErrorMessage { stream =>
         stream.println(s"Faltam dados no último dia do mês anterior ($lastDate)")
       }

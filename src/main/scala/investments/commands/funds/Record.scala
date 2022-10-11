@@ -17,20 +17,20 @@ case class InitialRecord(
   override def missingData: Boolean = false
 }
 
-case class Record(
-  missingData: Boolean,
-  sharePrice: Option[Double],
-  yieldRate: Option[Double],
-  yieldResult: Option[Double],
-  initialBalance: Option[Double],
-  shareAmountChange: Option[BigDecimal],
-  balanceChange: Option[Double],
-  shareAmount: Option[BigDecimal],
-  finalBalance: Option[Double],
-  note: Option[String],
-) extends PreviousRecord
-
 object Record {
+  case class Position(
+    missingData: Boolean,
+    sharePrice: Option[Double],
+    yieldRate: Option[Double],
+    yieldResult: Option[Double],
+    initialBalance: Option[Double],
+    shareAmountChange: Option[BigDecimal],
+    balanceChange: Option[Double],
+    shareAmount: Option[BigDecimal],
+    finalBalance: Option[Double],
+    note: Option[String],
+  ) extends PreviousRecord
+
   case class Accumulated(
     days: Int,
     yieldRate: Option[Double],

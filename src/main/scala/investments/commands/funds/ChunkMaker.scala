@@ -73,7 +73,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
   private def toInitialRecordSetChunks(initialRecordSet: InitialRecordSet): Seq[Seq[Chunk]] = {
     val Title = "  Início"
 
-    if (initialRecordSet.records.isEmpty) {
+    if (initialRecordSet.positionRecords.isEmpty) {
       Seq(
         Seq(Chunk.leftAligned(Anchors.Leftmost, Title)),
         Seq(Chunk.leftAligned(Anchors.Leftmost, "    Nenhum dado")),
@@ -81,7 +81,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
     } else {
       toDataRowsChunks(
         Title,
-        initialRecordSet.records
+        initialRecordSet.positionRecords
           .toSeq.sortBy { case (fund, _) => fund }
           .map { case (fund, initialRecord) =>
             DataRecord(
@@ -112,18 +112,18 @@ class ChunkMaker(options: ChunkMaker.Options) {
   private def toRecordSetChunks(recordSet: RecordSet): Seq[Seq[Chunk]] = {
     toDataRowsChunks(
       s"  ${recordSet.date.getDayOfMonth} (${s"+${Words.WithCount.day(recordSet.days)}"})",
-      recordSet.records
-        .filter { case (_, record) => record.shareAmountChange.isDefined || record.shareAmount.isDefined }
-        .toSeq.sortBy { case (fund, _) => fund }.map { case (fund, record) =>
+      recordSet.positionRecords
+        .filter { case (_, positionRecord) => positionRecord.shareAmountChange.isDefined || positionRecord.shareAmount.isDefined }
+        .toSeq.sortBy { case (fund, _) => fund }.map { case (fund, positionRecord) =>
           DataRecord(
-            s"    $fund", record.missingData,
-            record.sharePrice,
-            record.yieldResult, record.yieldRate,
+            s"    $fund", positionRecord.missingData,
+            positionRecord.sharePrice,
+            positionRecord.yieldResult, positionRecord.yieldRate,
             None, None, 1,
-            record.initialBalance,
-            record.balanceChange, record.shareAmountChange,
-            record.finalBalance, record.shareAmount,
-            record.note,
+            positionRecord.initialBalance,
+            positionRecord.balanceChange, positionRecord.shareAmountChange,
+            positionRecord.finalBalance, positionRecord.shareAmount,
+            positionRecord.note,
           )
         },
       DataRecord(

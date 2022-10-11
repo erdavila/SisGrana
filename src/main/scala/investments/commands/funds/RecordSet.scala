@@ -5,14 +5,14 @@ import java.time.LocalDate
 
 sealed trait PreviousRecordSet {
   def date: LocalDate
-  def records: Map[String, PreviousRecord]
+  def positionRecords: Map[String, PreviousRecord]
   def missingData: Boolean
   def totalFinalBalance: Option[Double]
 }
 
 case class InitialRecordSet(
   date: LocalDate,
-  records: Map[String, InitialRecord],
+  positionRecords: Map[String, InitialRecord],
   totalFinalBalance: Option[Double],
 ) extends PreviousRecordSet {
   override def missingData: Boolean = false
@@ -21,7 +21,7 @@ case class InitialRecordSet(
 case class RecordSet(
   date: LocalDate,
   days: Int,
-  records: Map[String, Record],
+  positionRecords: Map[String, Record.Position],
   missingData: Boolean,
 
   // Totals
