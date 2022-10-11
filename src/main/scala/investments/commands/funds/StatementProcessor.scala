@@ -33,8 +33,8 @@ object StatementProcessor {
 
     val ((_, recordSetAccumulated), remainingDaysPositionRecords) = statement.entries
       .toSeq.sortBy { case (date, _) => date }
-      .foldFlatMapLeft((initialPositionRecordSet: PreviousRecordSet, ZeroRecordSetAccumulated)) { case ((previousRecordSet, recordSetAccumulated), (date, entries)) =>
-        val positionRecordSet = positionRecordSetFrom(entries, date, previousRecordSet)
+      .foldFlatMapLeft((initialPositionRecordSet: RecordSet.Position.Previous, ZeroRecordSetAccumulated)) { case ((previousPositionRecordSet, recordSetAccumulated), (date, entries)) =>
+        val positionRecordSet = positionRecordSetFrom(entries, date, previousPositionRecordSet)
         val updatedRecordSetAccumulated = recordSetAccumulatedFrom(recordSetAccumulated, positionRecordSet)
         ((positionRecordSet, updatedRecordSetAccumulated), Some(positionRecordSet))
       }
@@ -50,25 +50,25 @@ object StatementProcessor {
       note = initialEntry.note,
     )
 
-  private def positionRecordSetFrom(dayEntries: Map[String, FundsStatement.Entry], date: LocalDate, previousRecordSet: PreviousRecordSet)(implicit daysCounter: DaysCounter): RecordSet.Position = {
-    val days = daysCounter.count(previousRecordSet.date, date)
-    val positionRecords = positionRecordsFrom(dayEntries, previousRecordSet)
-    positionRecordSetFrom(positionRecords, date, days, previousRecordSet)
+  private def positionRecordSetFrom(dayEntries: Map[String, FundsStatement.Entry], date: LocalDate, previousPositionRecordSet: RecordSet.Position.Previous)(implicit daysCounter: DaysCounter): RecordSet.Position = {
+    val days = daysCounter.count(previousPositionRecordSet.date, date)
+    val positionRecords = positionRecordsFrom(dayEntries, previousPositionRecordSet)
+    positionRecordSetFrom(positionRecords, date, days, previousPositionRecordSet)
   }
 
-  private def positionRecordsFrom(dayEntries: Map[String, FundsStatement.Entry], previousRecordSet: PreviousRecordSet): Map[String, Record.Position] =
-    (dayEntries.keys ++ previousRecordSet.positionRecords.keys).toSeq
+  private def positionRecordsFrom(dayEntries: Map[String, FundsStatement.Entry], previousPositionRecordSet: RecordSet.Position.Previous): Map[String, Record.Position] =
+    (dayEntries.keys ++ previousPositionRecordSet.positionRecords.keys).toSeq
       .distinct
       .map { fund =>
         val entry = dayEntries.get(fund)
-        val previousRecord = previousRecordSet.positionRecords.get(fund)
-        fund -> positionRecordFrom(entry, previousRecord)
+        val previousPositionRecord = previousPositionRecordSet.positionRecords.get(fund)
+        fund -> positionRecordFrom(entry, previousPositionRecord)
       }
       .toMap
 
-  private[funds] def positionRecordSetFrom(positionRecords: Map[String, Record.Position], date: LocalDate, days: Int, previousRecordSet: PreviousRecordSet): RecordSet.Position = {
+  private[funds] def positionRecordSetFrom(positionRecords: Map[String, Record.Position], date: LocalDate, days: Int, previousPositionRecordSet: RecordSet.Position.Previous): RecordSet.Position = {
     val totalInitialBalance = sumIfAny(positionRecords.values.flatMap(_.initialBalance))
-    val totalYieldRate = (totalInitialBalance, previousRecordSet.totalFinalBalance).mapN(_ / _ - 1)
+    val totalYieldRate = (totalInitialBalance, previousPositionRecordSet.totalFinalBalance).mapN(_ / _ - 1)
     val totalYieldResult = sumIfAny(positionRecords.values.flatMap(_.yieldResult))
     val totalBalanceChange = sumIfAny(positionRecords.values.flatMap(_.balanceChange))
 
@@ -76,7 +76,7 @@ object StatementProcessor {
       date = date,
       days = days,
       positionRecords = positionRecords,
-      missingData = previousRecordSet.missingData || positionRecords.values.exists(_.missingData),
+      missingData = previousPositionRecordSet.missingData || positionRecords.values.exists(_.missingData),
       totalYieldRate = totalYieldRate,
       totalYieldResult = totalYieldResult,
       totalInitialBalance = totalInitialBalance,

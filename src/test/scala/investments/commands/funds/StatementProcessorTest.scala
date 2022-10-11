@@ -9,7 +9,7 @@ class StatementProcessorTest extends TestBase {
   private val yearMonth = YearMonth.of(2022, Month.JANUARY)
 
   private case class PositionRecordFromInputs(entry: Option[FundsStatement.Entry], previousPositionRecord: Option[Record.Position.Previous])
-  private case class PositionRecordSetFromInputs(positionRecords: Map[String, Record.Position], date: LocalDate = yearMonth.atDay(1), days: Int = 1, previousRecordSet: PreviousRecordSet)
+  private case class PositionRecordSetFromInputs(positionRecords: Map[String, Record.Position], date: LocalDate = yearMonth.atDay(1), days: Int = 1, previousPositionRecordSet: RecordSet.Position.Previous)
 
   test(".positionRecordFrom().sharePrice") {
     val entry = anyEntry().modify(_.sharePrice).setTo(1.23456789)
@@ -370,26 +370,26 @@ class StatementProcessorTest extends TestBase {
         positionRecords = Map(
           "A" -> anyPositionRecord().modify(_.initialBalance).setTo(Some(initialBalance))
         ),
-        previousRecordSet = anyPositionRecordSet().modify(_.totalFinalBalance).setTo(Some(previousFinalBalance))
+        previousPositionRecordSet = anyPositionRecordSet().modify(_.totalFinalBalance).setTo(Some(previousFinalBalance))
       ) -> Some(expectedTotalYieldRate),
 
       PositionRecordSetFromInputs(
         positionRecords = Map(
           "A" -> anyPositionRecord().modify(_.initialBalance).setTo(None)
         ),
-        previousRecordSet = anyPositionRecordSet().modify(_.totalFinalBalance).setTo(Some(previousFinalBalance))
+        previousPositionRecordSet = anyPositionRecordSet().modify(_.totalFinalBalance).setTo(Some(previousFinalBalance))
       ) -> None,
 
       PositionRecordSetFromInputs(
         positionRecords = Map(
           "A" -> anyPositionRecord().modify(_.initialBalance).setTo(Some(initialBalance))
         ),
-        previousRecordSet = anyPositionRecordSet().modify(_.totalFinalBalance).setTo(None)
+        previousPositionRecordSet = anyPositionRecordSet().modify(_.totalFinalBalance).setTo(None)
       ) -> None,
     )
 
     forAll(cases) { case inputs -> expectedTotalYieldRate =>
-      val positionRecordSet = StatementProcessor.positionRecordSetFrom(inputs.positionRecords, inputs.date, inputs.days, inputs.previousRecordSet)
+      val positionRecordSet = StatementProcessor.positionRecordSetFrom(inputs.positionRecords, inputs.date, inputs.days, inputs.previousPositionRecordSet)
       positionRecordSet.totalYieldRate should equal (expectedTotalYieldRate)
     }
   }
@@ -409,19 +409,19 @@ class StatementProcessorTest extends TestBase {
           "B" -> anyPositionRecord().modify(_.yieldResult).setTo(Some(yieldResultB)),
           "C" -> anyPositionRecord().modify(_.yieldResult).setTo(None),
         ),
-        previousRecordSet = anyPositionRecordSet(),
+        previousPositionRecordSet = anyPositionRecordSet(),
       ) -> Some(expectedTotalYieldResult),
 
       PositionRecordSetFromInputs(
         positionRecords = Map(
           "A" -> anyPositionRecord().modify(_.yieldResult).setTo(None),
         ),
-        previousRecordSet = anyPositionRecordSet(),
+        previousPositionRecordSet = anyPositionRecordSet(),
       ) -> None,
     )
 
     forAll(cases) { case inputs -> expectedTotalYieldResult =>
-      val positionRecordSet = StatementProcessor.positionRecordSetFrom(inputs.positionRecords, inputs.date, inputs.days, inputs.previousRecordSet)
+      val positionRecordSet = StatementProcessor.positionRecordSetFrom(inputs.positionRecords, inputs.date, inputs.days, inputs.previousPositionRecordSet)
       positionRecordSet.totalYieldResult should equal (expectedTotalYieldResult)
     }
   }
@@ -439,7 +439,7 @@ class StatementProcessorTest extends TestBase {
           "B" -> anyPositionRecord().modify(_.initialBalance).setTo(Some(initialBalanceB)),
           "C" -> anyPositionRecord().modify(_.initialBalance).setTo(None),
         ),
-        previousRecordSet = anyPositionRecordSet(),
+        previousPositionRecordSet = anyPositionRecordSet(),
       ) -> Some(initialBalanceA + initialBalanceB),
 
       PositionRecordSetFromInputs(
@@ -447,12 +447,12 @@ class StatementProcessorTest extends TestBase {
           "A" -> anyPositionRecord().modify(_.initialBalance).setTo(None),
           "B" -> anyPositionRecord().modify(_.initialBalance).setTo(None),
         ),
-        previousRecordSet = anyPositionRecordSet(),
+        previousPositionRecordSet = anyPositionRecordSet(),
       ) -> None,
     )
 
     forAll(cases) { case inputs -> expectedTotalInitialBalance =>
-      val positionRecordSet = StatementProcessor.positionRecordSetFrom(inputs.positionRecords, inputs.date, inputs.days, inputs.previousRecordSet)
+      val positionRecordSet = StatementProcessor.positionRecordSetFrom(inputs.positionRecords, inputs.date, inputs.days, inputs.previousPositionRecordSet)
       expectedTotalInitialBalance match {
         case Some(expectedTotalInitialBalance) => positionRecordSet.totalInitialBalance.value should equal (expectedTotalInitialBalance)
         case None => positionRecordSet.totalInitialBalance should be (None)
@@ -474,7 +474,7 @@ class StatementProcessorTest extends TestBase {
           "B" -> anyPositionRecord().modify(_.balanceChange).setTo(Some(balanceChangeB)),
           "C" -> anyPositionRecord().modify(_.balanceChange).setTo(None),
         ),
-        previousRecordSet = anyPositionRecordSet(),
+        previousPositionRecordSet = anyPositionRecordSet(),
       ) -> Some(expectedBalanceChange),
 
       PositionRecordSetFromInputs(
@@ -482,12 +482,12 @@ class StatementProcessorTest extends TestBase {
           "A" -> anyPositionRecord().modify(_.balanceChange).setTo(None),
           "B" -> anyPositionRecord().modify(_.balanceChange).setTo(None),
         ),
-        previousRecordSet = anyPositionRecordSet(),
+        previousPositionRecordSet = anyPositionRecordSet(),
       ) -> None,
     )
 
     forAll(cases) { case inputs -> expectedTotalBalanceChange =>
-      val positionRecordSet = StatementProcessor.positionRecordSetFrom(inputs.positionRecords, inputs.date, inputs.days, inputs.previousRecordSet)
+      val positionRecordSet = StatementProcessor.positionRecordSetFrom(inputs.positionRecords, inputs.date, inputs.days, inputs.previousPositionRecordSet)
       expectedTotalBalanceChange match {
         case Some(expectedTotalBalanceChange) => positionRecordSet.totalBalanceChange.value should equal(expectedTotalBalanceChange)
         case None => positionRecordSet.totalBalanceChange should be (None)
@@ -508,7 +508,7 @@ class StatementProcessorTest extends TestBase {
           "B" -> anyPositionRecord().modify(_.finalBalance).setTo(Some(finalBalanceB)),
           "C" -> anyPositionRecord().modify(_.finalBalance).setTo(None),
         ),
-        previousRecordSet = anyPositionRecordSet(),
+        previousPositionRecordSet = anyPositionRecordSet(),
       ) -> Some(finalBalanceA + finalBalanceB),
 
       PositionRecordSetFromInputs(
@@ -516,12 +516,12 @@ class StatementProcessorTest extends TestBase {
           "A" -> anyPositionRecord().modify(_.finalBalance).setTo(None),
           "B" -> anyPositionRecord().modify(_.finalBalance).setTo(None),
         ),
-        previousRecordSet = anyPositionRecordSet(),
+        previousPositionRecordSet = anyPositionRecordSet(),
       ) -> None,
     )
 
     forAll(cases) { case inputs -> expectedTotalFinalBalance =>
-      val positionRecordSet = StatementProcessor.positionRecordSetFrom(inputs.positionRecords, inputs.date, inputs.days, inputs.previousRecordSet)
+      val positionRecordSet = StatementProcessor.positionRecordSetFrom(inputs.positionRecords, inputs.date, inputs.days, inputs.previousPositionRecordSet)
       expectedTotalFinalBalance match {
         case Some(expectedTotalFinalBalance) => positionRecordSet.totalFinalBalance.value should equal (expectedTotalFinalBalance)
         case None => positionRecordSet.totalFinalBalance should be (None)

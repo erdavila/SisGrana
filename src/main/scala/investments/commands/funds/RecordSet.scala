@@ -3,13 +3,6 @@ package investments.commands.funds
 
 import java.time.LocalDate
 
-sealed trait PreviousRecordSet {
-  def date: LocalDate
-  def positionRecords: Map[String, Record.Position.Previous]
-  def missingData: Boolean
-  def totalFinalBalance: Option[Double]
-}
-
 object RecordSet {
   case class Position(
     date: LocalDate,
@@ -23,15 +16,22 @@ object RecordSet {
     totalInitialBalance: Option[Double],
     totalBalanceChange: Option[Double],
     totalFinalBalance: Option[Double],
-  ) extends PreviousRecordSet
+  ) extends RecordSet.Position.Previous
 
   object Position {
     case class Initial(
       date: LocalDate,
       positionRecords: Map[String, Record.Position.Initial],
       totalFinalBalance: Option[Double],
-    ) extends PreviousRecordSet {
+    ) extends RecordSet.Position.Previous {
       override def missingData: Boolean = false
+    }
+
+    sealed trait Previous {
+      def date: LocalDate
+      def positionRecords: Map[String, Record.Position.Previous]
+      def missingData: Boolean
+      def totalFinalBalance: Option[Double]
     }
   }
 
