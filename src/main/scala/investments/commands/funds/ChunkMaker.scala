@@ -13,7 +13,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
   def makeChunks(
     yearMonth: YearMonth,
     warningText: Option[String],
-    initialRecordSet: Option[InitialRecordSet],
+    initialPositionRecordSet: Option[RecordSet.Position.Initial],
     positionRecordSets: Seq[RecordSet.Position],
     recordSetAccumulated: RecordSet.Accumulated,
   ): Seq[Seq[Chunk]] = {
@@ -27,7 +27,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
       }
 
     val daysRowsChunks = seqIf(options.days) {
-      val initialRecordSetRowsChunks = initialRecordSet
+      val initialRecordSetRowsChunks = initialPositionRecordSet
         .toSeq
         .flatMap(toInitialRecordSetChunks)
 
@@ -70,10 +70,10 @@ class ChunkMaker(options: ChunkMaker.Options) {
     val End = 15
   }
 
-  private def toInitialRecordSetChunks(initialRecordSet: InitialRecordSet): Seq[Seq[Chunk]] = {
+  private def toInitialRecordSetChunks(initialPositionRecordSet: RecordSet.Position.Initial): Seq[Seq[Chunk]] = {
     val Title = "  Início"
 
-    if (initialRecordSet.positionRecords.isEmpty) {
+    if (initialPositionRecordSet.positionRecords.isEmpty) {
       Seq(
         Seq(Chunk.leftAligned(Anchors.Leftmost, Title)),
         Seq(Chunk.leftAligned(Anchors.Leftmost, "    Nenhum dado")),
@@ -81,7 +81,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
     } else {
       toDataRowsChunks(
         Title,
-        initialRecordSet.positionRecords
+        initialPositionRecordSet.positionRecords
           .toSeq.sortBy { case (fund, _) => fund }
           .map { case (fund, initialRecord) =>
             DataRecord(
@@ -102,7 +102,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
           None, None, 0,
           None,
           None, None,
-          initialRecordSet.totalFinalBalance, None,
+          initialPositionRecordSet.totalFinalBalance, None,
           None,
         )
       )

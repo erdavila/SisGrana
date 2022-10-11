@@ -10,14 +10,6 @@ sealed trait PreviousRecordSet {
   def totalFinalBalance: Option[Double]
 }
 
-case class InitialRecordSet(
-  date: LocalDate,
-  positionRecords: Map[String, Record.Position.Initial],
-  totalFinalBalance: Option[Double],
-) extends PreviousRecordSet {
-  override def missingData: Boolean = false
-}
-
 object RecordSet {
   case class Position(
     date: LocalDate,
@@ -32,6 +24,16 @@ object RecordSet {
     totalBalanceChange: Option[Double],
     totalFinalBalance: Option[Double],
   ) extends PreviousRecordSet
+
+  object Position {
+    case class Initial(
+      date: LocalDate,
+      positionRecords: Map[String, Record.Position.Initial],
+      totalFinalBalance: Option[Double],
+    ) extends PreviousRecordSet {
+      override def missingData: Boolean = false
+    }
+  }
 
   case class Accumulated(
     days: Int,

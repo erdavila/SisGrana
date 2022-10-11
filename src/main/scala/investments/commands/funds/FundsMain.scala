@@ -96,7 +96,7 @@ object FundsMain {
       }
     }
 
-    val lastMonthEndRecordSet = readPreviousMonthEndRecordSet(opArgs.month)
+    val lastMonthEndRecordSet = readPreviousMonthEndPositionRecordSet(opArgs.month)
 
     val Separator = "  "
     val headerRowChunks = Seq(
@@ -133,7 +133,7 @@ object FundsMain {
     println(s"O arquivo foi gravado: $filePath")
   }
 
-  private def readPreviousMonthEndRecordSet(month: YearMonth): RecordSet.Position = {
+  private def readPreviousMonthEndPositionRecordSet(month: YearMonth): RecordSet.Position = {
     val previousMonth = month.minusMonths(1)
     val statement = FundsMonthStatementFileReader.read(previousMonth)
     val (_, positionRecordSets, _) = StatementProcessor.process(previousMonth, statement)
