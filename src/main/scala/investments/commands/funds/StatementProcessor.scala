@@ -20,7 +20,7 @@ object StatementProcessor {
 
   def process(yearMonth: YearMonth, statement: FundsStatement): (InitialRecordSet, Seq[RecordSet], RecordSet.Accumulated) = {
     val initialRecords = statement.initialEntries
-      .view.mapValues(initialRecordFrom)
+      .view.mapValues(initialPositionRecordFrom)
       .toMap
 
     val initialDate = yearMonth.atDay(1).minusDays(1)
@@ -42,8 +42,8 @@ object StatementProcessor {
     (initialRecordSet, remainingDaysRecords, recordSetAccumulated)
   }
 
-  private def initialRecordFrom(initialEntry: FundsStatement.InitialEntry): InitialRecord =
-    InitialRecord(
+  private def initialPositionRecordFrom(initialEntry: FundsStatement.InitialEntry): Record.Position.Initial =
+    Record.Position.Initial(
       sharePrice = Some(initialEntry.sharePrice),
       shareAmount = Some(initialEntry.shareAmount),
       finalBalance = Some(initialEntry.shareAmount.toDouble * initialEntry.sharePrice),

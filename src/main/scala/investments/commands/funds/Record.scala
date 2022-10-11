@@ -8,15 +8,6 @@ sealed trait PreviousRecord {
   def finalBalance: Option[Double]
 }
 
-case class InitialRecord(
-  sharePrice: Some[Double],
-  shareAmount: Some[BigDecimal],
-  finalBalance: Some[Double],
-  note: Option[String],
-) extends PreviousRecord {
-  override def missingData: Boolean = false
-}
-
 object Record {
   case class Position(
     missingData: Boolean,
@@ -30,6 +21,17 @@ object Record {
     finalBalance: Option[Double],
     note: Option[String],
   ) extends PreviousRecord
+
+  object Position {
+    case class Initial(
+      sharePrice: Some[Double],
+      shareAmount: Some[BigDecimal],
+      finalBalance: Some[Double],
+      note: Option[String],
+    ) extends PreviousRecord {
+      override def missingData: Boolean = false
+    }
+  }
 
   case class Accumulated(
     days: Int,

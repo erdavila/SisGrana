@@ -12,7 +12,7 @@ sealed trait PreviousRecordSet {
 
 case class InitialRecordSet(
   date: LocalDate,
-  positionRecords: Map[String, InitialRecord],
+  positionRecords: Map[String, Record.Position.Initial],
   totalFinalBalance: Option[Double],
 ) extends PreviousRecordSet {
   override def missingData: Boolean = false
