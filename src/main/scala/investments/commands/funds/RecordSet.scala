@@ -5,7 +5,7 @@ import java.time.LocalDate
 
 sealed trait PreviousRecordSet {
   def date: LocalDate
-  def positionRecords: Map[String, PreviousRecord]
+  def positionRecords: Map[String, Record.Position.Previous]
   def missingData: Boolean
   def totalFinalBalance: Option[Double]
 }

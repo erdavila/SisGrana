@@ -85,11 +85,11 @@ object StatementProcessor {
     )
   }
 
-  private[funds] def positionRecordFrom(entry: Option[FundsStatement.Entry], previousRecord: Option[PreviousRecord]): Record.Position = {
-    val previousMissingData = previousRecord.map(_.missingData)
-    val previousSharePrice = previousRecord.flatMap(_.sharePrice)
-    val previousFinalBalance = previousRecord.flatMap(_.finalBalance)
-    val previousShareAmount = previousRecord.flatMap(_.shareAmount)
+  private[funds] def positionRecordFrom(entry: Option[FundsStatement.Entry], previousPositionRecord: Option[Record.Position.Previous]): Record.Position = {
+    val previousMissingData = previousPositionRecord.map(_.missingData)
+    val previousSharePrice = previousPositionRecord.flatMap(_.sharePrice)
+    val previousFinalBalance = previousPositionRecord.flatMap(_.finalBalance)
+    val previousShareAmount = previousPositionRecord.flatMap(_.shareAmount)
 
     val sharePrice = entry.map(_.sharePrice)
     val yieldRate = (sharePrice, previousSharePrice).mapN(_ / _ - 1)

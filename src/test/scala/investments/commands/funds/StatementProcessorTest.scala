@@ -8,7 +8,7 @@ import java.time.{LocalDate, Month, YearMonth}
 class StatementProcessorTest extends TestBase {
   private val yearMonth = YearMonth.of(2022, Month.JANUARY)
 
-  private case class PositionRecordFromInputs(entry: Option[FundsStatement.Entry], previousRecord: Option[PreviousRecord])
+  private case class PositionRecordFromInputs(entry: Option[FundsStatement.Entry], previousPositionRecord: Option[Record.Position.Previous])
   private case class RecordSetFromInputs(positionRecords: Map[String, Record.Position], date: LocalDate = yearMonth.atDay(1), days: Int = 1, previousRecordSet: PreviousRecordSet)
 
   test(".positionRecordFrom().sharePrice") {
@@ -18,16 +18,16 @@ class StatementProcessorTest extends TestBase {
       "inputs" -> "expectedSharePrice",
       PositionRecordFromInputs(
         entry = Some(entry),
-        previousRecord = Some(anyPositionRecord()),
+        previousPositionRecord = Some(anyPositionRecord()),
       ) -> Some(entry.sharePrice),
       PositionRecordFromInputs(
         entry = None,
-        previousRecord = Some(anyPositionRecord()),
+        previousPositionRecord = Some(anyPositionRecord()),
       ) -> None,
     )
 
     forAll(cases) { case inputs -> expectedSharePrice =>
-      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousRecord)
+      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousPositionRecord)
       positionRecord.sharePrice should equal (expectedSharePrice)
     }
   }
@@ -46,27 +46,27 @@ class StatementProcessorTest extends TestBase {
 
       PositionRecordFromInputs(
         entry = Some(entry),
-        previousRecord = Some(previousRecordWithSharePrice),
+        previousPositionRecord = Some(previousRecordWithSharePrice),
       ) -> Some(expectedRate),
 
       PositionRecordFromInputs(
         entry = Some(entry),
-        previousRecord = Some(previousRecordWithoutSharePrice),
+        previousPositionRecord = Some(previousRecordWithoutSharePrice),
       ) -> None,
 
       PositionRecordFromInputs(
         entry = Some(entry),
-        previousRecord = None,
+        previousPositionRecord = None,
       ) -> None,
 
       PositionRecordFromInputs(
         entry = None,
-        previousRecord = Some(previousRecordWithSharePrice),
+        previousPositionRecord = Some(previousRecordWithSharePrice),
       ) -> None,
     )
 
     forAll(cases) { case inputs -> expectedYieldRate =>
-      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousRecord)
+      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousPositionRecord)
       positionRecord.yieldRate should equal (expectedYieldRate)
     }
   }
@@ -93,27 +93,27 @@ class StatementProcessorTest extends TestBase {
 
       PositionRecordFromInputs(
         entry = Some(entry),
-        previousRecord = Some(previousRecordWithSharePriceAndBalance),
+        previousPositionRecord = Some(previousRecordWithSharePriceAndBalance),
       ) -> Some(expectedYieldResult),
 
       PositionRecordFromInputs(
         entry = Some(entry),
-        previousRecord = Some(previousRecordWithSharePriceButWithoutBalance),
+        previousPositionRecord = Some(previousRecordWithSharePriceButWithoutBalance),
       ) -> None,
 
       PositionRecordFromInputs(
         entry = Some(entry),
-        previousRecord = None,
+        previousPositionRecord = None,
       ) -> None,
 
       PositionRecordFromInputs(
         entry = None,
-        previousRecord = Some(previousRecordWithSharePriceAndBalance),
+        previousPositionRecord = Some(previousRecordWithSharePriceAndBalance),
       ) -> None,
     )
 
     forAll(cases) { case inputs -> expectedYieldResult =>
-      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousRecord)
+      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousPositionRecord)
       expectedYieldResult match {
         case Some(expectedYieldResult) => positionRecord.yieldResult.value should equal (expectedYieldResult +- 1e-14)
         case None => positionRecord.yieldResult should be (None)
@@ -131,20 +131,20 @@ class StatementProcessorTest extends TestBase {
       "inputs" -> "expectedInitialBalance",
       PositionRecordFromInputs(
         entry = Some(entry),
-        previousRecord = Some(previousRecordWithShareAmount),
+        previousPositionRecord = Some(previousRecordWithShareAmount),
       ) -> Some(previousShareAmount.toDouble * entry.sharePrice),
       PositionRecordFromInputs(
         entry = Some(entry),
-        previousRecord = None,
+        previousPositionRecord = None,
       ) -> None,
       PositionRecordFromInputs(
         entry = None,
-        previousRecord = Some(previousRecordWithShareAmount),
+        previousPositionRecord = Some(previousRecordWithShareAmount),
       ) -> None,
     )
 
     forAll(cases) { case inputs -> expectedInitialBalance =>
-      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousRecord)
+      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousPositionRecord)
       positionRecord.initialBalance should equal (expectedInitialBalance)
     }
   }
@@ -160,27 +160,27 @@ class StatementProcessorTest extends TestBase {
 
       PositionRecordFromInputs(
         entry = Some(entryWithShareAmountChange),
-        previousRecord = Some(anyPositionRecord()),
+        previousPositionRecord = Some(anyPositionRecord()),
       ) -> Some(shareAmountChange),
 
       PositionRecordFromInputs(
         entry = Some(entryWithoutShareAmountChange),
-        previousRecord = Some(anyPositionRecord()),
+        previousPositionRecord = Some(anyPositionRecord()),
       ) -> None,
 
       PositionRecordFromInputs(
         entry = Some(entryWithShareAmountChange),
-        previousRecord = None,
+        previousPositionRecord = None,
       ) -> Some(shareAmountChange),
 
       PositionRecordFromInputs(
         entry = Some(entryWithoutShareAmountChange),
-        previousRecord = None,
+        previousPositionRecord = None,
       ) -> None,
     )
 
     forAll(cases) { case inputs -> expectedShareAmountChange =>
-      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousRecord)
+      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousPositionRecord)
       positionRecord.shareAmountChange should equal (expectedShareAmountChange)
     }
   }
@@ -203,27 +203,27 @@ class StatementProcessorTest extends TestBase {
 
       PositionRecordFromInputs(
         entry = Some(entryWithShareAmountChange),
-        previousRecord = Some(anyPositionRecord()),
+        previousPositionRecord = Some(anyPositionRecord()),
       ) -> Some(expectedBalanceChange),
 
       PositionRecordFromInputs(
         entry = Some(entryWithoutShareAmountChange),
-        previousRecord = Some(anyPositionRecord()),
+        previousPositionRecord = Some(anyPositionRecord()),
       ) -> None,
 
       PositionRecordFromInputs(
         entry = Some(entryWithShareAmountChange),
-        previousRecord = None,
+        previousPositionRecord = None,
       ) -> Some(expectedBalanceChange),
 
       PositionRecordFromInputs(
         entry = Some(entryWithoutShareAmountChange),
-        previousRecord = None,
+        previousPositionRecord = None,
       ) -> None,
     )
 
     forAll(cases) { case inputs -> expectedBalanceChange =>
-      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousRecord)
+      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousPositionRecord)
       positionRecord.balanceChange should equal (expectedBalanceChange)
     }
   }
@@ -250,32 +250,32 @@ class StatementProcessorTest extends TestBase {
 
       PositionRecordFromInputs(
         entry = Some(entryWithShareAmountChange),
-        previousRecord = Some(recordWithOwnedFigures),
+        previousPositionRecord = Some(recordWithOwnedFigures),
       ) -> Some(previousShareAmount + shareAmountChange),
 
       PositionRecordFromInputs(
         entry = Some(entryWithoutShareAmountChange),
-        previousRecord = Some(recordWithOwnedFigures),
+        previousPositionRecord = Some(recordWithOwnedFigures),
       ) -> Some(previousShareAmount),
 
       PositionRecordFromInputs(
         entry = Some(entryWithShareAmountChange),
-        previousRecord = Some(recordWithoutOwnedFigures),
+        previousPositionRecord = Some(recordWithoutOwnedFigures),
       ) -> Some(shareAmountChange),
 
       PositionRecordFromInputs(
         entry = Some(entryForFullWithdrawal),
-        previousRecord = Some(recordWithOwnedFigures),
+        previousPositionRecord = Some(recordWithOwnedFigures),
       ) -> None,
 
       PositionRecordFromInputs(
         entry = None,
-        previousRecord = Some(anyPositionRecord()),
+        previousPositionRecord = Some(anyPositionRecord()),
       ) -> None,
     )
 
     forAll(cases) { case inputs -> expectedShareAmount =>
-      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousRecord)
+      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousPositionRecord)
       positionRecord.shareAmount should equal(expectedShareAmount)
     }
   }
@@ -302,32 +302,32 @@ class StatementProcessorTest extends TestBase {
 
       PositionRecordFromInputs(
         entry = Some(entryWithShareAmountChange),
-        previousRecord = Some(recordWithOwnedFigures),
+        previousPositionRecord = Some(recordWithOwnedFigures),
       ) -> Some((previousShareAmount + shareAmountChange).toDouble * entryWithShareAmountChange.sharePrice),
 
       PositionRecordFromInputs(
         entry = Some(entryWithoutShareAmountChange),
-        previousRecord = Some(recordWithOwnedFigures),
+        previousPositionRecord = Some(recordWithOwnedFigures),
       ) -> Some(previousShareAmount.toDouble * entryWithShareAmountChange.sharePrice),
 
       PositionRecordFromInputs(
         entry = Some(entryWithShareAmountChange),
-        previousRecord = Some(recordWithoutOwnedFigures),
+        previousPositionRecord = Some(recordWithoutOwnedFigures),
       ) -> Some(shareAmountChange.toDouble * entryWithShareAmountChange.sharePrice),
 
       PositionRecordFromInputs(
         entry = Some(entryForFullWithdrawal),
-        previousRecord = Some(recordWithOwnedFigures),
+        previousPositionRecord = Some(recordWithOwnedFigures),
       ) -> None,
 
       PositionRecordFromInputs(
         entry = None,
-        previousRecord = Some(anyPositionRecord()),
+        previousPositionRecord = Some(anyPositionRecord()),
       ) -> None,
     )
 
     forAll(cases) { case inputs -> expectedFinalBalance =>
-      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousRecord)
+      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousPositionRecord)
       positionRecord.finalBalance should equal (expectedFinalBalance)
     }
   }
@@ -343,17 +343,17 @@ class StatementProcessorTest extends TestBase {
 
       PositionRecordFromInputs(
         entry = Some(entryWithNote),
-        previousRecord = Some(anyPositionRecord()),
+        previousPositionRecord = Some(anyPositionRecord()),
       ) -> Some(note),
 
       PositionRecordFromInputs(
         entry = Some(anyEntry()),
-        previousRecord = Some(anyPositionRecord()),
+        previousPositionRecord = Some(anyPositionRecord()),
       ) -> None,
     )
 
     forAll(cases) { case inputs -> expectedNote =>
-      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousRecord)
+      val positionRecord = StatementProcessor.positionRecordFrom(inputs.entry, inputs.previousPositionRecord)
       positionRecord.note should equal (expectedNote)
     }
   }

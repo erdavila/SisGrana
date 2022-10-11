@@ -81,10 +81,10 @@ object FundsMain {
       .usingIf(!statement.entries.contains(lastDate))(_ + (lastDate -> Map.empty))
   }
 
-  private def toMonthTurnData(records: Map[String, PreviousRecord]): Map[String, MonthTurnFundData] =
-    records.view
+  private def toMonthTurnData(previousPositionRecords: Map[String, Record.Position.Previous]): Map[String, MonthTurnFundData] =
+    previousPositionRecords.view
       .filter(_._2.shareAmount.nonEmpty)
-      .mapValues(record => MonthTurnFundData(record.sharePrice, record.shareAmount))
+      .mapValues(previousPositionRecord => MonthTurnFundData(previousPositionRecord.sharePrice, previousPositionRecord.shareAmount))
       .toMap
 
   private def init(opArgs: OperationArguments.Init): Unit = {

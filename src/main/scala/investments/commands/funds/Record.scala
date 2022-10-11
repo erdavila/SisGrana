@@ -1,13 +1,6 @@
 package sisgrana
 package investments.commands.funds
 
-sealed trait PreviousRecord {
-  def missingData: Boolean
-  def sharePrice: Option[Double]
-  def shareAmount: Option[BigDecimal]
-  def finalBalance: Option[Double]
-}
-
 object Record {
   case class Position(
     missingData: Boolean,
@@ -20,7 +13,7 @@ object Record {
     shareAmount: Option[BigDecimal],
     finalBalance: Option[Double],
     note: Option[String],
-  ) extends PreviousRecord
+  ) extends Record.Position.Previous
 
   object Position {
     case class Initial(
@@ -28,8 +21,15 @@ object Record {
       shareAmount: Some[BigDecimal],
       finalBalance: Some[Double],
       note: Option[String],
-    ) extends PreviousRecord {
+    ) extends Record.Position.Previous {
       override def missingData: Boolean = false
+    }
+
+    sealed trait Previous {
+      def missingData: Boolean
+      def sharePrice: Option[Double]
+      def shareAmount: Option[BigDecimal]
+      def finalBalance: Option[Double]
     }
   }
 
