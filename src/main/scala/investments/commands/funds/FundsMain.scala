@@ -24,12 +24,12 @@ object FundsMain {
     val months = Iterator.iterate(opArgs.initialMonth)(_.plusMonths(1))
       .takeWhile(month => !month.isAfter(opArgs.finalMonth))
 
-    val (_, chunksAndRecordSetsAccumulated) = months
+    val (_, chunksAndAccumulatedRecordSets) = months
       .foldFlatMapLeft(Option.empty[Map[String, MonthTurnFundData]]) { (previousMonthFinalData, month) =>
         val statement = FundsMonthStatementFileReader.read(month) |>
           (applyFilters(_, opArgs.positiveFilters, opArgs.negativeFilters)) |>
           (ensureLastDayOfMonth(_, month))
-        val (initialRecordSet, recordSets, recordSetAccumulated) = StatementProcessor.process(month, statement)
+        val (initialRecordSet, recordSets, accumulatedRecordSet) = StatementProcessor.process(month, statement)
 
         val monthInitialData = toMonthTurnData(initialRecordSet.positionRecords)
         val warning = Option.when(previousMonthFinalData.exists(_ != monthInitialData)) {
@@ -40,19 +40,19 @@ object FundsMain {
           initialRecordSet
         }
 
-        val chunks = chunkMaker.makeChunks(month, warning, initialRecordSetOpt, recordSets, recordSetAccumulated)
+        val chunks = chunkMaker.makeChunks(month, warning, initialRecordSetOpt, recordSets, accumulatedRecordSet)
         val monthFinalData = toMonthTurnData(recordSets.last.positionRecords)
-        (Some(monthFinalData), Some((chunks, recordSetAccumulated)))
+        (Some(monthFinalData), Some((chunks, accumulatedRecordSet)))
       }
 
-    val (chunks, recordSetsAccumulated) = chunksAndRecordSetsAccumulated.unzip
+    val (chunks, accumulatedRecordSets) = chunksAndAccumulatedRecordSets.unzip
 
-    val monthRangeSummaryChunks = if (recordSetsAccumulated.sizeIs > 1) {
-      val monthRangeRecordSetAccumulated = StatementProcessor.sumRecordSetsAccumulated(recordSetsAccumulated)
+    val monthRangeSummaryChunks = if (accumulatedRecordSets.sizeIs > 1) {
+      val monthRangeAccumulatedRecordSet = StatementProcessor.sumAccumulatedRecordSets(accumulatedRecordSets)
       chunkMaker.makeSummaryChunks(
-        s"Meses de ${opArgs.initialMonth} a ${opArgs.finalMonth} (${monthRangeRecordSetAccumulated.days} dias)",
-        monthRangeRecordSetAccumulated,
-        months = recordSetsAccumulated.size,
+        s"Meses de ${opArgs.initialMonth} a ${opArgs.finalMonth} (${monthRangeAccumulatedRecordSet.days} dias)",
+        monthRangeAccumulatedRecordSet,
+        months = accumulatedRecordSets.size,
         nameIndentationSize = 2,
       )
     } else {

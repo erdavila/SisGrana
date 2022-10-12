@@ -9,7 +9,7 @@ import java.time.{LocalDate, YearMonth}
 import utils.Traversing._
 
 object StatementProcessor {
-  private val ZeroRecordSetAccumulated = RecordSet.Accumulated(
+  private val ZeroAccumulatedRecordSet = RecordSet.Accumulated(
     days = 0,
     records = Map.empty,
     totalYieldRate = None,
@@ -31,15 +31,15 @@ object StatementProcessor {
     )
     implicit val daysCounter: DaysCounter = new DaysCounter(statement.noPriceDates)
 
-    val ((_, recordSetAccumulated), remainingDaysPositionRecords) = statement.entries
+    val ((_, accumulatedRecordSet), remainingDaysPositionRecords) = statement.entries
       .toSeq.sortBy { case (date, _) => date }
-      .foldFlatMapLeft((initialPositionRecordSet: RecordSet.Position.Previous, ZeroRecordSetAccumulated)) { case ((previousPositionRecordSet, recordSetAccumulated), (date, entries)) =>
+      .foldFlatMapLeft((initialPositionRecordSet: RecordSet.Position.Previous, ZeroAccumulatedRecordSet)) { case ((previousPositionRecordSet, accumulatedRecordSet), (date, entries)) =>
         val positionRecordSet = positionRecordSetFrom(entries, date, previousPositionRecordSet)
-        val updatedRecordSetAccumulated = recordSetAccumulatedFrom(recordSetAccumulated, positionRecordSet)
-        ((positionRecordSet, updatedRecordSetAccumulated), Some(positionRecordSet))
+        val updatedAccumulatedRecordSet = accumulatedRecordSetFrom(accumulatedRecordSet, positionRecordSet)
+        ((positionRecordSet, updatedAccumulatedRecordSet), Some(positionRecordSet))
       }
 
-    (initialPositionRecordSet, remainingDaysPositionRecords, recordSetAccumulated)
+    (initialPositionRecordSet, remainingDaysPositionRecords, accumulatedRecordSet)
   }
 
   private def initialPositionRecordFrom(initialEntry: FundsStatement.InitialEntry): Record.Position.Initial =
@@ -112,18 +112,18 @@ object StatementProcessor {
     )
   }
 
-  private def recordSetAccumulatedFrom(previousRecordSetAccumulated: RecordSet.Accumulated, positionRecordSet: RecordSet.Position): RecordSet.Accumulated = {
-    val currentRecordSetAccumulated = toRecordSetAccumulated(positionRecordSet)
-    sumRecordSetsAccumulated(previousRecordSetAccumulated, currentRecordSetAccumulated)
+  private def accumulatedRecordSetFrom(previousAccumulatedRecordSet: RecordSet.Accumulated, positionRecordSet: RecordSet.Position): RecordSet.Accumulated = {
+    val currentAccumulatedRecordSet = toAccumulatedRecordSet(positionRecordSet)
+    sumAccumulatedRecordSets(previousAccumulatedRecordSet, currentAccumulatedRecordSet)
   }
 
-  private def toRecordSetAccumulated(positionRecordSet: RecordSet.Position): RecordSet.Accumulated =
+  private def toAccumulatedRecordSet(positionRecordSet: RecordSet.Position): RecordSet.Accumulated =
     RecordSet.Accumulated(
       days = positionRecordSet.days,
       records = positionRecordSet.positionRecords
         .view
         .mapValues(positionRecord =>
-          toRecordAccumulated(positionRecord, positionRecordSet.days)
+          toAccumulatedRecord(positionRecord, positionRecordSet.days)
         )
         .toMap,
       totalYieldRate = positionRecordSet.totalYieldRate,
@@ -132,7 +132,7 @@ object StatementProcessor {
       missingData = positionRecordSet.missingData,
     )
 
-  private def toRecordAccumulated(positionRecord: Record.Position, days: Int): Record.Accumulated =
+  private def toAccumulatedRecord(positionRecord: Record.Position, days: Int): Record.Accumulated =
     Record.Accumulated(
       days = positionRecord.yieldRate.fold(0)(_ => days),
       yieldRate = positionRecord.yieldRate,
@@ -142,30 +142,30 @@ object StatementProcessor {
       missingData = positionRecord.missingData,
     )
 
-  def sumRecordSetsAccumulated(recordSetsAccumulated: Iterable[RecordSet.Accumulated]): RecordSet.Accumulated =
-    recordSetsAccumulated
+  def sumAccumulatedRecordSets(accumulatedRecordSets: Iterable[RecordSet.Accumulated]): RecordSet.Accumulated =
+    accumulatedRecordSets
       .reduceOption((rSetAcc1, rSetAcc2) =>
-        sumRecordSetsAccumulated(rSetAcc1, rSetAcc2)
+        sumAccumulatedRecordSets(rSetAcc1, rSetAcc2)
       )
-      .getOrElse(ZeroRecordSetAccumulated)
+      .getOrElse(ZeroAccumulatedRecordSet)
 
-  private def sumRecordSetsAccumulated(rSetAcc1: RecordSet.Accumulated, rSetAcc2: RecordSet.Accumulated): RecordSet.Accumulated =
-    rSetAcc1
-      .modify(_.days).using(_ + rSetAcc2.days)
+  private def sumAccumulatedRecordSets(accRSet1: RecordSet.Accumulated, accRSet2: RecordSet.Accumulated): RecordSet.Accumulated =
+    accRSet1
+      .modify(_.days).using(_ + accRSet2.days)
       .modify(_.records).using { records1 =>
-        rSetAcc2.records.foldLeft(records1) { case (records1, fund -> record2) =>
+        accRSet2.records.foldLeft(records1) { case (records1, fund -> record2) =>
           records1.updatedWith(fund) {
-            case Some(record1) => Some(sumRecordsAccumulated(record1, record2))
+            case Some(record1) => Some(sumAccumulatedRecords(record1, record2))
             case None => Some(record2)
           }
         }
       }
-      .modify(_.totalYieldRate).using(totalYieldRate => composeRatesIfAny(totalYieldRate ++ rSetAcc2.totalYieldRate))
-      .modify(_.totalYieldResult).using(totalYieldResult => sumIfAny(totalYieldResult ++ rSetAcc2.totalYieldResult))
-      .modify(_.totalBalanceChange).using(totalBalanceChange => sumIfAny(totalBalanceChange ++ rSetAcc2.totalBalanceChange))
-      .modify(_.missingData).using(_ || rSetAcc2.missingData)
+      .modify(_.totalYieldRate).using(totalYieldRate => composeRatesIfAny(totalYieldRate ++ accRSet2.totalYieldRate))
+      .modify(_.totalYieldResult).using(totalYieldResult => sumIfAny(totalYieldResult ++ accRSet2.totalYieldResult))
+      .modify(_.totalBalanceChange).using(totalBalanceChange => sumIfAny(totalBalanceChange ++ accRSet2.totalBalanceChange))
+      .modify(_.missingData).using(_ || accRSet2.missingData)
 
-  private def sumRecordsAccumulated(record1: Record.Accumulated, record2: Record.Accumulated): Record.Accumulated =
+  private def sumAccumulatedRecords(record1: Record.Accumulated, record2: Record.Accumulated): Record.Accumulated =
     record1
       .modify(_.days).using(_ + record2.days)
       .modify(_.yieldRate).using(yieldRate => composeRatesIfAny(yieldRate ++ record2.yieldRate))

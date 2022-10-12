@@ -15,7 +15,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
     warningText: Option[String],
     initialPositionRecordSet: Option[RecordSet.Position.Initial],
     positionRecordSets: Seq[RecordSet.Position],
-    recordSetAccumulated: RecordSet.Accumulated,
+    accumulatedRecordSet: RecordSet.Accumulated,
   ): Seq[Seq[Chunk]] = {
     val yearMonthRowChunk = Seq(Chunk.leftAligned(Anchors.Leftmost, yearMonth.toString))
 
@@ -35,7 +35,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
       initialRecordSetRowsChunks ++ recordSetsRowsChunks
     }
 
-    val monthSummaryRowsChunks = toMonthSummaryChunks(recordSetAccumulated)
+    val monthSummaryRowsChunks = toMonthSummaryChunks(accumulatedRecordSet)
 
     yearMonthRowChunk +: (warningChunks ++ daysRowsChunks ++ monthSummaryRowsChunks)
   }
@@ -44,7 +44,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
     name: String, missingData: Boolean,
     sharePrice: Option[Double],
     yieldResult: Option[Double], yieldRate: Option[Double],
-    accumulatedDays: Option[Int], recordSetAccumulatedDays: Option[Int], months: Int,
+    accumulatedDays: Option[Int], accumulatedRecordSetDays: Option[Int], months: Int,
     initialBalance: Option[Double],
     balanceChange: Option[Double], shareAmountChange: Option[BigDecimal],
     finalBalance: Option[Double], shareAmount: Option[BigDecimal],
@@ -139,34 +139,34 @@ class ChunkMaker(options: ChunkMaker.Options) {
     )
   }
 
-  private def toMonthSummaryChunks(recordSetAccumulated: RecordSet.Accumulated): Seq[Seq[Chunk]] =
-    makeSummaryChunks(s"  Mês (${Words.WithCount.day(recordSetAccumulated.days)})", recordSetAccumulated, months = 1)
+  private def toMonthSummaryChunks(accumulatedRecordSet: RecordSet.Accumulated): Seq[Seq[Chunk]] =
+    makeSummaryChunks(s"  Mês (${Words.WithCount.day(accumulatedRecordSet.days)})", accumulatedRecordSet, months = 1)
 
-  def makeSummaryChunks(title: String, recordSetAccumulated: RecordSet.Accumulated, months: Int, nameIndentationSize: Int = 4): Seq[Seq[Chunk]] =
+  def makeSummaryChunks(title: String, accumulatedRecordSet: RecordSet.Accumulated, months: Int, nameIndentationSize: Int = 4): Seq[Seq[Chunk]] =
     seqIf(options.summary) {
       toDataRowsChunks(
         title,
-        recordSetAccumulated.records
+        accumulatedRecordSet.records
           .toSeq.sortBy { case (fund, _) => fund }
-          .map { case (fund, recordAccumulated) =>
+          .map { case (fund, accumulatedRecord) =>
             DataRecord(
-              " " * nameIndentationSize ++ fund, recordAccumulated.missingData,
+              " " * nameIndentationSize ++ fund, accumulatedRecord.missingData,
               None,
-              recordAccumulated.yieldResult, recordAccumulated.yieldRate,
-              Some(recordAccumulated.days), Some(recordSetAccumulated.days), months,
+              accumulatedRecord.yieldResult, accumulatedRecord.yieldRate,
+              Some(accumulatedRecord.days), Some(accumulatedRecordSet.days), months,
               None,
-              recordAccumulated.balanceChange, recordAccumulated.shareAmountChange,
+              accumulatedRecord.balanceChange, accumulatedRecord.shareAmountChange,
               None, None,
               None,
             )
           },
         DataRecord(
-          " " * nameIndentationSize ++ "Total", recordSetAccumulated.missingData,
+          " " * nameIndentationSize ++ "Total", accumulatedRecordSet.missingData,
           None,
-          recordSetAccumulated.totalYieldResult, recordSetAccumulated.totalYieldRate,
-          Some(recordSetAccumulated.days), Some(recordSetAccumulated.days), months,
+          accumulatedRecordSet.totalYieldResult, accumulatedRecordSet.totalYieldRate,
+          Some(accumulatedRecordSet.days), Some(accumulatedRecordSet.days), months,
           None,
-          recordSetAccumulated.totalBalanceChange, None,
+          accumulatedRecordSet.totalBalanceChange, None,
           None, None,
           None,
         )
@@ -195,9 +195,9 @@ class ChunkMaker(options: ChunkMaker.Options) {
       for {
         yieldRate <- dataRecord.yieldRate
         accumulatedDays <- dataRecord.accumulatedDays
-        recordSetAccumulatedDays <- dataRecord.recordSetAccumulatedDays
-        if (dataRecord.accumulatedDays != dataRecord.recordSetAccumulatedDays && accumulatedDays != 0) || dataRecord.months > 1
-        accumulatedDaysPerMonth = recordSetAccumulatedDays / dataRecord.months
+        accumulatedRecordSetDays <- dataRecord.accumulatedRecordSetDays
+        if (dataRecord.accumulatedDays != dataRecord.accumulatedRecordSetDays && accumulatedDays != 0) || dataRecord.months > 1
+        accumulatedDaysPerMonth = accumulatedRecordSetDays / dataRecord.months
       } yield math.pow(1 + yieldRate, accumulatedDaysPerMonth / accumulatedDays.toDouble) - 1
 
     Seq(
