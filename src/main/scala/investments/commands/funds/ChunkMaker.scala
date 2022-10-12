@@ -14,8 +14,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
     yearMonth: YearMonth,
     warningText: Option[String],
     initialPositionRecordSet: Option[RecordSet.Position.Initial],
-    positionRecordSets: Seq[RecordSet.Position],
-    accumulatedRecordSet: RecordSet.Accumulated,
+    recordSets: Seq[RecordSet],
   ): Seq[Seq[Chunk]] = {
     val yearMonthRowChunk = Seq(Chunk.leftAligned(Anchors.Leftmost, yearMonth.toString))
 
@@ -31,11 +30,11 @@ class ChunkMaker(options: ChunkMaker.Options) {
         .toSeq
         .flatMap(toInitialRecordSetChunks)
 
-      val recordSetsRowsChunks = positionRecordSets.flatMap(toRecordSetChunks)
+      val recordSetsRowsChunks = recordSets.flatMap(toRecordSetChunks)
       initialRecordSetRowsChunks ++ recordSetsRowsChunks
     }
 
-    val monthSummaryRowsChunks = toMonthSummaryChunks(accumulatedRecordSet)
+    val monthSummaryRowsChunks = toMonthSummaryChunks(recordSets.last.accumulated)
 
     yearMonthRowChunk +: (warningChunks ++ daysRowsChunks ++ monthSummaryRowsChunks)
   }
@@ -109,10 +108,10 @@ class ChunkMaker(options: ChunkMaker.Options) {
     }
   }
 
-  private def toRecordSetChunks(positionRecordSet: RecordSet.Position): Seq[Seq[Chunk]] = {
+  private def toRecordSetChunks(recordSet: RecordSet): Seq[Seq[Chunk]] = {
     toDataRowsChunks(
-      s"  ${positionRecordSet.date.getDayOfMonth} (${s"+${Words.WithCount.day(positionRecordSet.days)}"})",
-      positionRecordSet.positionRecords
+      s"  ${recordSet.position.date.getDayOfMonth} (${s"+${Words.WithCount.day(recordSet.position.days)}"})",
+      recordSet.position.positionRecords
         .filter { case (_, positionRecord) => positionRecord.shareAmountChange.isDefined || positionRecord.shareAmount.isDefined }
         .toSeq.sortBy { case (fund, _) => fund }.map { case (fund, positionRecord) =>
           DataRecord(
@@ -127,13 +126,13 @@ class ChunkMaker(options: ChunkMaker.Options) {
           )
         },
       DataRecord(
-        s"    Total", positionRecordSet.missingData,
+        s"    Total", recordSet.position.missingData,
         None,
-        positionRecordSet.totalYieldResult, positionRecordSet.totalYieldRate,
+        recordSet.position.totalYieldResult, recordSet.position.totalYieldRate,
         None, None, 1,
-        positionRecordSet.totalInitialBalance,
-        positionRecordSet.totalBalanceChange, None,
-        positionRecordSet.totalFinalBalance, None,
+        recordSet.position.totalInitialBalance,
+        recordSet.position.totalBalanceChange, None,
+        recordSet.position.totalFinalBalance, None,
         None,
       )
     )

@@ -3,6 +3,18 @@ package investments.commands.funds
 
 import java.time.LocalDate
 
+case class RecordSet(
+  position: RecordSet.Position,
+  accumulated: RecordSet.Accumulated,
+) {
+  lazy val records: Map[String, Record] =
+    accumulated.records.map { case (fund, accumulatedRecord) =>
+      val positionRecord = position.positionRecords.get(fund)
+      val record = Record(positionRecord, accumulatedRecord)
+      fund -> record
+    }
+}
+
 object RecordSet {
   case class Position(
     date: LocalDate,

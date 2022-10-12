@@ -24,12 +24,12 @@ object FundsMain {
     val months = Iterator.iterate(opArgs.initialMonth)(_.plusMonths(1))
       .takeWhile(month => !month.isAfter(opArgs.finalMonth))
 
-    val (_, chunksAndAccumulatedRecordSets) = months
+    val (_, chunksAndLastAccumulatedRecordSets) = months
       .foldFlatMapLeft(Option.empty[Map[String, MonthTurnFundData]]) { (previousMonthFinalData, month) =>
         val statement = FundsMonthStatementFileReader.read(month) |>
           (applyFilters(_, opArgs.positiveFilters, opArgs.negativeFilters)) |>
           (ensureLastDayOfMonth(_, month))
-        val (initialRecordSet, recordSets, accumulatedRecordSet) = StatementProcessor.process(month, statement)
+        val (initialRecordSet, recordSets) = StatementProcessor.process(month, statement)
 
         val monthInitialData = toMonthTurnData(initialRecordSet.positionRecords)
         val warning = Option.when(previousMonthFinalData.exists(_ != monthInitialData)) {
@@ -40,19 +40,19 @@ object FundsMain {
           initialRecordSet
         }
 
-        val chunks = chunkMaker.makeChunks(month, warning, initialRecordSetOpt, recordSets, accumulatedRecordSet)
-        val monthFinalData = toMonthTurnData(recordSets.last.positionRecords)
-        (Some(monthFinalData), Some((chunks, accumulatedRecordSet)))
+        val chunks = chunkMaker.makeChunks(month, warning, initialRecordSetOpt, recordSets)
+        val monthFinalData = toMonthTurnData(recordSets.last.position.positionRecords)
+        (Some(monthFinalData), Some((chunks, recordSets.last.accumulated)))
       }
 
-    val (chunks, accumulatedRecordSets) = chunksAndAccumulatedRecordSets.unzip
+    val (chunks, lastAccumulatedRecordSets) = chunksAndLastAccumulatedRecordSets.unzip
 
-    val monthRangeSummaryChunks = if (accumulatedRecordSets.sizeIs > 1) {
-      val monthRangeAccumulatedRecordSet = StatementProcessor.sumAccumulatedRecordSets(accumulatedRecordSets)
+    val monthRangeSummaryChunks = if (lastAccumulatedRecordSets.sizeIs > 1) {
+      val monthRangeAccumulatedRecordSet = StatementProcessor.sumAccumulatedRecordSets(lastAccumulatedRecordSets)
       chunkMaker.makeSummaryChunks(
         s"Meses de ${opArgs.initialMonth} a ${opArgs.finalMonth} (${monthRangeAccumulatedRecordSet.days} dias)",
         monthRangeAccumulatedRecordSet,
-        months = accumulatedRecordSets.size,
+        months = lastAccumulatedRecordSets.size,
         nameIndentationSize = 2,
       )
     } else {
@@ -136,13 +136,13 @@ object FundsMain {
   private def readPreviousMonthEndPositionRecordSet(month: YearMonth): RecordSet.Position = {
     val previousMonth = month.minusMonths(1)
     val statement = FundsMonthStatementFileReader.read(previousMonth)
-    val (_, positionRecordSets, _) = StatementProcessor.process(previousMonth, statement)
+    val (_, recordSets) = StatementProcessor.process(previousMonth, statement)
 
     val daysCounter = new DaysCounter(statement.noPriceDates)
     val lastDate = daysCounter.lastDateOfYearMonth(previousMonth)
 
-    positionRecordSets.lastOption match {
-      case Some(recordSet) if recordSet.date == lastDate && recordSet.positionRecords.forall(!_._2.missingData) => recordSet
+    recordSets.lastOption match {
+      case Some(recordSet) if recordSet.position.date == lastDate && recordSet.position.positionRecords.forall(!_._2.missingData) => recordSet.position
       case _ => Exit.withErrorMessage { stream =>
         stream.println(s"Faltam dados no último dia do mês anterior ($lastDate)")
       }

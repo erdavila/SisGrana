@@ -1,6 +1,11 @@
 package sisgrana
 package investments.commands.funds
 
+case class Record(
+  position: Option[Record.Position],
+  accumulated: Record.Accumulated,
+)
+
 object Record {
   case class Position(
     missingData: Boolean,
