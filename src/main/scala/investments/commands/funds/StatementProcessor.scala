@@ -28,11 +28,11 @@ object StatementProcessor {
 
     val (_, remainingDaysPositionRecords) = statement.entries
       .toSeq.sortBy { case (date, _) => date }
-      .foldFlatMapLeft((initialPositionRecordSet: RecordSet.Position.Previous, ZeroAccumulatedRecordSet)) { case ((previousPositionRecordSet, accumulatedRecordSet), (date, entries)) =>
+      .foldMapLeft((initialPositionRecordSet: RecordSet.Position.Previous, ZeroAccumulatedRecordSet)) { case ((previousPositionRecordSet, accumulatedRecordSet), (date, entries)) =>
         val positionRecordSet = positionRecordSetFrom(entries, date, previousPositionRecordSet)
         val updatedAccumulatedRecordSet = accumulatedRecordSetFrom(accumulatedRecordSet, positionRecordSet)
         val recordSet = RecordSet(positionRecordSet, updatedAccumulatedRecordSet)
-        ((positionRecordSet, updatedAccumulatedRecordSet), Some(recordSet))
+        ((positionRecordSet, updatedAccumulatedRecordSet), recordSet)
       }
 
     (initialPositionRecordSet, remainingDaysPositionRecords)

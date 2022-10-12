@@ -25,7 +25,7 @@ object FundsMain {
       .takeWhile(month => !month.isAfter(opArgs.finalMonth))
 
     val (_, chunksAndLastAccumulatedRecordSets) = months
-      .foldFlatMapLeft(Option.empty[Map[String, MonthTurnFundData]]) { (previousMonthFinalData, month) =>
+      .foldMapLeft(Option.empty[Map[String, MonthTurnFundData]]) { (previousMonthFinalData, month) =>
         val statement = FundsMonthStatementFileReader.read(month) |>
           (applyFilters(_, opArgs.positiveFilters, opArgs.negativeFilters)) |>
           (ensureLastDayOfMonth(_, month))
@@ -42,7 +42,7 @@ object FundsMain {
 
         val chunks = chunkMaker.makeChunks(month, warning, initialRecordSetOpt, recordSets)
         val monthFinalData = toMonthTurnData(recordSets.last.position.positionRecords)
-        (Some(monthFinalData), Some((chunks, recordSets.last.accumulated)))
+        (Some(monthFinalData), (chunks, recordSets.last.accumulated))
       }
 
     val (chunks, lastAccumulatedRecordSets) = chunksAndLastAccumulatedRecordSets.unzip

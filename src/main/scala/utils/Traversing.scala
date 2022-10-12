@@ -6,6 +6,12 @@ import scala.collection.{mutable, IterableOps => ScalaIterableOps, MapOps => Sca
 
 object Traversing {
   implicit class IterableOps[CC[X] <: ScalaIterableOps[X, CC, CC[X]], A](private val as: CC[A]) extends AnyVal {
+    def foldMapLeft[S, B](s: S)(f: (S, A) => (S, B)): (S, CC[B]) =
+      foldFlatMapLeft(s) { (s, a) =>
+        val (s2, b) = f(s, a)
+        (s2, Some(b))
+      }
+
     def foldFlatMapLeft[S, B](s: S)(f: (S, A) => (S, IterableOnce[B])): (S, CC[B]) =
       foldFlatMapLeftImpl(as, s, f, as.iterableFactory.newBuilder)
 
@@ -17,6 +23,12 @@ object Traversing {
   }
 
   implicit class IteratorOps[A](private val as: Iterator[A]) extends AnyVal {
+    def foldMapLeft[S, B](s: S)(f: (S, A) => (S, B)): (S, Iterable[B]) =
+      foldFlatMapLeft(s) { (s, a) =>
+        val (s2, b) = f(s, a)
+        (s2, Some(b))
+      }
+
     def foldFlatMapLeft[S, B](s: S)(f: (S, A) => (S, IterableOnce[B])): (S, Iterable[B]) =
       foldFlatMapLeftImpl(as, s, f, Iterable.newBuilder[B])
 
@@ -51,8 +63,20 @@ object Traversing {
   }
 
   implicit class MapOps[CC[X, Y] <: ScalaMapOps[X, Y, CC, CC[X, Y]], K, V](private val kvs: CC[K, V]) extends AnyVal {
+    def foldMapLeft[S, K2, V2](s: S)(f: (S, (K, V)) => (S, (K2, V2))): (S, CC[K2, V2]) =
+      foldFlatMapLeft[S, K2, V2](s) { (s, kv) =>
+        val (s2, k2v2) = f(s, kv)
+        (s2, Some(k2v2))
+      }
+
     def foldFlatMapLeft[S, K2, V2](s: S)(f: (S, (K, V)) => (S, IterableOnce[(K2, V2)])): (S, CC[K2, V2]) =
       foldFlatMapLeftImpl(kvs, s, f, kvs.mapFactory.newBuilder)
+
+    def foldMapLeft[S, B](s: S)(f: (S, (K, V)) => (S, B))(implicit dummyImplicit: DummyImplicit): (S, Iterable[B]) =
+      foldFlatMapLeft[S, B](s) { (s, kv) =>
+        val (s2, b) = f(s, kv)
+        (s2, Some(b))
+      }
 
     def foldFlatMapLeft[S, B](s: S)(f: (S, (K, V)) => (S, IterableOnce[B]))(implicit dummyImplicit: DummyImplicit): (S, Iterable[B]) =
       foldFlatMapLeftImpl(kvs, s, f, kvs.iterableFactory.newBuilder[B])
