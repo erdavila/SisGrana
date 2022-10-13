@@ -10,7 +10,7 @@ import utils.Traversing._
 import utils.{BrNumber, Exit, TextAligner, quoted}
 
 object FundsMain {
-  private case class MonthTurnFundData(sharePrice: Option[Double], shareAmount: Option[BigDecimal])
+  private case class MonthTurnFundData(sharePrice: Double, shareAmount: Option[BigDecimal])
 
   def main(args: Array[String]): Unit =
     ArgsParser.parse(args) match {
@@ -31,7 +31,7 @@ object FundsMain {
           (ensureLastDayOfMonth(_, month))
         val (initialRecordSet, recordSets) = StatementProcessor.process(month, statement)
 
-        val monthInitialData = toMonthTurnData(initialRecordSet.positionRecords)
+        val monthInitialData = toMonthTurnData(initialRecordSet.positionRecords.present)
         val warning = Option.when(previousMonthFinalData.exists(_ != monthInitialData)) {
           "DADOS INICIAIS DIFEREM DOS DADOS FINAIS DO MÊS ANTERIOR"
         }
@@ -41,7 +41,7 @@ object FundsMain {
         }
 
         val chunks = chunkMaker.makeChunks(month, warning, initialRecordSetOpt, recordSets)
-        val monthFinalData = toMonthTurnData(recordSets.last.position.positionRecords)
+        val monthFinalData = toMonthTurnData(recordSets.last.position.positionRecords.present)
         (Some(monthFinalData), (chunks, recordSets.last.accumulated))
       }
 
@@ -112,13 +112,14 @@ object FundsMain {
       nf.setMaximumFractionDigits(8)
     }
     val fundsRowsChunks = lastMonthEndRecordSet.positionRecords
+      .present
       .toSeq
       .sortBy { case (fund, _) => fund }
       .map { case (fund, positionRecord) =>
         Seq(
           Chunk.leftAligned(0, s"INI${Separator}${quoted(fund)}"),
           Chunk.leftAligned(1, Separator),
-          Chunk.rightAligned(2, s"${nf.format(positionRecord.sharePrice.get)}${Separator}"),
+          Chunk.rightAligned(2, s"${nf.format(positionRecord.sharePrice)}${Separator}"),
           Chunk.rightAligned(3, s"${nf.format(positionRecord.shareAmount.get.toDouble)}"),
         )
       }
@@ -142,14 +143,10 @@ object FundsMain {
     val lastDate = daysCounter.lastDateOfYearMonth(previousMonth)
 
     recordSets.lastOption match {
-      case Some(recordSet) if recordSet.position.date == lastDate && recordSet.position.positionRecords.forall(!_._2.missingData) => recordSet.position
+      case Some(recordSet) if recordSet.position.date == lastDate && !recordSet.position.missingData => recordSet.position
       case _ => Exit.withErrorMessage { stream =>
         stream.println(s"Faltam dados no último dia do mês anterior ($lastDate)")
       }
     }
-  }
-
-  private implicit class AnyOps[A](private val a: A) extends AnyVal {
-    def |>[B](f: A => B): B = f(a)
   }
 }

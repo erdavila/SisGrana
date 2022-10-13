@@ -19,7 +19,7 @@ object RecordSet {
   case class Position(
     date: LocalDate,
     days: Int,
-    positionRecords: Map[String, Record.Position],
+    positionRecords: Map[String, Presence[Record.Position]],
     missingData: Boolean,
 
     // Totals
@@ -33,7 +33,7 @@ object RecordSet {
   object Position {
     case class Initial(
       date: LocalDate,
-      positionRecords: Map[String, Record.Position.Initial],
+      positionRecords: Map[String, Present[Record.Position.Initial]],
       totalFinalBalance: Option[Double],
     ) extends RecordSet.Position.Previous {
       override def missingData: Boolean = false
@@ -41,7 +41,7 @@ object RecordSet {
 
     sealed trait Previous {
       def date: LocalDate
-      def positionRecords: Map[String, Record.Position.Previous]
+      def positionRecords: Map[String, Presence[Record.Position.Previous]]
       def missingData: Boolean
       def totalFinalBalance: Option[Double]
     }

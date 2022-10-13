@@ -26,21 +26,25 @@ object StatementProcessor {
 
     implicit val daysCounter: DaysCounter = new DaysCounter(statement.noPriceDates)
 
-    val (_, remainingDaysPositionRecords) = statement.entries
+    val (_, recordSets) = statement.entries
       .toSeq.sortBy { case (date, _) => date }
-      .foldMapLeft((initialPositionRecordSet: RecordSet.Position.Previous, ZeroAccumulatedRecordSet)) { case ((previousPositionRecordSet, accumulatedRecordSet), (date, entries)) =>
-        val positionRecordSet = positionRecordSetFrom(entries, date, previousPositionRecordSet)
-        val updatedAccumulatedRecordSet = accumulatedRecordSetFrom(accumulatedRecordSet, positionRecordSet)
-        val recordSet = RecordSet(positionRecordSet, updatedAccumulatedRecordSet)
-        ((positionRecordSet, updatedAccumulatedRecordSet), recordSet)
+      .foldMapLeft((initialPositionRecordSet: RecordSet.Position.Previous, ZeroAccumulatedRecordSet)) { case ((previousPositionRecordSet, previousAccumulatedRecordSet), (date, entries)) =>
+        val positionRecords = positionRecordsFrom(entries, previousPositionRecordSet.positionRecords.present)
+        val positionRecordSet = positionRecordSetFrom(date, positionRecords, previousPositionRecordSet)
+
+        val accumulatedRecords = accumulatedRecordsFrom(positionRecordSet.days, positionRecords, previousAccumulatedRecordSet.records)
+        val accumulatedRecordSet = accumulatedRecordSetFrom(accumulatedRecords, positionRecordSet, previousAccumulatedRecordSet)
+
+        val recordSet = RecordSet(positionRecordSet, accumulatedRecordSet)
+        ((positionRecordSet, accumulatedRecordSet), recordSet)
       }
 
-    (initialPositionRecordSet, remainingDaysPositionRecords)
+    (initialPositionRecordSet, recordSets)
   }
 
   private def initialPositionRecordFrom(initialEntry: FundsStatement.InitialEntry): Record.Position.Initial =
     Record.Position.Initial(
-      sharePrice = Some(initialEntry.sharePrice),
+      sharePrice = initialEntry.sharePrice,
       shareAmount = Some(initialEntry.shareAmount),
       finalBalance = Some(initialEntry.shareAmount.toDouble * initialEntry.sharePrice),
       note = initialEntry.note,
@@ -53,101 +57,119 @@ object StatementProcessor {
     val initialDate = yearMonth.atDay(1).minusDays(1)
     RecordSet.Position.Initial(
       date = initialDate,
-      positionRecords = initialPositionRecords,
+      positionRecords = initialPositionRecords.view.mapValues(Present(_)).toMap,
       totalFinalBalance = sumIfAny(initialPositionRecords.values.flatMap(_.finalBalance))
     )
   }
 
-  private def positionRecordSetFrom(dayEntries: Map[String, FundsStatement.Entry], date: LocalDate, previousPositionRecordSet: RecordSet.Position.Previous)(implicit daysCounter: DaysCounter): RecordSet.Position = {
-    val days = daysCounter.count(previousPositionRecordSet.date, date)
-    val positionRecords = positionRecordsFrom(dayEntries, previousPositionRecordSet)
-    positionRecordSetFrom(positionRecords, date, days, previousPositionRecordSet)
-  }
-
-  private def positionRecordsFrom(dayEntries: Map[String, FundsStatement.Entry], previousPositionRecordSet: RecordSet.Position.Previous): Map[String, Record.Position] =
-    (dayEntries.keys ++ previousPositionRecordSet.positionRecords.keys).toSeq
+  private[funds] def positionRecordsFrom(
+    entries: Map[String, FundsStatement.Entry],
+    previousPositionRecords: Map[String, Record.Position.Previous],
+  ): Map[String, Presence[Record.Position]] =
+    (entries.keys ++ previousPositionRecords.keys)
+      .toSeq
       .distinct
-      .map { fund =>
-        val entry = dayEntries.get(fund)
-        val previousPositionRecord = previousPositionRecordSet.positionRecords.get(fund)
-        fund -> positionRecordFrom(entry, previousPositionRecord)
+      .flatMap { fund =>
+        val entry = entries.get(fund)
+        val previousPositionRecord = previousPositionRecords.get(fund)
+        positionRecordFrom(entry, previousPositionRecord).map(fund -> _)
       }
       .toMap
 
-  private[funds] def positionRecordSetFrom(positionRecords: Map[String, Record.Position], date: LocalDate, days: Int, previousPositionRecordSet: RecordSet.Position.Previous): RecordSet.Position = {
-    val totalInitialBalance = sumIfAny(positionRecords.values.flatMap(_.initialBalance))
-    val totalYieldRate = (totalInitialBalance, previousPositionRecordSet.totalFinalBalance).mapN(_ / _ - 1)
-    val totalYieldResult = sumIfAny(positionRecords.values.flatMap(_.yieldResult))
-    val totalBalanceChange = sumIfAny(positionRecords.values.flatMap(_.balanceChange))
+  private[funds] def positionRecordFrom(
+    entry: Option[FundsStatement.Entry],
+    previousPositionRecord: Option[Record.Position.Previous],
+  ): Option[Presence[Record.Position]] = {
+    val previousShareAmount = previousPositionRecord.flatMap(_.shareAmount)
+    entry match {
+      case Some(entry) =>
+        val yieldRate = previousPositionRecord.map(entry.sharePrice / _.sharePrice - 1)
+        val shareAmount = sumIfAny(previousShareAmount ++ entry.shareAmountChange).filter(_ != 0)
+        Some(
+          Present(
+            Record.Position(
+              sharePrice = entry.sharePrice,
+              yieldRate = yieldRate,
+              yieldResult = (previousPositionRecord.flatMap(_.finalBalance), yieldRate).mapN(_ * _),
+              initialBalance = previousShareAmount.map(_.toDouble * entry.sharePrice),
+              shareAmountChange = entry.shareAmountChange,
+              balanceChange = entry.shareAmountChange.map(_.toDouble * entry.sharePrice),
+              shareAmount = shareAmount,
+              finalBalance = shareAmount.map(_.toDouble * entry.sharePrice),
+              note = entry.note,
+            )
+          )
+        )
+      case None => Option.when(previousShareAmount.isDefined)(Missing)
+    }
+  }
+
+  private[funds] def positionRecordSetFrom(
+    date: LocalDate,
+    positionRecords: Map[String, Presence[Record.Position]],
+    previousPositionRecordSet: RecordSet.Position.Previous,
+  )(implicit daysCounter: DaysCounter): RecordSet.Position = {
+    val (fundsMissingData, presentPreviousRecordsMap) = positionRecords.partitionByPresence
+    val presentPreviousRecords = presentPreviousRecordsMap.values
+    val totalInitialBalance = sumIfAny(presentPreviousRecords.flatMap(_.initialBalance))
 
     RecordSet.Position(
       date = date,
-      days = days,
+      days = daysCounter.count(previousPositionRecordSet.date, date),
       positionRecords = positionRecords,
-      missingData = previousPositionRecordSet.missingData || positionRecords.values.exists(_.missingData),
-      totalYieldRate = totalYieldRate,
-      totalYieldResult = totalYieldResult,
+      missingData = fundsMissingData.nonEmpty,
+      totalYieldRate = (totalInitialBalance, previousPositionRecordSet.totalFinalBalance).mapN(_ / _ - 1),
+      totalYieldResult = sumIfAny(presentPreviousRecords.flatMap(_.yieldResult)),
       totalInitialBalance = totalInitialBalance,
-      totalBalanceChange = totalBalanceChange,
-      totalFinalBalance = sumIfAny(positionRecords.values.flatMap(_.finalBalance)),
+      totalBalanceChange = sumIfAny(presentPreviousRecords.flatMap(_.balanceChange)),
+      totalFinalBalance = sumIfAny(presentPreviousRecords.flatMap(_.finalBalance)),
     )
   }
 
-  private[funds] def positionRecordFrom(entry: Option[FundsStatement.Entry], previousPositionRecord: Option[Record.Position.Previous]): Record.Position = {
-    val previousMissingData = previousPositionRecord.map(_.missingData)
-    val previousSharePrice = previousPositionRecord.flatMap(_.sharePrice)
-    val previousFinalBalance = previousPositionRecord.flatMap(_.finalBalance)
-    val previousShareAmount = previousPositionRecord.flatMap(_.shareAmount)
+  private[funds] def accumulatedRecordsFrom(
+    days: Int,
+    positionRecords: Map[String, Presence[Record.Position]],
+    previousAccumulatedRecords: Map[String, Record.Accumulated],
+  ): Map[String, Record.Accumulated] =
+    (positionRecords.keys ++ previousAccumulatedRecords.keys)
+      .toSeq
+      .distinct
+      .map { fund =>
+        val positionRecord = positionRecords.get(fund)
+        val previousAccumulatedRecord = previousAccumulatedRecords.get(fund)
+        fund -> accumulatedRecordFrom(days, positionRecord, previousAccumulatedRecord)
+      }
+      .toMap
 
-    val sharePrice = entry.map(_.sharePrice)
-    val yieldRate = (sharePrice, previousSharePrice).mapN(_ / _ - 1)
-    val yieldResult = (previousFinalBalance, yieldRate).mapN(_ * _)
-    val shareAmountChange = entry.flatMap(_.shareAmountChange)
-    val balanceChange = (shareAmountChange, sharePrice).mapN(_.toDouble * _)
-    val shareAmount = Some((previousShareAmount ++ shareAmountChange).sum).filter(_ != 0)
+  private[funds] def accumulatedRecordFrom(
+    days: Int,
+    positionRecord: Option[Presence[Record.Position]],
+    previousAccumulatedRecord: Option[Record.Accumulated],
+  ): Record.Accumulated = {
+    val presentPositionRecord = positionRecord.flatten
 
-    Record.Position(
-      missingData = previousMissingData.getOrElse(false) || (sharePrice.isEmpty && shareAmount.nonEmpty),
-      sharePrice = sharePrice,
-      yieldRate = yieldRate,
-      yieldResult = yieldResult,
-      initialBalance = (previousShareAmount, sharePrice).mapN(_.toDouble * _),
-      shareAmountChange = shareAmountChange,
-      balanceChange = balanceChange,
-      shareAmount = shareAmount,
-      finalBalance = (shareAmount, sharePrice).mapN(_.toDouble * _),
-      note = entry.flatMap(_.note),
-    )
-  }
-
-  private def accumulatedRecordSetFrom(previousAccumulatedRecordSet: RecordSet.Accumulated, positionRecordSet: RecordSet.Position): RecordSet.Accumulated = {
-    val currentAccumulatedRecordSet = toAccumulatedRecordSet(positionRecordSet)
-    sumAccumulatedRecordSets(previousAccumulatedRecordSet, currentAccumulatedRecordSet)
-  }
-
-  private def toAccumulatedRecordSet(positionRecordSet: RecordSet.Position): RecordSet.Accumulated =
-    RecordSet.Accumulated(
-      days = positionRecordSet.days,
-      records = positionRecordSet.positionRecords
-        .view
-        .mapValues(positionRecord =>
-          toAccumulatedRecord(positionRecord, positionRecordSet.days)
-        )
-        .toMap,
-      totalYieldRate = positionRecordSet.totalYieldRate,
-      totalYieldResult = positionRecordSet.totalYieldResult,
-      totalBalanceChange = positionRecordSet.totalBalanceChange,
-      missingData = positionRecordSet.missingData,
-    )
-
-  private def toAccumulatedRecord(positionRecord: Record.Position, days: Int): Record.Accumulated =
     Record.Accumulated(
-      days = positionRecord.yieldRate.fold(0)(_ => days),
-      yieldRate = positionRecord.yieldRate,
-      yieldResult = positionRecord.yieldResult,
-      shareAmountChange = positionRecord.shareAmountChange,
-      balanceChange = positionRecord.balanceChange,
-      missingData = positionRecord.missingData,
+      days = previousAccumulatedRecord.fold(0)(_.days) + presentPositionRecord.flatMap(_.yieldRate).fold(0)(_ => days),
+      yieldRate = composeRatesIfAny(presentPositionRecord.flatMap(_.yieldRate) ++ previousAccumulatedRecord.flatMap(_.yieldRate)),
+      yieldResult = sumIfAny(presentPositionRecord.flatMap(_.yieldResult) ++ previousAccumulatedRecord.flatMap(_.yieldResult)),
+      shareAmountChange = sumIfAny(presentPositionRecord.flatMap(_.shareAmountChange) ++ previousAccumulatedRecord.flatMap(_.shareAmountChange)),
+      balanceChange = sumIfAny(presentPositionRecord.flatMap(_.balanceChange) ++ previousAccumulatedRecord.flatMap(_.balanceChange)),
+      missingData = previousAccumulatedRecord.fold(false)(_.missingData) || positionRecord.contains(Missing),
+    )
+  }
+
+  private[funds] def accumulatedRecordSetFrom(
+    accumulatedRecords: Map[String, Record.Accumulated],
+    positionRecordSet: RecordSet.Position,
+    previousAccumulatedRecordSet: RecordSet.Accumulated,
+  ): RecordSet.Accumulated =
+    RecordSet.Accumulated(
+      days = positionRecordSet.days + previousAccumulatedRecordSet.days,
+      records = accumulatedRecords,
+      totalYieldRate = composeRatesIfAny(positionRecordSet.totalYieldRate ++ previousAccumulatedRecordSet.totalYieldRate),
+      totalYieldResult = sumIfAny(positionRecordSet.totalYieldResult ++ previousAccumulatedRecordSet.totalYieldResult),
+      totalBalanceChange = sumIfAny(positionRecordSet.totalBalanceChange ++ previousAccumulatedRecordSet.totalBalanceChange),
+      missingData = positionRecordSet.missingData || accumulatedRecords.values.exists(_.missingData) || previousAccumulatedRecordSet.missingData,
     )
 
   def sumAccumulatedRecordSets(accumulatedRecordSets: Iterable[RecordSet.Accumulated]): RecordSet.Accumulated =

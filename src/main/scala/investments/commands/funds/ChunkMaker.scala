@@ -81,17 +81,18 @@ class ChunkMaker(options: ChunkMaker.Options) {
       toDataRowsChunks(
         Title,
         initialPositionRecordSet.positionRecords
+          .view.mapValues(_.value)
           .toSeq.sortBy { case (fund, _) => fund }
-          .map { case (fund, initialRecord) =>
+          .map { case (fund, initialPositionRecord) =>
             DataRecord(
               s"    $fund", missingData = false,
-              initialRecord.sharePrice,
+              Some(initialPositionRecord.sharePrice),
               None, None,
               None, None, 0,
               None,
               None, None,
-              initialRecord.finalBalance, initialRecord.shareAmount,
-              initialRecord.note,
+              initialPositionRecord.finalBalance, initialPositionRecord.shareAmount,
+              initialPositionRecord.note,
             )
           },
         DataRecord(
@@ -111,22 +112,24 @@ class ChunkMaker(options: ChunkMaker.Options) {
   private def toRecordSetChunks(recordSet: RecordSet): Seq[Seq[Chunk]] = {
     toDataRowsChunks(
       s"  ${recordSet.position.date.getDayOfMonth} (${s"+${Words.WithCount.day(recordSet.position.days)}"})",
-      recordSet.position.positionRecords
-        .filter { case (_, positionRecord) => positionRecord.shareAmountChange.isDefined || positionRecord.shareAmount.isDefined }
-        .toSeq.sortBy { case (fund, _) => fund }.map { case (fund, positionRecord) =>
+      recordSet.records
+        .toSeq.sortBy { case (fund, _) => fund }
+        .map { case (fund, record) =>
+          val presentPositionRecord = record.position.flatten
+
           DataRecord(
-            s"    $fund", positionRecord.missingData,
-            positionRecord.sharePrice,
-            positionRecord.yieldResult, positionRecord.yieldRate,
+            s"    $fund", record.accumulated.missingData,
+            presentPositionRecord.map(_.sharePrice),
+            presentPositionRecord.flatMap(_.yieldResult), presentPositionRecord.flatMap(_.yieldRate),
             None, None, 1,
-            positionRecord.initialBalance,
-            positionRecord.balanceChange, positionRecord.shareAmountChange,
-            positionRecord.finalBalance, positionRecord.shareAmount,
-            positionRecord.note,
+            presentPositionRecord.flatMap(_.initialBalance),
+            presentPositionRecord.flatMap(_.balanceChange), presentPositionRecord.flatMap(_.shareAmountChange),
+            presentPositionRecord.flatMap(_.finalBalance), presentPositionRecord.flatMap(_.shareAmount),
+            presentPositionRecord.flatMap(_.note),
           )
         },
       DataRecord(
-        s"    Total", recordSet.position.missingData,
+        s"    Total", recordSet.accumulated.missingData,
         None,
         recordSet.position.totalYieldResult, recordSet.position.totalYieldRate,
         None, None, 1,
