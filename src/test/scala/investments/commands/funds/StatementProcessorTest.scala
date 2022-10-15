@@ -2,29 +2,28 @@ package sisgrana
 package investments.commands.funds
 
 import com.softwaremill.quicklens._
+import investments.Rate
 import investments.fileTypes.fundsMonthStatement.FundsStatement
 import java.time.{LocalDate, Month, YearMonth}
 
 class StatementProcessorTest extends TestBase {
   private val yearMonth = YearMonth.of(2022, Month.JANUARY)
 
-  private case class PositionRecordFromInputs(entry: Option[FundsStatement.Entry], previousPositionRecord: Option[Record.Position.Previous]) {
-    def applyToMethod(): Option[Presence[Record.Position]] = StatementProcessor.positionRecordFrom(entry, previousPositionRecord)
+  private case class PositionRecordFromInputs(days: Int = 1, entry: Option[FundsStatement.Entry], previousPositionRecord: Option[Record.Position.Previous]) {
+    def applyToMethod(): Option[Presence[Record.Position]] = StatementProcessor.positionRecordFrom(days, entry, previousPositionRecord)
   }
 
-  private case class PositionRecordSetFromInputs(date: LocalDate = yearMonth.atDay(1), positionRecords: Map[String, Presence[Record.Position]], previousPositionRecordSet: RecordSet.Position.Previous) {
-    def applyToMethod(): RecordSet.Position = StatementProcessor.positionRecordSetFrom(date, positionRecords, previousPositionRecordSet)
+  private case class PositionRecordSetFromInputs(date: LocalDate = yearMonth.atDay(1), days: Int = 1, positionRecords: Map[String, Presence[Record.Position]], previousPositionRecordSet: RecordSet.Position.Previous) {
+    def applyToMethod(): RecordSet.Position = StatementProcessor.positionRecordSetFrom(date, days, positionRecords, previousPositionRecordSet)
   }
 
-  private case class AccumulatedRecordFromInputs(days: Int = 1, positionRecord: Option[Presence[Record.Position]], previousAccumulatedRecord: Option[Record.Accumulated]) {
-    def applyToMethod(): Record.Accumulated = StatementProcessor.accumulatedRecordFrom(days, positionRecord, previousAccumulatedRecord)
+  private case class AccumulatedRecordFromInputs(positionRecord: Option[Presence[Record.Position]], previousAccumulatedRecord: Option[Record.Accumulated]) {
+    def applyToMethod(): Record.Accumulated = StatementProcessor.accumulatedRecordFrom(positionRecord, previousAccumulatedRecord)
   }
 
   private case class AccumulatedRecordSetFromInputs(accumulatedRecords: Map[String, Record.Accumulated], positionRecordSet: RecordSet.Position, previousAccumulatedRecordSet: RecordSet.Accumulated) {
     def applyToMethod(): RecordSet.Accumulated = StatementProcessor.accumulatedRecordSetFrom(accumulatedRecords, positionRecordSet, previousAccumulatedRecordSet)
   }
-
-  private implicit val daysCounter: DaysCounter = new DaysCounter(Set.empty)
 
   private val present = defined
 
@@ -39,7 +38,7 @@ class StatementProcessorTest extends TestBase {
       "previous-with-shareAmount" -> anyPositionRecord().modify(_.shareAmount).setTo(Some(123.4567890)),
     )
 
-    val positionRecords = StatementProcessor.positionRecordsFrom(entries, previousPositionRecords)
+    val positionRecords = StatementProcessor.positionRecordsFrom(days = 1, entries, previousPositionRecords)
 
     positionRecords.keySet should contain theSameElementsAs Set("entry", "entry|previous", "previous-with-shareAmount")
     positionRecords("entry") should be (present)
@@ -101,6 +100,7 @@ class StatementProcessorTest extends TestBase {
   }
 
   test(".positionRecordFrom() yieldRate") {
+    val days = 3
     val entry = anyEntry().modify(_.sharePrice).setTo(12.34567890)
 
     val previousRecord = anyPositionRecord().modify(_.sharePrice).setTo(13.34567890)
@@ -109,9 +109,10 @@ class StatementProcessorTest extends TestBase {
       "inputs" -> "expectedYieldRate",
 
       PositionRecordFromInputs(
+        days = days,
         entry = Some(entry),
         previousPositionRecord = Some(previousRecord),
-      ) -> Some(entry.sharePrice / previousRecord.sharePrice - 1),
+      ) -> Some(Rate(entry.sharePrice / previousRecord.sharePrice - 1, days)),
 
       PositionRecordFromInputs(
         entry = Some(entry),
@@ -444,14 +445,16 @@ class StatementProcessorTest extends TestBase {
   }
 
   test(".positionRecordSetFrom() totalYieldRate") {
+    val days = 3
     val previousFinalBalance = 122.4567890
     val initialBalance = 123.4567890
-    val expectedTotalYieldRate = initialBalance / previousFinalBalance - 1
+    val expectedTotalYieldRate = Rate(initialBalance / previousFinalBalance - 1, days)
 
     val cases = Table(
       "inputs" -> "expectedTotalYieldRate",
 
       PositionRecordSetFromInputs(
+        days = days,
         positionRecords = Map(
           "A" -> Present(anyPositionRecord().modify(_.initialBalance).setTo(Some(initialBalance))),
         ),
@@ -632,7 +635,7 @@ class StatementProcessorTest extends TestBase {
       "previous" -> anyAccumulatedRecord(),
     )
 
-    val accumulatedRecords = StatementProcessor.accumulatedRecordsFrom(1, positionRecords, previousAccumulatedRecords)
+    val accumulatedRecords = StatementProcessor.accumulatedRecordsFrom(positionRecords, previousAccumulatedRecords)
 
     accumulatedRecords.keySet should contain theSameElementsAs Set(
       "current-present",
@@ -641,67 +644,6 @@ class StatementProcessorTest extends TestBase {
       "current-missing|previous",
       "previous",
     )
-  }
-
-  test(".accumulatedRecordFrom() days") {
-    val days = 3
-
-    val positionRecordWithYieldRate = anyPositionRecord().modify(_.yieldRate).setTo(Some(0.1234567890))
-    val positionRecordWithoutYieldRate = anyPositionRecord().modify(_.yieldRate).setTo(None)
-
-    val previousAccumulatedRecord = anyAccumulatedRecord().modify(_.days).setTo(4)
-
-    val cases = Table(
-      "inputs" -> "expectedDays",
-
-      AccumulatedRecordFromInputs(
-        days = days,
-        positionRecord = Some(Present(positionRecordWithYieldRate)),
-        previousAccumulatedRecord = Some(previousAccumulatedRecord),
-      ) -> (previousAccumulatedRecord.days + days),
-
-      AccumulatedRecordFromInputs(
-        days = days,
-        positionRecord = Some(Present(positionRecordWithoutYieldRate)),
-        previousAccumulatedRecord = Some(previousAccumulatedRecord),
-      ) -> previousAccumulatedRecord.days,
-
-      AccumulatedRecordFromInputs(
-        days = days,
-        positionRecord = Some(Missing),
-        previousAccumulatedRecord = Some(previousAccumulatedRecord),
-      ) -> previousAccumulatedRecord.days,
-
-      AccumulatedRecordFromInputs(
-        days = days,
-        positionRecord = None,
-        previousAccumulatedRecord = Some(previousAccumulatedRecord),
-      ) -> previousAccumulatedRecord.days,
-
-      AccumulatedRecordFromInputs(
-        days = days,
-        positionRecord = Some(Present(positionRecordWithYieldRate)),
-        previousAccumulatedRecord = None,
-      ) -> days,
-
-      AccumulatedRecordFromInputs(
-        days = days,
-        positionRecord = Some(Present(positionRecordWithoutYieldRate)),
-        previousAccumulatedRecord = None,
-      ) -> 0,
-
-      AccumulatedRecordFromInputs(
-        days = days,
-        positionRecord = Some(Missing),
-        previousAccumulatedRecord = None,
-      ) -> 0,
-    )
-
-    forAll(cases) { case inputs -> expectedDays =>
-      val accumulatedRecord = inputs.applyToMethod()
-
-      accumulatedRecord.days should equal (expectedDays)
-    }
   }
 
   test(".accumulatedRecordFrom() missingData") {
@@ -837,7 +779,6 @@ class StatementProcessorTest extends TestBase {
   )
 
   private def anyAccumulatedRecord(): Record.Accumulated = Record.Accumulated(
-    days = 0,
     yieldRate = None,
     yieldResult = None,
     shareAmountChange = None,

@@ -1,22 +1,21 @@
 package sisgrana
 package investments.commands
 
+import investments.Rate
+
 package object funds {
   type Presence[+A] = Option[A]
   type Present[+A] = Some[A]
   val Present: Some.type = Some
   val Missing: None.type = None
 
-  private[funds] def sumIfAny[A: Numeric](values: Iterable[A]): Option[A] =
-    Option.when(values.nonEmpty)(values.sum)
+  private[funds] def sumIfAny[A](values: Iterable[A])(implicit numeric: Numeric[A]): Option[A] = {
+    import numeric._
+    values.reduceOption(_ + _)
+  }
 
-  private[funds] def composeRatesIfAny(rates: Iterable[Double]): Option[Double] =
-    Option.when(rates.nonEmpty) {
-      val finalRatePlus1 = rates.tail.foldLeft(rates.head + 1) { (accumulatedRatePlus1, rate) =>
-        accumulatedRatePlus1 * (1 + rate)
-      }
-      finalRatePlus1 - 1
-    }
+  private[funds] def composeRatesIfAny(rates: Iterable[Rate]): Option[Rate] =
+    rates.reduceOption(_ `compose` _)
 
   implicit class PresenceMapOps[A](private val map: Map[String, Presence[A]]) extends AnyVal {
     def present: Map[String, A] = map.collect { case k -> Present(v) => k -> v }

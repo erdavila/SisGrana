@@ -1,6 +1,7 @@
 package sisgrana
 package investments.commands.funds
 
+import investments.Rate
 import java.time.LocalDate
 
 case class RecordSet(
@@ -23,7 +24,7 @@ object RecordSet {
     missingData: Boolean,
 
     // Totals
-    totalYieldRate: Option[Double],
+    totalYieldRate: Option[Rate],
     totalYieldResult: Option[Double],
     totalInitialBalance: Option[Double],
     totalBalanceChange: Option[Double],
@@ -50,7 +51,7 @@ object RecordSet {
   case class Accumulated(
     days: Int,
     records: Map[String, Record.Accumulated],
-    totalYieldRate: Option[Double],
+    totalYieldRate: Option[Rate],
     totalYieldResult: Option[Double],
     totalBalanceChange: Option[Double],
     missingData: Boolean,

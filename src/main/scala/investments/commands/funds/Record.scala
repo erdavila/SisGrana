@@ -1,6 +1,8 @@
 package sisgrana
 package investments.commands.funds
 
+import investments.Rate
+
 case class Record(
   position: Option[Presence[Record.Position]],
   accumulated: Record.Accumulated,
@@ -9,7 +11,7 @@ case class Record(
 object Record {
   case class Position(
     sharePrice: Double,
-    yieldRate: Option[Double],
+    yieldRate: Option[Rate],
     yieldResult: Option[Double],
     initialBalance: Option[Double],
     shareAmountChange: Option[BigDecimal],
@@ -35,8 +37,7 @@ object Record {
   }
 
   case class Accumulated(
-    days: Int,
-    yieldRate: Option[Double],
+    yieldRate: Option[Rate],
     yieldResult: Option[Double],
     shareAmountChange: Option[BigDecimal],
     balanceChange: Option[Double],

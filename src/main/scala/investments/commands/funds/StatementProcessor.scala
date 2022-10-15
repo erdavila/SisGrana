@@ -4,6 +4,8 @@ package investments.commands.funds
 import cats.instances.option._
 import cats.syntax.apply._
 import com.softwaremill.quicklens._
+import investments.Rate
+import investments.commands.funds.Record.Position
 import investments.fileTypes.fundsMonthStatement._
 import java.time.{LocalDate, YearMonth}
 import utils.Traversing._
@@ -24,15 +26,17 @@ object StatementProcessor {
       .toMap
     val initialPositionRecordSet = initialPositionRecordSetFrom(initialRecords, yearMonth)
 
-    implicit val daysCounter: DaysCounter = new DaysCounter(statement.noPriceDates)
+    val daysCounter = new DaysCounter(statement.noPriceDates)
 
     val (_, recordSets) = statement.entries
       .toSeq.sortBy { case (date, _) => date }
       .foldMapLeft((initialPositionRecordSet: RecordSet.Position.Previous, ZeroAccumulatedRecordSet)) { case ((previousPositionRecordSet, previousAccumulatedRecordSet), (date, entries)) =>
-        val positionRecords = positionRecordsFrom(entries, previousPositionRecordSet.positionRecords.present)
-        val positionRecordSet = positionRecordSetFrom(date, positionRecords, previousPositionRecordSet)
+        val days = daysCounter.count(previousPositionRecordSet.date, date)
 
-        val accumulatedRecords = accumulatedRecordsFrom(positionRecordSet.days, positionRecords, previousAccumulatedRecordSet.records)
+        val positionRecords = positionRecordsFrom(days, entries, previousPositionRecordSet.positionRecords.present)
+        val positionRecordSet = positionRecordSetFrom(date, days, positionRecords, previousPositionRecordSet)
+
+        val accumulatedRecords = accumulatedRecordsFrom(positionRecords, previousAccumulatedRecordSet.records)
         val accumulatedRecordSet = accumulatedRecordSetFrom(accumulatedRecords, positionRecordSet, previousAccumulatedRecordSet)
 
         val recordSet = RecordSet(positionRecordSet, accumulatedRecordSet)
@@ -63,6 +67,7 @@ object StatementProcessor {
   }
 
   private[funds] def positionRecordsFrom(
+    days: Int,
     entries: Map[String, FundsStatement.Entry],
     previousPositionRecords: Map[String, Record.Position.Previous],
   ): Map[String, Presence[Record.Position]] =
@@ -72,25 +77,26 @@ object StatementProcessor {
       .flatMap { fund =>
         val entry = entries.get(fund)
         val previousPositionRecord = previousPositionRecords.get(fund)
-        positionRecordFrom(entry, previousPositionRecord).map(fund -> _)
+        positionRecordFrom(days, entry, previousPositionRecord).map(fund -> _)
       }
       .toMap
 
   private[funds] def positionRecordFrom(
-    entry: Option[FundsStatement.Entry],
-    previousPositionRecord: Option[Record.Position.Previous],
-  ): Option[Presence[Record.Position]] = {
+    days: Int,
+    entry: Presence[FundsStatement.Entry],
+    previousPositionRecord: Presence[Position.Previous],
+  ): Option[Presence[Position]] = {
     val previousShareAmount = previousPositionRecord.flatMap(_.shareAmount)
     entry match {
       case Some(entry) =>
-        val yieldRate = previousPositionRecord.map(entry.sharePrice / _.sharePrice - 1)
+        val yieldRate = previousPositionRecord.map(previousPositionRecord => Rate(entry.sharePrice / previousPositionRecord.sharePrice - 1, days))
         val shareAmount = sumIfAny(previousShareAmount ++ entry.shareAmountChange).filter(_ != 0)
         Some(
           Present(
             Record.Position(
               sharePrice = entry.sharePrice,
               yieldRate = yieldRate,
-              yieldResult = (previousPositionRecord.flatMap(_.finalBalance), yieldRate).mapN(_ * _),
+              yieldResult = (previousPositionRecord.flatMap(_.finalBalance), yieldRate).mapN(_ * _.value),
               initialBalance = previousShareAmount.map(_.toDouble * entry.sharePrice),
               shareAmountChange = entry.shareAmountChange,
               balanceChange = entry.shareAmountChange.map(_.toDouble * entry.sharePrice),
@@ -106,19 +112,22 @@ object StatementProcessor {
 
   private[funds] def positionRecordSetFrom(
     date: LocalDate,
+    days: Int,
     positionRecords: Map[String, Presence[Record.Position]],
     previousPositionRecordSet: RecordSet.Position.Previous,
-  )(implicit daysCounter: DaysCounter): RecordSet.Position = {
+  ): RecordSet.Position = {
     val (fundsMissingData, presentPreviousRecordsMap) = positionRecords.partitionByPresence
     val presentPreviousRecords = presentPreviousRecordsMap.values
     val totalInitialBalance = sumIfAny(presentPreviousRecords.flatMap(_.initialBalance))
 
     RecordSet.Position(
       date = date,
-      days = daysCounter.count(previousPositionRecordSet.date, date),
+      days = days,
       positionRecords = positionRecords,
       missingData = fundsMissingData.nonEmpty,
-      totalYieldRate = (totalInitialBalance, previousPositionRecordSet.totalFinalBalance).mapN(_ / _ - 1),
+      totalYieldRate = (totalInitialBalance, previousPositionRecordSet.totalFinalBalance).mapN { (totalInitialBalance, previousTotalFinalBalance) =>
+        Rate(totalInitialBalance / previousTotalFinalBalance - 1, days)
+      },
       totalYieldResult = sumIfAny(presentPreviousRecords.flatMap(_.yieldResult)),
       totalInitialBalance = totalInitialBalance,
       totalBalanceChange = sumIfAny(presentPreviousRecords.flatMap(_.balanceChange)),
@@ -127,7 +136,6 @@ object StatementProcessor {
   }
 
   private[funds] def accumulatedRecordsFrom(
-    days: Int,
     positionRecords: Map[String, Presence[Record.Position]],
     previousAccumulatedRecords: Map[String, Record.Accumulated],
   ): Map[String, Record.Accumulated] =
@@ -137,19 +145,17 @@ object StatementProcessor {
       .map { fund =>
         val positionRecord = positionRecords.get(fund)
         val previousAccumulatedRecord = previousAccumulatedRecords.get(fund)
-        fund -> accumulatedRecordFrom(days, positionRecord, previousAccumulatedRecord)
+        fund -> accumulatedRecordFrom(positionRecord, previousAccumulatedRecord)
       }
       .toMap
 
   private[funds] def accumulatedRecordFrom(
-    days: Int,
     positionRecord: Option[Presence[Record.Position]],
     previousAccumulatedRecord: Option[Record.Accumulated],
   ): Record.Accumulated = {
     val presentPositionRecord = positionRecord.flatten
 
     Record.Accumulated(
-      days = previousAccumulatedRecord.fold(0)(_.days) + presentPositionRecord.flatMap(_.yieldRate).fold(0)(_ => days),
       yieldRate = composeRatesIfAny(presentPositionRecord.flatMap(_.yieldRate) ++ previousAccumulatedRecord.flatMap(_.yieldRate)),
       yieldResult = sumIfAny(presentPositionRecord.flatMap(_.yieldResult) ++ previousAccumulatedRecord.flatMap(_.yieldResult)),
       shareAmountChange = sumIfAny(presentPositionRecord.flatMap(_.shareAmountChange) ++ previousAccumulatedRecord.flatMap(_.shareAmountChange)),
@@ -197,7 +203,6 @@ object StatementProcessor {
 
   private def sumAccumulatedRecords(record1: Record.Accumulated, record2: Record.Accumulated): Record.Accumulated =
     record1
-      .modify(_.days).using(_ + record2.days)
       .modify(_.yieldRate).using(yieldRate => composeRatesIfAny(yieldRate ++ record2.yieldRate))
       .modify(_.yieldResult).using(yieldResult => sumIfAny(yieldResult ++ record2.yieldResult))
       .modify(_.shareAmountChange).using(shareAmountChange => sumIfAny(shareAmountChange ++ record2.shareAmountChange))
