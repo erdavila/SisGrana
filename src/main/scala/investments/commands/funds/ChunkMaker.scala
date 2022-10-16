@@ -6,6 +6,7 @@ import cats.syntax.apply._
 import com.softwaremill.quicklens._
 import investments.Rate
 import java.time.YearMonth
+import java.time.temporal.ChronoUnit
 import utils.AnsiString.{Code, StringOps}
 import utils.TextAligner.Chunk
 import utils.{AnsiString, BrNumber}
@@ -13,18 +14,16 @@ import utils.{AnsiString, BrNumber}
 class ChunkMaker(options: ChunkMaker.Options) {
   def makeChunks(
     yearMonth: YearMonth,
-    warningText: Option[String],
+    showInitialDataDifferWarning: Boolean,
     initialPositionRecordSet: Option[RecordSet.Position.Initial],
     recordSets: Seq[RecordSet],
   ): Seq[Seq[Chunk]] = {
     val yearMonthRowChunk = Seq(Chunk.leftAligned(Anchors.Leftmost, yearMonth.toString))
 
-    val warningChunks = warningText
-      .toSeq
-      .map { text =>
-        val warning = "  " ++ toWarningAnsiString(text)
-        Seq(Chunk.leftAligned(Anchors.Leftmost, warning.toString, warning.length))
-      }
+    val warningChunks = seqIf(showInitialDataDifferWarning) {
+      val warning = toWarningAnsiString("DADOS INICIAIS DIFEREM DOS DADOS FINAIS DO MÊS ANTERIOR")
+      Seq(Seq(indentedChunk(Chunk.leftAligned(Anchors.Leftmost, warning.toString, warning.length))))
+    }
 
     val daysRowsChunks = seqIf(options.days) {
       val initialRecordSetRowsChunks = initialPositionRecordSet
@@ -35,9 +34,9 @@ class ChunkMaker(options: ChunkMaker.Options) {
       initialRecordSetRowsChunks ++ recordSetsRowsChunks
     }
 
-    val monthSummaryRowsChunks = toMonthSummaryChunks(recordSets.last.accumulated)
+    val monthSummaryRowsChunks = makeMonthSummaryChunks(recordSets.last.accumulated)
 
-    yearMonthRowChunk +: (warningChunks ++ daysRowsChunks ++ monthSummaryRowsChunks)
+    yearMonthRowChunk +: indented(warningChunks ++ daysRowsChunks ++ monthSummaryRowsChunks)
   }
 
   private case class DataRecord(
@@ -50,6 +49,8 @@ class ChunkMaker(options: ChunkMaker.Options) {
     finalBalance: Option[Double], shareAmount: Option[BigDecimal],
     note: Option[String],
   )
+
+  private val Spacing = "  "
 
   private object Anchors {
     val Leftmost = 0
@@ -71,12 +72,12 @@ class ChunkMaker(options: ChunkMaker.Options) {
   }
 
   private def toInitialRecordSetChunks(initialPositionRecordSet: RecordSet.Position.Initial): Seq[Seq[Chunk]] = {
-    val Title = "  Início"
+    val Title = "Início"
 
     if (initialPositionRecordSet.positionRecords.isEmpty) {
       Seq(
         Seq(Chunk.leftAligned(Anchors.Leftmost, Title)),
-        Seq(Chunk.leftAligned(Anchors.Leftmost, "    Nenhum dado")),
+        Seq(indentedChunk(Chunk.leftAligned(Anchors.Leftmost, "Nenhum dado"))),
       )
     } else {
       toDataRowsChunks(
@@ -86,7 +87,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
           .toSeq.sortBy { case (fund, _) => fund }
           .map { case (fund, initialPositionRecord) =>
             DataRecord(
-              s"    $fund", missingData = false,
+              fund, missingData = false,
               Some(initialPositionRecord.sharePrice),
               None, None,
               None, showYieldRateDays = false,
@@ -97,7 +98,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
             )
           },
         DataRecord(
-          "    Total", missingData = false,
+          "Total", missingData = false,
           None,
           None, None,
           None, showYieldRateDays = false,
@@ -112,14 +113,14 @@ class ChunkMaker(options: ChunkMaker.Options) {
 
   private def toRecordSetChunks(recordSet: RecordSet): Seq[Seq[Chunk]] = {
     toDataRowsChunks(
-      s"  ${recordSet.position.date.getDayOfMonth} (${s"+${Words.WithCount.day(recordSet.position.days)}"})",
+      s"${recordSet.position.date.getDayOfMonth} (${s"+${Words.WithCount.day(recordSet.position.days)}"})",
       recordSet.records
         .toSeq.sortBy { case (fund, _) => fund }
         .map { case (fund, record) =>
           val presentPositionRecord = record.position.flatten
 
           DataRecord(
-            s"    $fund", record.accumulated.missingData,
+            fund, record.accumulated.missingData,
             presentPositionRecord.map(_.sharePrice),
             presentPositionRecord.flatMap(_.yieldResult), presentPositionRecord.flatMap(_.yieldRate),
             None, showYieldRateDays = false,
@@ -130,7 +131,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
           )
         },
       DataRecord(
-        s"    Total", recordSet.accumulated.missingData,
+        "Total", recordSet.accumulated.missingData,
         None,
         recordSet.position.totalYieldResult, recordSet.position.totalYieldRate,
         None, showYieldRateDays = false,
@@ -142,14 +143,24 @@ class ChunkMaker(options: ChunkMaker.Options) {
     )
   }
 
-  private def toMonthSummaryChunks(accumulatedRecordSet: RecordSet.Accumulated): Seq[Seq[Chunk]] =
-    makeSummaryChunks(s"  Mês (${Words.WithCount.day(accumulatedRecordSet.days)})", accumulatedRecordSet, months = 1)
+  private def makeMonthSummaryChunks(accumulatedRecordSet: RecordSet.Accumulated): Seq[Seq[Chunk]] =
+    makeSummaryChunks(s"Mês (${Words.WithCount.day(accumulatedRecordSet.days)})", accumulatedRecordSet, months = 1)
 
-  def makeSummaryChunks(
+  def makeMonthRangeSummaryChunks(initialMonth: YearMonth, finalMonth: YearMonth, accumulatedRecordSet: RecordSet.Accumulated): Seq[Seq[Chunk]] = {
+    val months = 1 + initialMonth.until(finalMonth, ChronoUnit.MONTHS).toInt
+    seqIf(months > 1) {
+      makeSummaryChunks(
+        s"Meses de ${initialMonth} a ${finalMonth} (${months} meses/${accumulatedRecordSet.days} dias)",
+        accumulatedRecordSet,
+        months = months,
+      )
+    }
+  }
+
+  private def makeSummaryChunks(
     title: String,
     accumulatedRecordSet: RecordSet.Accumulated,
     months: Int,
-    nameIndentationSize: Int = 4,
   ): Seq[Seq[Chunk]] = {
     def toMonthlyRate(rate: Option[Rate]) =
       for {
@@ -171,7 +182,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
           .toSeq.sortBy { case (fund, _) => fund }
           .map { case (fund, accumulatedRecord) =>
             DataRecord(
-              " " * nameIndentationSize ++ fund, accumulatedRecord.missingData,
+              fund, accumulatedRecord.missingData,
               None,
               accumulatedRecord.yieldResult, accumulatedRecord.yieldRate,
               toMonthlyRate(accumulatedRecord.yieldRate), shouldShowYieldRateDays(accumulatedRecord.yieldRate),
@@ -182,7 +193,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
             )
           },
         DataRecord(
-          " " * nameIndentationSize ++ "Total", accumulatedRecordSet.missingData,
+          "Total", accumulatedRecordSet.missingData,
           None,
           accumulatedRecordSet.totalYieldResult, accumulatedRecordSet.totalYieldRate,
           toMonthlyRate(accumulatedRecordSet.totalYieldRate), shouldShowYieldRateDays(accumulatedRecordSet.totalYieldRate),
@@ -204,7 +215,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
       Seq(toBoldChunks(toDataChunks(totalDataRecord)))
     }
 
-    titleRowChunks ++ fundsRowsChunks ++ totalRowChunks
+    titleRowChunks ++ indented(fundsRowsChunks ++ totalRowChunks)
   }
 
   private def toDataChunks(dataRecord: DataRecord): Seq[Chunk] = {
@@ -216,7 +227,7 @@ class ChunkMaker(options: ChunkMaker.Options) {
     Seq(
       Seq(
         Chunk.leftAligned(Anchors.Leftmost, dataRecord.name),
-        Chunk.rightAligned(Anchors.PostNameSpacing, "  "),
+        Chunk.rightAligned(Anchors.PostNameSpacing, Spacing),
       ),
       Option.when(dataRecord.missingData) {
         val warning = toWarningAnsiString("DADOS FALTANDO")
@@ -258,9 +269,25 @@ class ChunkMaker(options: ChunkMaker.Options) {
       Seq(Chunk.leftAligned(Anchors.PostChangeSeparator, " | ")),
       dataRecord.finalBalance.map(finalBalance => Chunk.rightAligned(Anchors.FinalBalance, formatMoney(finalBalance))),
       dataRecord.shareAmount.map(shareAmount => Chunk.rightAligned(Anchors.End, s" (${formatShareAmount(shareAmount)})")),
-      dataRecord.note.map(note => Chunk.leftAligned(Anchors.End, s"  $note")),
+      dataRecord.note.map(note => Chunk.leftAligned(Anchors.End, s"$Spacing$note")),
     ).flatten
   }
+
+  private val Indentation = "  "
+
+  private def indented(rowsChunks: Seq[Seq[Chunk]]): Seq[Seq[Chunk]] =
+    rowsChunks.map(indentedRow)
+
+  private def indentedRow(rowChunks: Seq[Chunk]): Seq[Chunk] =
+    rowChunks match {
+      case h +: t => indentedChunk(h) +: t
+      case _ => rowChunks
+    }
+
+  private def indentedChunk(chunk: Chunk): Chunk =
+    chunk
+      .modify(_.text).using(Indentation ++ _)
+      .modify(_.width).using(_ + Indentation.length)
 
   private object Words {
     def day(count: Int): String = if (count == 1) "dia" else "dias"

@@ -32,32 +32,22 @@ object FundsMain {
         val (initialRecordSet, recordSets) = StatementProcessor.process(month, statement)
 
         val monthInitialData = toMonthTurnData(initialRecordSet.positionRecords.present)
-        val warning = Option.when(previousMonthFinalData.exists(_ != monthInitialData)) {
-          "DADOS INICIAIS DIFEREM DOS DADOS FINAIS DO MÊS ANTERIOR"
-        }
-
-        val initialRecordSetOpt = Option.when(previousMonthFinalData.isEmpty || warning.isDefined) {
+        val showWarning = previousMonthFinalData.exists(_ != monthInitialData)
+        val initialRecordSetOpt = Option.when(previousMonthFinalData.isEmpty || showWarning) {
           initialRecordSet
         }
 
-        val chunks = chunkMaker.makeChunks(month, warning, initialRecordSetOpt, recordSets)
+        val chunks = chunkMaker.makeChunks(month, showWarning, initialRecordSetOpt, recordSets)
         val monthFinalData = toMonthTurnData(recordSets.last.position.positionRecords.present)
         (Some(monthFinalData), (chunks, recordSets.last.accumulated))
       }
 
     val (chunks, lastAccumulatedRecordSets) = chunksAndLastAccumulatedRecordSets.unzip
 
-    val monthRangeSummaryChunks = if (lastAccumulatedRecordSets.sizeIs > 1) {
-      val monthRangeAccumulatedRecordSet = StatementProcessor.sumAccumulatedRecordSets(lastAccumulatedRecordSets)
-      chunkMaker.makeSummaryChunks(
-        s"Meses de ${opArgs.initialMonth} a ${opArgs.finalMonth} (${monthRangeAccumulatedRecordSet.days} dias)",
-        monthRangeAccumulatedRecordSet,
-        months = lastAccumulatedRecordSets.size,
-        nameIndentationSize = 2,
-      )
-    } else {
-      Seq.empty
-    }
+    val monthRangeSummaryChunks = chunkMaker.makeMonthRangeSummaryChunks(
+      opArgs.initialMonth, opArgs.finalMonth,
+      StatementProcessor.sumAccumulatedRecordSets(lastAccumulatedRecordSets),
+    )
 
     TextAligner.alignAndRender(chunks.flatten.toSeq ++ monthRangeSummaryChunks)
       .foreach(println)
