@@ -8,6 +8,7 @@ import investments.Rate
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
 import utils.AnsiString.{Code, StringOps}
+import utils.AnyOps
 import utils.TextAligner.Chunk
 import utils.{AnsiString, BrNumber}
 
@@ -218,15 +219,20 @@ class ChunkMaker(options: ChunkMaker.Options) {
     titleRowChunks ++ indented(fundsRowsChunks ++ totalRowChunks)
   }
 
+  private val Ellipsis = "…"
+
   private def toDataChunks(dataRecord: DataRecord): Seq[Chunk] = {
     def colorize(value: Double)(format: Double => String): AnsiString = {
       val colorCode = if (value > 0) Code.Blue else Code.Red
       colorCode ++ format(value) ++ Code.DefaultColor
     }
 
+    val displayedName = AnyOps(dataRecord.name)
+      .pipeIfSelf(_.lengthIs > options.maxNameLen)(_.take(options.maxNameLen - Ellipsis.length) ++ Ellipsis)
+
     Seq(
       Seq(
-        Chunk.leftAligned(Anchors.Leftmost, dataRecord.name),
+        Chunk.leftAligned(Anchors.Leftmost, displayedName),
         Chunk.rightAligned(Anchors.PostNameSpacing, Spacing),
       ),
       Option.when(dataRecord.missingData) {
@@ -352,5 +358,6 @@ object ChunkMaker {
     totals: Boolean,
     days: Boolean,
     summary: Boolean,
+    maxNameLen: Int,
   )
 }

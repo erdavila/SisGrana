@@ -15,6 +15,10 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
   private val NoSummaryOption = "--no-summary"
   private val PositiveFilterOption = "--filter"
   private val NegativeFilterOption = "--filter-not"
+  private val MaxNameLenOption = "--max-name-len"
+
+  private val DefaultMaxNameLen = 10
+  private val MinNameLenLimit = 4
 
   private case class DetailsAndAggregationOptions(details: Boolean, aggregation: Boolean)
 
@@ -32,6 +36,7 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
       daysAndSummary <- takeDaysAndSummaryOptions
       positiveFilters <- takeFilters(PositiveFilterOption)
       negativeFilters <- takeFilters(NegativeFilterOption)
+      maxNameLen <- takeMaxNameLenOption
       monthRange <- takeMonthRange
     } yield OperationArguments.List(
       initialMonth = monthRange._1,
@@ -41,6 +46,7 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
         totals = fundsAndTotals.aggregation,
         days = daysAndSummary.details,
         summary = daysAndSummary.aggregation,
+        maxNameLen = maxNameLen,
       ),
       positiveFilters = positiveFilters,
       negativeFilters = negativeFilters,
@@ -71,6 +77,14 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
       case Some(option) => option.split(",").toSeq
       case None => Seq.empty
     }
+
+  private def takeMaxNameLenOption: Parser[Int] =
+    for {
+      maxNameLenStr <- takeOptionParameter(MaxNameLenOption)
+      maxNameLen = maxNameLenStr.fold(DefaultMaxNameLen) {
+        _.toIntOption.filter(_ >= MinNameLenLimit).getOrElse(error(s"Valor inválido para a opção $MaxNameLenOption"))
+      }
+    } yield maxNameLen
 
   private def takeMonth: Parser[YearMonth] =
     for (str <- takeNext)
@@ -107,6 +121,7 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
     printStream.println(s"    $SummaryOnlyOption|$NoSummaryOption")
     printStream.println(s"    $PositiveFilterOption NOME,...")
     printStream.println(s"    $NegativeFilterOption NOME,...")
+    printStream.println(s"    $MaxNameLenOption TAMANHO (default é $DefaultMaxNameLen)")
     printStream.println()
     printStream.println(s"  MESES pode ser:")
     printStream.println(s"    ANO-MÊS (ex.: 2022-08)")
