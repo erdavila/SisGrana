@@ -9,7 +9,7 @@ object OperationArguments {
   case class List(
     initialMonth: YearMonth,
     finalMonth: YearMonth,
-    printOptions: ChunkMaker.Options,
+    printOptions: ListChunkMaker.Options,
     positiveFilters: Seq[String],
     negativeFilters: Seq[String],
   ) extends OperationArguments

@@ -41,7 +41,7 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
     } yield OperationArguments.List(
       initialMonth = monthRange._1,
       finalMonth = monthRange._2,
-      printOptions = ChunkMaker.Options(
+      printOptions = ListChunkMaker.Options(
         funds = fundsAndTotals.details,
         totals = fundsAndTotals.aggregation,
         days = daysAndSummary.details,
@@ -113,8 +113,8 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
 
   override protected def printUsage(printStream: PrintStream): Unit = {
     printStream.println("Parâmetros esperados:")
-    printStream.println("  [list] [OPÇÕES] MESES")
-    printStream.println("  init ANO-MÊS")
+    printStream.println(s"  [$ListOperation] [OPÇÕES] MESES")
+    printStream.println(s"  $InitOperation ANO-MÊS")
     printStream.println()
     printStream.println(s"  OPÇÕES podem ser:")
     printStream.println(s"    $TotalsOnlyOption|$NoTotalsOption")

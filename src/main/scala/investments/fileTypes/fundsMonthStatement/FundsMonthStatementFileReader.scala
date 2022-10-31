@@ -11,6 +11,8 @@ import scala.util.{Failure, Success, Try}
 import utils.BrNumber
 
 private[fundsMonthStatement] class FundsMonthStatementFileReader(yearMonth: YearMonth) {
+  import FundsMonthStatementFileReader.{InitialEntryMarker, NoPricesMarker}
+
   private object PositiveIntToString {
     def unapply(str: String): Option[Int] = str.toIntOption.filter(_ > 0)
   }
@@ -24,13 +26,13 @@ private[fundsMonthStatement] class FundsMonthStatementFileReader(yearMonth: Year
         case Seq(PositiveIntToString(day), fund, sharePrice, shareAmountChange, note) => addEntry(statement, day, fund, sharePrice, Some(shareAmountChange), Some(note))
         case Seq(iniString, fund, sharePrice, shareAmount) if isIni(iniString) => addInitialEntry(statement, fund, sharePrice, shareAmount, None)
         case Seq(iniString, fund, sharePrice, shareAmount, note) if isIni(iniString) => addInitialEntry(statement, fund, sharePrice, shareAmount, Some(note))
-        case Seq(PositiveIntToString(day), "no-prices") => setNoPricesDay(statement, day)
+        case Seq(PositiveIntToString(day), NoPricesMarker) => setNoPricesDay(statement, day)
         case Seq() => statement
       }
     }
   }
 
-  private def isIni(string: String) = string.equalsIgnoreCase("INI")
+  private def isIni(string: String) = string.equalsIgnoreCase(InitialEntryMarker)
 
   private def addEntry(
     statement: FundsStatement,
@@ -87,6 +89,9 @@ private[fundsMonthStatement] class FundsMonthStatementFileReader(yearMonth: Year
 }
 
 object FundsMonthStatementFileReader {
+  val InitialEntryMarker = "INI"
+  val NoPricesMarker = "no-prices"
+
   def terminalFilePath(yearMonth: YearMonth): String = s"$DataPath/${yearMonth.getYear}/$yearMonth - FUNDS.ssv"
   def insideZipFilePath(yearMonth: YearMonth): String = s"$DataPath/${yearMonth.getYear}.zip/$yearMonth - FUNDS.ssv"
 

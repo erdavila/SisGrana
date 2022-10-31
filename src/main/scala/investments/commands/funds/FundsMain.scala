@@ -5,9 +5,8 @@ import com.softwaremill.quicklens._
 import investments.fileTypes.fundsMonthStatement._
 import java.io.{File, FileOutputStream, PrintWriter}
 import java.time.YearMonth
-import utils.TextAligner.Chunk
 import utils.Traversing._
-import utils.{BrNumber, Exit, TextAligner, quoted}
+import utils.{Exit, TextAligner}
 
 object FundsMain {
   private case class MonthTurnFundData(sharePrice: Double, shareAmount: Option[BigDecimal])
@@ -19,7 +18,7 @@ object FundsMain {
     }
 
   private def list(opArgs: OperationArguments.List): Unit = {
-    val chunkMaker = new ChunkMaker(opArgs.printOptions)
+    val chunkMaker = new ListChunkMaker(opArgs.printOptions)
 
     val months = Iterator.iterate(opArgs.initialMonth)(_.plusMonths(1))
       .takeWhile(month => !month.isAfter(opArgs.finalMonth))
@@ -88,33 +87,25 @@ object FundsMain {
 
     val lastMonthEndRecordSet = readPreviousMonthEndPositionRecordSet(opArgs.month)
 
-    val Separator = "  "
-    val headerRowChunks = Seq(
-      Chunk.leftAligned(0, s"# Day${Separator}Fund"),
-      Chunk.leftAligned(1, Separator),
-      Chunk.rightAligned(2, s"Share Price${Separator}"),
-      Chunk.rightAligned(3, s"Share Change"),
-      Chunk.leftAligned(3, s"${Separator}Note"),
-    )
-
-    val nf = BrNumber.modifyNumberFormat { nf =>
-      nf.setMinimumFractionDigits(8)
-      nf.setMaximumFractionDigits(8)
-    }
-    val fundsRowsChunks = lastMonthEndRecordSet.positionRecords
+    val initialEntries = lastMonthEndRecordSet.positionRecords
       .present
-      .toSeq
-      .sortBy { case (fund, _) => fund }
-      .map { case (fund, positionRecord) =>
-        Seq(
-          Chunk.leftAligned(0, s"INI${Separator}${quoted(fund)}"),
-          Chunk.leftAligned(1, Separator),
-          Chunk.rightAligned(2, s"${nf.format(positionRecord.sharePrice)}${Separator}"),
-          Chunk.rightAligned(3, s"${nf.format(positionRecord.shareAmount.get.toDouble)}"),
+      .view
+      .mapValues(positionRecord =>
+        FundsStatement.InitialEntry(
+          sharePrice = positionRecord.sharePrice,
+          shareAmount = positionRecord.shareAmount.get,
+          note = None,
         )
-      }
+      )
+      .toMap
 
-    val rowsChunks = headerRowChunks +: Seq.empty +: fundsRowsChunks
+    val statement = FundsStatement(
+      initialEntries,
+      entries = Map.empty,
+      noPriceDates = Set.empty,
+    )
+    val rowsChunks = MonthStatementChunkMaker.makeChunks(statement)
+
     val writer = new PrintWriter(new FileOutputStream(filePath))
     for (row <- TextAligner.alignAndRender(rowsChunks)) {
       writer.println(row)
