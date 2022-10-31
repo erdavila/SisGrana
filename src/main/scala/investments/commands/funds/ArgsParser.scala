@@ -8,6 +8,7 @@ import java.time.YearMonth
 object ArgsParser extends ArgumentsParser[OperationArguments] {
   private val ListOperation = "list"
   private val InitOperation = "init"
+  private val EvolutionOfOperation = "evolution-of"
 
   private val TotalsOnlyOption = "--totals-only"
   private val NoTotalsOption = "--no-totals"
@@ -24,10 +25,13 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
 
   override protected def spec: Parser[OperationArguments] =
     for {
-      operation <- takeNextIf(operation => operation == ListOperation || operation == InitOperation)
+      operation <- takeNextIf(operation => operation == ListOperation || operation == InitOperation || operation == EvolutionOfOperation)
       opArgs <-
-        if (operation.contains(InitOperation)) takeInitOpArgs
-        else takeListOpArgs
+        operation match {
+          case Some(InitOperation) => takeInitOpArgs
+          case Some(EvolutionOfOperation) => takeEvolutionOfOpArgs
+          case _ => takeListOpArgs
+        }
     } yield opArgs
 
   private def takeListOpArgs: Parser[OperationArguments.List] =
@@ -39,8 +43,7 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
       maxNameLen <- takeMaxNameLenOption
       monthRange <- takeMonthRange
     } yield OperationArguments.List(
-      initialMonth = monthRange._1,
-      finalMonth = monthRange._2,
+      monthRange = monthRange,
       printOptions = ListChunkMaker.Options(
         funds = fundsAndTotals.details,
         totals = fundsAndTotals.aggregation,
@@ -55,6 +58,15 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
   private def takeInitOpArgs: Parser[OperationArguments.Init] =
     for (month <- takeMonth)
       yield OperationArguments.Init(month)
+
+  private def takeEvolutionOfOpArgs: Parser[OperationArguments.EvolutionOf] =
+    for {
+      fund <- takeNext
+      monthRange <- takeMonthRange
+    } yield OperationArguments.EvolutionOf(
+      fund = fund,
+      monthRange = monthRange,
+    )
 
   private def takeFundsAndTotalsOptions: Parser[DetailsAndAggregationOptions] =
     takeDetailsAndAggregationOptions(Seq(TotalsOnlyOption), Seq(NoTotalsOption))
@@ -90,11 +102,11 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
     for (str <- takeNext)
       yield YearMonth.parse(str)
 
-  private def takeMonthRange: Parser[(YearMonth, YearMonth)] =
+  private def takeMonthRange: Parser[MonthRange] =
     for (str <- takeNext)
       yield parseMonthRange(str)
 
-  private def parseMonthRange(string: String): (YearMonth, YearMonth) =
+  private def parseMonthRange(string: String): MonthRange =
     string match {
       case s"$initialMonthString:$finalMonthString" =>
         val initialMonth = YearMonth.parse(initialMonthString)
@@ -102,10 +114,10 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
         if (initialMonth `isAfter` finalMonth) {
           error("O ANO-MÊS-INICIAL não pode ser posterior ao ANO-MÊS-FINAL")
         }
-        (initialMonth, finalMonth)
+        MonthRange(initialMonth, finalMonth)
       case s =>
         val month = YearMonth.parse(s)
-        (month, month)
+        MonthRange(month, month)
     }
 
   private def incompatibleOptions(option1: String, option2: String): Nothing =
@@ -115,6 +127,7 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
     printStream.println("Parâmetros esperados:")
     printStream.println(s"  [$ListOperation] [OPÇÕES] MESES")
     printStream.println(s"  $InitOperation ANO-MÊS")
+    printStream.println(s"  $EvolutionOfOperation NOME MESES")
     printStream.println()
     printStream.println(s"  OPÇÕES podem ser:")
     printStream.println(s"    $TotalsOnlyOption|$NoTotalsOption")

@@ -15,15 +15,13 @@ object FundsMain {
     ArgsParser.parse(args) match {
       case opArgs: OperationArguments.List => list(opArgs)
       case opArgs: OperationArguments.Init => init(opArgs)
+      case opArgs: OperationArguments.EvolutionOf => evolutionOf(opArgs)
     }
 
   private def list(opArgs: OperationArguments.List): Unit = {
     val chunkMaker = new ListChunkMaker(opArgs.printOptions)
 
-    val months = Iterator.iterate(opArgs.initialMonth)(_.plusMonths(1))
-      .takeWhile(month => !month.isAfter(opArgs.finalMonth))
-
-    val (_, chunksAndLastAccumulatedRecordSets) = months
+    val (_, chunksAndLastAccumulatedRecordSets) = opArgs.monthRange.iterator
       .foldMapLeft(Option.empty[Map[String, MonthTurnFundData]]) { (previousMonthFinalData, month) =>
         val statement = FundsMonthStatementFileReader.read(month) |>
           (applyFilters(_, opArgs.positiveFilters, opArgs.negativeFilters)) |>
@@ -44,7 +42,7 @@ object FundsMain {
     val (chunks, lastAccumulatedRecordSets) = chunksAndLastAccumulatedRecordSets.unzip
 
     val monthRangeSummaryChunks = chunkMaker.makeMonthRangeSummaryChunks(
-      opArgs.initialMonth, opArgs.finalMonth,
+      opArgs.monthRange,
       StatementProcessor.sumAccumulatedRecordSets(lastAccumulatedRecordSets),
     )
 
@@ -128,6 +126,44 @@ object FundsMain {
       case _ => Exit.withErrorMessage { stream =>
         stream.println(s"Faltam dados no último dia do mês anterior ($lastDate)")
       }
+    }
+  }
+
+  private def evolutionOf(opArgs: OperationArguments.EvolutionOf): Unit = {
+    val evolutionItems = opArgs.monthRange.iterator
+      .traverse(Option.empty[BigDecimal]) { (previousMonthFinalShareAmount, month) =>
+        val statement = FundsMonthStatementFileReader.read(month)
+        val initialEntry = statement.initialEntries.get(opArgs.fund)
+        val initialShareAmount = initialEntry.map(_.shareAmount).getOrElse(BigDecimal(0))
+
+        if (previousMonthFinalShareAmount.exists(_ != initialShareAmount)) {
+          throw new Exception(s"$month: $MonthTurnDataDifferMessage")
+        }
+
+        val initialItem = for {
+          initialEntry <- initialEntry
+          if previousMonthFinalShareAmount.isEmpty
+        } yield EvolutionChunkMaker.EvolutionItem.PreviousMonth(
+          previousMonth = month.minusMonths(1),
+          shareAmount = initialEntry.shareAmount,
+        )
+
+        val items = for {
+          (date, entries) <- statement.entries.toSeq.sortBy { case (date, _) => date }
+          entry <- entries.get(opArgs.fund)
+          shareAmount <- entry.shareAmountChange
+          if shareAmount != 0
+        } yield EvolutionChunkMaker.EvolutionItem.CurrentMonth(date, shareAmount, entry.sharePrice)
+
+        val finalShareAmount = (initialShareAmount +: items.map(_.shareAmount)).sum
+
+        (Some(finalShareAmount), initialItem ++ items)
+      }(_ => None)
+
+    val chunks = EvolutionChunkMaker.makeChunks(evolutionItems.toSeq)
+
+    for (row <- TextAligner.alignAndRender(chunks)) {
+      println(row)
     }
   }
 }

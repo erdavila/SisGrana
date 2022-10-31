@@ -20,7 +20,7 @@ class ListChunkMaker(options: ListChunkMaker.Options) extends ChunkMaker {
     val yearMonthRowChunk = Seq(Chunk.leftAligned(Anchors.Leftmost, yearMonth.toString))
 
     val warningChunks = seqIf(showInitialDataDifferWarning) {
-      val warning = toWarningAnsiString("DADOS INICIAIS DIFEREM DOS DADOS FINAIS DO MÊS ANTERIOR")
+      val warning = toWarningAnsiString(MonthTurnDataDifferMessage)
       Seq(Seq(indentedChunk(Chunk.leftAligned(Anchors.Leftmost, warning.toString, warning.length))))
     }
 
@@ -145,11 +145,11 @@ class ListChunkMaker(options: ListChunkMaker.Options) extends ChunkMaker {
   private def makeMonthSummaryChunks(accumulatedRecordSet: RecordSet.Accumulated): Seq[Seq[Chunk]] =
     makeSummaryChunks(s"Mês (${Words.WithCount.day(accumulatedRecordSet.days)})", accumulatedRecordSet, months = 1)
 
-  def makeMonthRangeSummaryChunks(initialMonth: YearMonth, finalMonth: YearMonth, accumulatedRecordSet: RecordSet.Accumulated): Seq[Seq[Chunk]] = {
-    val months = 1 + initialMonth.until(finalMonth, ChronoUnit.MONTHS).toInt
+  def makeMonthRangeSummaryChunks(monthRange: MonthRange, accumulatedRecordSet: RecordSet.Accumulated): Seq[Seq[Chunk]] = {
+    val months = 1 + monthRange.initialMonth.until(monthRange.finalMonth, ChronoUnit.MONTHS).toInt
     seqIf(months > 1) {
       makeSummaryChunks(
-        s"Meses de $initialMonth a $finalMonth ($months meses/${accumulatedRecordSet.days} dias)",
+        s"Meses de ${monthRange.initialMonth} a ${monthRange.finalMonth} (${months} meses/${accumulatedRecordSet.days} dias)",
         accumulatedRecordSet,
         months = months,
       )

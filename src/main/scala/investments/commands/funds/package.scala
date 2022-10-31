@@ -9,6 +9,8 @@ package object funds {
   val Present: Some.type = Some
   val Missing: None.type = None
 
+  val MonthTurnDataDifferMessage = "DADOS INICIAIS DIFEREM DOS DADOS FINAIS DO MÊS ANTERIOR"
+
   private[funds] def sumIfAny[A](values: Iterable[A])(implicit numeric: Numeric[A]): Option[A] = {
     import numeric._
     values.reduceOption(_ + _)
