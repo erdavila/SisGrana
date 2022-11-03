@@ -2,9 +2,8 @@ package sisgrana
 package investments.commands.funds.operations.list
 
 import com.softwaremill.quicklens._
-import investments.commands.funds.{AnyOps, DaysCounter, OperationArguments, Record, StatementProcessor}
+import investments.commands.funds.{AnyOps, OperationArguments, Record, StatementProcessor}
 import investments.fileTypes.fundsMonthStatement.{FundsMonthStatementFileReader, FundsStatement}
-import java.time.YearMonth
 import utils.TextAligner
 import utils.Traversing._
 
@@ -17,9 +16,8 @@ object ListOperation {
     val (_, chunksAndLastAccumulatedRecordSets) = args.monthRange.iterator
       .foldMapLeft(Option.empty[Map[String, MonthTurnFundData]]) { (previousMonthFinalData, month) =>
         val statement = FundsMonthStatementFileReader.read(month) |>
-          (applyFilters(_, args.positiveFilters, args.negativeFilters)) |>
-          (ensureLastDayOfMonth(_, month))
-        val (initialRecordSet, recordSets) = StatementProcessor.process(month, statement)
+          (applyFilters(_, args.positiveFilters, args.negativeFilters))
+        val (initialRecordSet, recordSets) = StatementProcessor.process(month, statement, ensureLastDayOfMonth = true)
 
         val monthInitialData = toMonthTurnData(initialRecordSet.positionRecords.present)
         val showWarning = previousMonthFinalData.exists(_ != monthInitialData)
@@ -50,15 +48,6 @@ object ListOperation {
     statement
       .modify(_.initialEntries).using(_.view.filterKeys(predicate).toMap)
       .modify(_.entries.each).using(_.view.filterKeys(predicate).toMap)
-  }
-
-  private def ensureLastDayOfMonth(statement: FundsStatement, yearMonth: YearMonth): FundsStatement = {
-    val daysCounter = new DaysCounter(statement.noPriceDates)
-    val lastDate = daysCounter.lastDateOfYearMonth(yearMonth)
-
-    statement
-      .modify(_.entries)
-      .usingIf(!statement.entries.contains(lastDate))(_ + (lastDate -> Map.empty))
   }
 
   private def toMonthTurnData(previousPositionRecords: Map[String, Record.Position.Previous]): Map[String, MonthTurnFundData] =

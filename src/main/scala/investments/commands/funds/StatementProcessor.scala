@@ -20,15 +20,22 @@ object StatementProcessor {
     missingData = false,
   )
 
-  def process(yearMonth: YearMonth, statement: FundsStatement): (RecordSet.Position.Initial, Seq[RecordSet]) = {
+  def process(yearMonth: YearMonth, statement: FundsStatement, ensureLastDayOfMonth: Boolean = false): (RecordSet.Position.Initial, Seq[RecordSet]) = {
     val initialRecords = statement.initialEntries
       .view.mapValues(initialPositionRecordFrom)
       .toMap
     val initialPositionRecordSet = initialPositionRecordSetFrom(initialRecords, yearMonth)
 
     val daysCounter = new DaysCounter(statement.noPriceDates)
+    lazy val lastDate = daysCounter.lastDateOfYearMonth(yearMonth)
 
-    val (_, recordSets) = statement.entries
+    val entries = if (ensureLastDayOfMonth && !statement.entries.contains(lastDate)) {
+      statement.entries + (lastDate -> Map.empty[String, FundsStatement.Entry])
+    } else {
+      statement.entries
+    }
+
+    val (_, recordSets) = entries
       .toSeq.sortBy { case (date, _) => date }
       .foldMapLeft((initialPositionRecordSet: RecordSet.Position.Previous, ZeroAccumulatedRecordSet)) { case ((previousPositionRecordSet, previousAccumulatedRecordSet), (date, entries)) =>
         val days = daysCounter.count(previousPositionRecordSet.date, date)

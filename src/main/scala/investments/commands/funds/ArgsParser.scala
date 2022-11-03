@@ -10,6 +10,7 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
   private val ListOperation = "list"
   private val InitOperation = "init"
   private val EvolutionOfOperation = "evolution-of"
+  private val GetPricesOperation = "get-prices"
 
   private val TotalsOnlyOption = "--totals-only"
   private val NoTotalsOption = "--no-totals"
@@ -22,20 +23,22 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
   private val DefaultMaxNameLen = 10
   private val MinNameLenLimit = 4
 
+  private val OperationsArgumentsParsers = Map(
+    ListOperation -> takeListOpArgs,
+    InitOperation -> takeInitOpArgs,
+    EvolutionOfOperation -> takeEvolutionOfOpArgs,
+    GetPricesOperation -> takeGetPricesOpArgs,
+  )
+
   private case class DetailsAndAggregationOptions(details: Boolean, aggregation: Boolean)
 
   override protected def spec: Parser[OperationArguments] =
     for {
-      operation <- takeNextIf(operation => operation == ListOperation || operation == InitOperation || operation == EvolutionOfOperation)
-      opArgs <-
-        operation match {
-          case Some(InitOperation) => takeInitOpArgs
-          case Some(EvolutionOfOperation) => takeEvolutionOfOpArgs
-          case _ => takeListOpArgs
-        }
+      opArgsParser <- collectNext(OperationsArgumentsParsers)
+      opArgs <- opArgsParser.getOrElse(takeListOpArgs)
     } yield opArgs
 
-  private def takeListOpArgs: Parser[OperationArguments.List] =
+  private def takeListOpArgs: Parser[OperationArguments] =
     for {
       fundsAndTotals <- takeFundsAndTotalsOptions
       daysAndSummary <- takeDaysAndSummaryOptions
@@ -56,11 +59,11 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
       negativeFilters = negativeFilters,
     )
 
-  private def takeInitOpArgs: Parser[OperationArguments.Init] =
+  private def takeInitOpArgs: Parser[OperationArguments] =
     for (month <- takeMonth)
       yield OperationArguments.Init(month)
 
-  private def takeEvolutionOfOpArgs: Parser[OperationArguments.EvolutionOf] =
+  private def takeEvolutionOfOpArgs: Parser[OperationArguments] =
     for {
       fund <- takeNext
       monthRange <- takeMonthRange
@@ -68,6 +71,10 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
       fund = fund,
       monthRange = monthRange,
     )
+
+  private def takeGetPricesOpArgs: Parser[OperationArguments] =
+    for (month <- takeMonth)
+      yield OperationArguments.GetPrices(month)
 
   private def takeFundsAndTotalsOptions: Parser[DetailsAndAggregationOptions] =
     takeDetailsAndAggregationOptions(Seq(TotalsOnlyOption), Seq(NoTotalsOption))
@@ -129,6 +136,7 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
     printStream.println(s"  [$ListOperation] [OPÇÕES] MESES")
     printStream.println(s"  $InitOperation ANO-MÊS")
     printStream.println(s"  $EvolutionOfOperation NOME MESES")
+    printStream.println(s"  $GetPricesOperation ANO-MÊS")
     printStream.println()
     printStream.println(s"  OPÇÕES podem ser:")
     printStream.println(s"    $TotalsOnlyOption|$NoTotalsOption")

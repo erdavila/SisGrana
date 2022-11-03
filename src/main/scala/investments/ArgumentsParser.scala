@@ -62,6 +62,18 @@ trait ArgumentsParser[A] {
       case Nil => (Nil, None)
     }
 
+  protected def collectNext[T](pf: PartialFunction[String, T]): Parser[Option[T]] =
+    State {
+      case h :: t =>
+        val value = pf.lift(h)
+        if (value.isDefined) {
+          (t, value)
+        } else {
+          (h :: t, None)
+        }
+      case Nil => (Nil, None)
+    }
+
   protected def const[T](value: T): Parser[T] =
     State.pure(value)
 

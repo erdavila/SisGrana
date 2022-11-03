@@ -20,4 +20,6 @@ object OperationArguments {
     fund: String,
     monthRange: MonthRange,
   ) extends OperationArguments
+
+  case class GetPrices(month: YearMonth) extends OperationArguments
 }
