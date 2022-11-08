@@ -2,6 +2,7 @@ package sisgrana
 package investments.commands.funds
 
 import investments.ArgumentsParser
+import investments.commands.funds.operations.list.ListChunkMaker
 import java.io.PrintStream
 import java.time.YearMonth
 

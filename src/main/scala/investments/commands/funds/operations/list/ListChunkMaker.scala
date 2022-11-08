@@ -1,9 +1,10 @@
 package sisgrana
-package investments.commands.funds
+package investments.commands.funds.operations.list
 
 import cats.instances.option._
 import cats.syntax.apply._
 import investments.Rate
+import investments.commands.funds.{ChunkMaker, MonthRange, MonthTurnDataDifferMessage, RecordSet}
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
 import utils.AnsiString.StringOps

@@ -1,6 +1,7 @@
 package sisgrana
 package investments.commands.funds
 
+import investments.commands.funds.operations.list.ListChunkMaker
 import java.time.YearMonth
 
 sealed trait OperationArguments
