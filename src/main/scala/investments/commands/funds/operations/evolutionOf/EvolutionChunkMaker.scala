@@ -1,15 +1,16 @@
 package sisgrana
-package investments.commands.funds
+package investments.commands.funds.operations.evolutionOf
 
 import cats.instances.option._
 import cats.syntax.apply._
 import com.softwaremill.quicklens._
+import investments.commands.funds.ChunkMaker
 import java.time.{LocalDate, YearMonth}
-import scala.annotation.tailrec
 import utils.AnsiString
 import utils.AnsiString.StringOps
 import utils.TextAligner.Chunk
 import utils.Traversing._
+import scala.annotation.tailrec
 
 object EvolutionChunkMaker extends ChunkMaker {
   sealed trait EvolutionItem {
