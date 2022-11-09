@@ -22,5 +22,6 @@ object FundsStatement {
     note: Option[String],
   ) {
     require(!shareAmountChange.contains(BigDecimal(0)))
+    require(!note.contains(""))
   }
 }

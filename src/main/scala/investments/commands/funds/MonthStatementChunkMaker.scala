@@ -68,7 +68,11 @@ object MonthStatementChunkMaker extends ChunkMaker {
     sharePrice: Option[Double] = None,
     shareAmountChange: Option[BigDecimal] = None,
     note: Option[String] = None,
-  ): Seq[Chunk] =
+  ): Seq[Chunk] = {
+    val shareAmountChangeText = shareAmountChange
+      .map(shareAmountChange => EightDigitsNumberFormat.format(shareAmountChange.toDouble))
+      .orElse(Option.when(note.isDefined)("0"))
+
     Seq(
       Chunk.leftAligned(Anchors.Leftmost, dayString),
       Chunk.leftAligned(Anchors.Fund, Separator ++ ssvQuoted(text)),
@@ -76,14 +80,13 @@ object MonthStatementChunkMaker extends ChunkMaker {
       Seq(
         Chunk.leftAligned(Anchors.Separator, Separator),
         Chunk.rightAligned(Anchors.SharePrice, EightDigitsNumberFormat.format(sharePrice)),
-      ) ++ shareAmountChange.toSeq.flatMap(shareAmountChange =>
-        Seq(
-          Chunk.rightAligned(Anchors.ShareAmount, Separator ++ EightDigitsNumberFormat.format(shareAmountChange.toDouble)),
-        ) ++ note.map(note =>
-          Chunk.leftAligned(Anchors.ShareAmount, Separator ++ ssvQuoted(note))
-        )
+      ) ++ shareAmountChangeText.toSeq.map(shareAmountChangeText =>
+        Chunk.rightAligned(Anchors.ShareAmount, Separator ++ shareAmountChangeText)
+      ) ++ note.map(note =>
+        Chunk.leftAligned(Anchors.ShareAmount, Separator ++ ssvQuoted(note))
       )
     )
+  }
 
   private val Quote = '"'.toString
 
