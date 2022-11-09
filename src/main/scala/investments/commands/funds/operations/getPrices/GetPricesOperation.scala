@@ -12,7 +12,7 @@ import java.time.{LocalDate, LocalDateTime}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
-import utils.AnsiString.Code
+import utils.AnsiString.{Code, StringOps}
 import utils.{AnsiString, BrWord, Exit, HttpClient, TextAligner}
 
 object GetPricesOperation {
@@ -51,21 +51,14 @@ object GetPricesOperation {
 
       fundsResultsFuture
         .map { fundsResults =>
-          showResults(fundsResults)
+          val updatedStatement = mergeFundsResults(statement, fundsResults)
 
-          val obtainedPrices = filterObtainedPrices(fundsResults)
-          if (obtainedPrices.isEmpty) {
-            println("Nenhum preço obtido")
-          } else {
-            val updatedStatement = obtainedPrices.foldLeft(statement) { (statement, obtainedPrice) =>
-              statement
-                .modify(_.entries.at(obtainedPrice.date))
-                .using(_ + (obtainedPrice.fund -> FundsStatement.Entry(obtainedPrice.price, None, None)))
-            }
-            val rowsChunks = MonthStatementChunkMaker.makeChunks(updatedStatement)
-
-            renameExistingFile(file)
-            writeFile(file, rowsChunks)
+          updatedStatement match {
+            case Some(updatedStatement) =>
+              val rowsChunks = MonthStatementChunkMaker.makeChunks(updatedStatement)
+              renameExistingFile(file)
+              writeFile(file, rowsChunks)
+            case None => println("Nenhum preço obtido")
           }
         }
         .recover(e => Exit.withErrorMessage(e.printStackTrace))
@@ -73,15 +66,12 @@ object GetPricesOperation {
     }
   }
 
-  private def getPricesToGet(recordSets: Seq[RecordSet]) = {
+  private def getPricesToGet(recordSets: Seq[RecordSet]): Seq[(String, LocalDate)] =
     for {
       recordSet <- recordSets
       (fund, record) <- recordSet.records.toSeq.sortBy { case (fund, _) => fund }
-      if record.position.contains(Missing)
-    } yield {
-      (fund, recordSet.position.date)
-    }
-  }
+      if record.position.contains(Missing) || record.position.flatten.flatMap(_.note).exists(UpdatePriceTag.isIn)
+    } yield (fund, recordSet.position.date)
 
   private sealed trait FundResult {
     def fund: String
@@ -115,43 +105,62 @@ object GetPricesOperation {
     }
   }
 
-  private def showResults(results: Iterable[FundResult]): Unit = {
-    def highlighted(color: Code, text: AnsiString): AnsiString = {
-      val FormatOn = AnsiString.escape(Code.Bright(Code.White), Code.BG(color), Code.Bold)
-      val FormatOff = AnsiString.escape(Code.DefaultColor, Code.DefaultBgColor, Code.NormalIntensity)
-      FormatOn ++ text ++ FormatOff
-    }
+  private case class MergeState(statement: FundsStatement, count: Int)
 
-    for (result <- results.toSeq.sortBy(_.fund)) {
-      result match {
-        case FundResult.Success(fund, prices) =>
-          println(s"$fund:")
-          for ((date, price) <- prices.toSeq.sortBy(_._1)) {
-            val status = if (price.isDefined) {
-              "preço obtido"
-            } else {
-              highlighted(Code.Yellow, "preço não disponível")
-            }
-            println(s"  $date: $status")
-          }
-        case FundResult.Failure(fund, operation, cause) =>
-          val status = highlighted(Code.Red, s"Falha ao tentar obter preços ($operation)")
-          Console.err.println(s"$fund: $status")
-          cause.printStackTrace()
-      }
-    }
+  private def mergeFundsResults(statement: FundsStatement, fundsResults: Iterable[GetPricesOperation.FundResult]): Option[FundsStatement] = {
+    val initialState = MergeState(statement, count = 0)
+
+    val finalState = fundsResults.toSeq
+      .sortBy(_.fund)
+      .foldLeft(initialState) { (state, result) => mergeFundResult(result, state) }
+
+    Option.when(finalState.count > 0)(finalState.statement)
   }
 
-  private case class ObtainedPrice(fund: String, date: LocalDate, price: Double)
+  private def mergeFundResult(result: FundResult, state: MergeState): MergeState =
+    result match {
+      case FundResult.Success(fund, prices) =>
+        println(s"$fund:")
+        prices.toSeq
+          .sortBy(_._1)
+          .foldLeft(state) { case (state, (date, price)) => mergePrice(fund, date, price, state) }
 
-  private def filterObtainedPrices(results: Iterable[GetPricesOperation.FundResult]): Seq[ObtainedPrice] =
-    results.toSeq
-      .collect {
-        case FundResult.Success(fund, prices) =>
-          for ((date, Some(price)) <- prices.toSeq)
-            yield ObtainedPrice(fund, date, price)
-      }
-      .flatten
+      case FundResult.Failure(fund, operation, cause) =>
+        val status = highlighted(Code.Red, s"Falha ao tentar obter preços ($operation)")
+        Console.err.println(s"$fund: $status")
+        cause.printStackTrace()
+        state
+    }
+
+  private def mergePrice(fund: String, date: LocalDate, price: Option[Double], state: MergeState): MergeState = {
+    val statusPrefix = s"  $date: "
+
+    def status(color: Code, text: String) = statusPrefix ++ color ++ text ++ Code.DefaultColor
+
+    price match {
+      case Some(price) =>
+        state
+          .modify(_.count).using(_ + 1)
+          .modify(_.statement.entries.atOrElse(date, Map.empty))
+          .using { entries =>
+            val entry = entries.get(fund) match {
+              case Some(entry) =>
+                println(status(Code.Blue, "preço atualizado"))
+                entry
+                  .modify(_.sharePrice).setTo(price)
+                  .modify(_.note).using(_.map(UpdatePriceTag.removeFrom).filter(_.nonEmpty))
+
+              case None =>
+                println(status(Code.Green, "preço adicionado"))
+                FundsStatement.Entry(price, None, None)
+            }
+            entries + (fund -> entry)
+          }
+      case None =>
+        println(statusPrefix ++ highlighted(Code.Yellow, "preço não disponível"))
+        state
+    }
+  }
 
   private def renameExistingFile(file: File): Unit = {
     val now = LocalDateTime.now()
@@ -169,5 +178,11 @@ object GetPricesOperation {
     writer.close()
 
     println(s"Arquivo regravado: ${file.getPath}")
+  }
+
+  private def highlighted(color: Code, text: AnsiString): AnsiString = {
+    val FormatOn = AnsiString.escape(Code.Bright(Code.White), Code.BG(color), Code.Bold)
+    val FormatOff = AnsiString.escape(Code.DefaultColor, Code.DefaultBgColor, Code.NormalIntensity)
+    FormatOn ++ text ++ FormatOff
   }
 }
