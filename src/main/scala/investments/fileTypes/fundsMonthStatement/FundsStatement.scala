@@ -20,5 +20,7 @@ object FundsStatement {
     sharePrice: Double,
     shareAmountChange: Option[BigDecimal],
     note: Option[String],
-  )
+  ) {
+    require(!shareAmountChange.contains(BigDecimal(0)))
+  }
 }

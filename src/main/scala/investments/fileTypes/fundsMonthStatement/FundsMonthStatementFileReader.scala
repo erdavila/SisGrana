@@ -52,7 +52,7 @@ private[fundsMonthStatement] class FundsMonthStatementFileReader(yearMonth: Year
         } else {
           val sharePrice = BrNumber.parse(sharePriceString)
           val shareAmountChange = shareAmountChangeString.map(BrNumber.parseBigDecimal)
-          val newEntry = FundsStatement.Entry(sharePrice, shareAmountChange, note)
+          val newEntry = FundsStatement.Entry(sharePrice, shareAmountChange.filter(_ != 0), note)
           dateEntries + (fund -> newEntry)
         }
       }
