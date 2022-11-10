@@ -23,14 +23,6 @@ trait ChunkMaker {
       .modify(_.text).using(Indentation ++ _)
       .modify(_.width).using(_ + Indentation.length)
 
-  protected object Words {
-    def day(count: Int): String = if (count == 1) "dia" else "dias"
-
-    object WithCount {
-      def day(count: Int): String = s"$count ${Words.day(count)}"
-    }
-  }
-
   private val TwoDigitsNumberFormat = BrNumber
     .modifyNumberFormat { nf =>
       nf.setMinimumFractionDigits(2)

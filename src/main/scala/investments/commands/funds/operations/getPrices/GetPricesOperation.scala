@@ -7,13 +7,13 @@ import com.softwaremill.quicklens._
 import investments.commands.funds.{Missing, MonthStatementChunkMaker, OperationArguments, RecordSet, StatementProcessor}
 import investments.fileTypes.fundsMonthStatement.{FundsMonthStatementFileReader, FundsStatement}
 import java.io.{File, FileOutputStream, PrintWriter}
-import java.time.{LocalDate, LocalDateTime}
 import java.time.format.DateTimeFormatter
+import java.time.{LocalDate, LocalDateTime}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 import utils.AnsiString.Code
-import utils.{AnsiString, Exit, HttpClient, TextAligner}
+import utils.{AnsiString, BrWord, Exit, HttpClient, TextAligner}
 
 object GetPricesOperation {
   private val SuffixTimestampFormat = DateTimeFormatter.ofPattern("YYYY-MM-dd_HH-mm-ss")
@@ -38,7 +38,11 @@ object GetPricesOperation {
     if (pricesToGet.isEmpty) {
       println("Nenhum preço a ser obtido")
     } else {
-      println(s"Identificado(s) ${pricesToGet.length} preço(s) a ser(em) obtido(s)")
+      println {
+        val count = pricesToGet.length
+        import BrWord._
+        s"${identificado(count).toString.capitalize} ${preço(count).withCount} a ${ser(count)} ${obtido(count)}"
+      }
 
       val fundsResultsFuture = Future.sequence(
         for ((fund, dates) <- pricesToGet.groupMap(_._1)(_._2))

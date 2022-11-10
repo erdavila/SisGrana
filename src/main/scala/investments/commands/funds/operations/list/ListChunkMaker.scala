@@ -112,8 +112,9 @@ class ListChunkMaker(options: ListChunkMaker.Options) extends ChunkMaker {
   }
 
   private def toRecordSetChunks(recordSet: RecordSet): Seq[Seq[Chunk]] = {
+    import utils.BrWord._
     toDataRowsChunks(
-      s"${recordSet.position.date.getDayOfMonth} (${s"+${Words.WithCount.day(recordSet.position.days)}"})",
+      s"${recordSet.position.date.getDayOfMonth} (${s"+${dia(recordSet.position.days).withCount}"})",
       recordSet.records
         .toSeq.sortBy { case (fund, _) => fund }
         .map { case (fund, record) =>
@@ -143,8 +144,10 @@ class ListChunkMaker(options: ListChunkMaker.Options) extends ChunkMaker {
     )
   }
 
-  private def makeMonthSummaryChunks(accumulatedRecordSet: RecordSet.Accumulated): Seq[Seq[Chunk]] =
-    makeSummaryChunks(s"Mês (${Words.WithCount.day(accumulatedRecordSet.days)})", accumulatedRecordSet, months = 1)
+  private def makeMonthSummaryChunks(accumulatedRecordSet: RecordSet.Accumulated): Seq[Seq[Chunk]] = {
+    import utils.BrWord._
+    makeSummaryChunks(s"Mês (${dia(accumulatedRecordSet.days).withCount})", accumulatedRecordSet, months = 1)
+  }
 
   def makeMonthRangeSummaryChunks(monthRange: MonthRange, accumulatedRecordSet: RecordSet.Accumulated): Seq[Seq[Chunk]] = {
     val months = 1 + monthRange.initialMonth.until(monthRange.finalMonth, ChronoUnit.MONTHS).toInt
@@ -247,7 +250,8 @@ class ListChunkMaker(options: ListChunkMaker.Options) extends ChunkMaker {
               case Some(monthYieldRate) =>
                 Seq(
                   if (dataRecord.showYieldRateDays) {
-                    Chunk.rightAligned(Anchors.AccumulatedDays, s" em ${Words.WithCount.day(yieldRate.days)};")
+                    import utils.BrWord._
+                    Chunk.rightAligned(Anchors.AccumulatedDays, s" em ${dia(yieldRate.days).withCount};")
                   } else {
                     Chunk.leftAligned(Anchors.YieldRate, ";")
                   },
