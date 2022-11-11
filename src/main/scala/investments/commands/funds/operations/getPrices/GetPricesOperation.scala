@@ -12,7 +12,7 @@ import java.time.{LocalDate, LocalDateTime}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
-import utils.AnsiString.{Code, StringOps}
+import utils.AnsiString.{Format, StringOps}
 import utils.{AnsiString, BrWord, Exit, HttpClient, TextAligner}
 
 object GetPricesOperation {
@@ -126,7 +126,7 @@ object GetPricesOperation {
           .foldLeft(state) { case (state, (date, price)) => mergePrice(fund, date, price, state) }
 
       case FundResult.Failure(fund, operation, cause) =>
-        val status = highlighted(Code.Red, s"Falha ao tentar obter preços ($operation)")
+        val status = highlighted(Format.Red, s"Falha ao tentar obter preços ($operation)")
         Console.err.println(s"$fund: $status")
         cause.printStackTrace()
         state
@@ -135,7 +135,7 @@ object GetPricesOperation {
   private def mergePrice(fund: String, date: LocalDate, price: Option[Double], state: MergeState): MergeState = {
     val statusPrefix = s"  $date: "
 
-    def status(color: Code, text: String) = statusPrefix ++ color ++ text ++ Code.DefaultColor
+    def status(colorFormat: AnsiString.ColorFormat, text: String) = statusPrefix ++ colorFormat(text)
 
     price match {
       case Some(price) =>
@@ -145,19 +145,19 @@ object GetPricesOperation {
           .using { entries =>
             val entry = entries.get(fund) match {
               case Some(entry) =>
-                println(status(Code.Blue, "preço atualizado"))
+                println(status(Format.Blue, "preço atualizado"))
                 entry
                   .modify(_.sharePrice).setTo(price)
                   .modify(_.note).using(_.map(UpdatePriceTag.removeFrom).filter(_.nonEmpty))
 
               case None =>
-                println(status(Code.Green, "preço adicionado"))
+                println(status(Format.Green, "preço adicionado"))
                 FundsStatement.Entry(price, None, None)
             }
             entries + (fund -> entry)
           }
       case None =>
-        println(statusPrefix ++ highlighted(Code.Yellow, "preço não disponível"))
+        println(statusPrefix ++ highlighted(Format.Yellow, "preço não disponível"))
         state
     }
   }
@@ -180,9 +180,6 @@ object GetPricesOperation {
     println(s"Arquivo regravado: ${file.getPath}")
   }
 
-  private def highlighted(color: Code, text: AnsiString): AnsiString = {
-    val FormatOn = AnsiString.escape(Code.Bright(Code.White), Code.BG(color), Code.Bold)
-    val FormatOff = AnsiString.escape(Code.DefaultColor, Code.DefaultBgColor, Code.NormalIntensity)
-    FormatOn ++ text ++ FormatOff
-  }
+  private def highlighted(colorFormat: AnsiString.ColorFormat, text: AnsiString): AnsiString =
+    (Format.White.bright <|> colorFormat.bg <|> Format.Bold)(text)
 }

@@ -2,7 +2,7 @@ package sisgrana
 package investments.commands.funds
 
 import com.softwaremill.quicklens._
-import utils.AnsiString.{Code, StringOps}
+import utils.AnsiString.{Format, StringOps}
 import utils.TextAligner.Chunk
 import utils.{AnsiString, BrNumber}
 
@@ -59,20 +59,30 @@ trait ChunkMaker {
 
   protected def colorize[A](value: A)(format: A => String)(implicit numeric: Numeric[A]): AnsiString = {
     import numeric._
-    val colorCode = if (value > numeric.zero) Code.Blue else Code.Red
-    colorCode ++ format(value) ++ Code.DefaultColor
+    val colorFormat = if (value > numeric.zero) Format.Blue else Format.Red
+    colorFormat(format(value))
   }
 
-  protected def toBoldChunks(chunks: Seq[Chunk]): Seq[Chunk] =
+  protected def toBoldChunks(chunks: Seq[Chunk]): Seq[Chunk] = {
+    val prefix = Format.Bold.rangePrefix
+    val suffix = Format.Bold.rangeSuffix
+
+    def modifyChunk(addedPart: AnsiString, f: (String, AnsiString) => AnsiString)(chunk: Chunk) =
+      chunk
+        .modify(_.text).using(f(_, addedPart).toString)
+        .modify(_.width).using(_ + addedPart.length)
+
     chunks
-      .modify(_.at(0).text).using(text => (Code.Bold ++ text).toString)
-      .modify(_.at(chunks.length - 1).text).using(text => (text ++ Code.NormalIntensity).toString)
-
-  protected def toWarningAnsiString(text: String): AnsiString = {
-    val FormatOn = AnsiString.escape(Code.Bright(Code.White), Code.BG(Code.Red), Code.Bold)
-    val FormatOff = AnsiString.escape(Code.DefaultColor, Code.DefaultBgColor, Code.NormalIntensity)
-    FormatOn ++ s" $text " ++ FormatOff
+      .modify(_.at(0))(
+        modifyChunk(prefix, (text, part) => part ++ text)
+      )
+      .modify(_.at(chunks.length - 1))(
+        modifyChunk(suffix, (text, part) => text ++ part)
+      )
   }
+
+  protected def toWarningAnsiString(text: String): AnsiString =
+    (Format.White.bright <|> Format.Red.bg <|> Format.Bold)(s" $text ")
 
   protected def seqIf[A](condition: Boolean)(`then`: => Seq[A]): Seq[A] =
     if (condition) `then` else Seq.empty
