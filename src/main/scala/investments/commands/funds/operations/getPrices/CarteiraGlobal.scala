@@ -42,7 +42,7 @@ class CarteiraGlobal(httpClient: HttpClient) {
     for (response <- httpClient.post[Request, Response](s"$BaseUrl/api/graphql", request))
       yield response.data("getSearchConhecaAutocomplete")
         .collectFirst { case DataItem(id, `fundName`) => id }
-        .get
+        .getOrElse(throw new Exception("Fund not found"))
   }
 
   def getFundSharePrices(fundId: Long): Future[Map[LocalDate, Double]] = {

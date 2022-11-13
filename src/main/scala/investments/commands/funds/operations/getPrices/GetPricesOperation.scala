@@ -78,14 +78,14 @@ object GetPricesOperation {
   }
   private object FundResult {
     case class Success(fund: String, prices: Map[LocalDate, Option[Double]]) extends FundResult
-    case class Failure(fund: String, operation: String, cause: Throwable) extends FundResult
+    case class Failure(fund: String, operation: String, cause: Throwable, dates: Seq[LocalDate]) extends FundResult
   }
 
   private def getFundSharePrices(fund: String, dates: Seq[LocalDate]): Future[FundResult] = {
     def handleFailure[A](f: Future[A], operation: String)(g: A => Future[FundResult]): Future[FundResult] =
       f.transformWith {
         case Success(value) => g(value)
-        case Failure(exception) => Future.successful(FundResult.Failure(fund, operation, exception))
+        case Failure(exception) => Future.successful(FundResult.Failure(fund, operation, exception, dates))
       }
 
     handleFailure(carteiraGlobal.getFundId(fund), "getFundId") { fundId =>
@@ -125,9 +125,9 @@ object GetPricesOperation {
           .sortBy(_._1)
           .foldLeft(state) { case (state, (date, price)) => mergePrice(fund, date, price, state) }
 
-      case FundResult.Failure(fund, operation, cause) =>
+      case FundResult.Failure(fund, operation, cause, dates) =>
         val status = highlighted(Format.Red, s"Falha ao tentar obter preços ($operation)")
-        Console.err.println(s"$fund: $status")
+        Console.err.println(s"$fund: $status para ${dates.mkString(", ")}")
         cause.printStackTrace()
         state
     }
