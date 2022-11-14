@@ -18,10 +18,10 @@ class CarteiraGlobal(httpClient: HttpClient) {
       yield RE.findFirstMatchIn(html).get.group(1)
   }
 
-  def getFundId(fundName: String): Future[Long] = {
+  def getFundIdByCnpj(cnpj: String): Future[Long] = {
     case class Request(query: String, variables: Map[String, String])
     case class Response(data: Map[String, Seq[DataItem]])
-    case class DataItem(id: Long, name: String)
+    case class DataItem(id: Long, cnpj: String)
 
     implicit val requestFormat: RootJsonFormat[Request] = jsonFormat2(Request)
     implicit val dataItemFormat: RootJsonFormat[DataItem] = jsonFormat2(DataItem)
@@ -31,17 +31,17 @@ class CarteiraGlobal(httpClient: HttpClient) {
       query =
         """query ($input: String) {
           |  getSearchConhecaAutocomplete(input: $input) {
-          |    name
+          |    cnpj
           |    id
           |  }
           |}
           |""".stripMargin,
-      variables = Map("input" -> fundName),
+      variables = Map("input" -> cnpj),
     )
 
     for (response <- httpClient.post[Request, Response](s"$BaseUrl/api/graphql", request))
       yield response.data("getSearchConhecaAutocomplete")
-        .collectFirst { case DataItem(id, `fundName`) => id }
+        .collectFirst { case DataItem(id, `cnpj`) => id }
         .getOrElse(throw new Exception("Fund not found"))
   }
 

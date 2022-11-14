@@ -5,6 +5,7 @@ import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.Behaviors
 import com.softwaremill.quicklens._
 import investments.commands.funds.{Missing, MonthStatementChunkMaker, OperationArguments, RecordSet, StatementProcessor}
+import investments.fileTypes.fundsMetadata.FundsMetadataFileReader
 import investments.fileTypes.fundsMonthStatement.{FundsMonthStatementFileReader, FundsStatement}
 import java.io.{File, FileOutputStream, PrintWriter}
 import java.time.format.DateTimeFormatter
@@ -18,8 +19,10 @@ import utils.{AnsiString, BrWord, Exit, HttpClient, TextAligner}
 object GetPricesOperation {
   private val SuffixTimestampFormat = DateTimeFormatter.ofPattern("YYYY-MM-dd_HH-mm-ss")
 
-  private implicit val system: ActorSystem[_] = ActorSystem(Behaviors.empty, "HttpClient")
-  private val carteiraGlobal = new CarteiraGlobal(new HttpClient)
+  private implicit lazy val system: ActorSystem[_] = ActorSystem(Behaviors.empty, "HttpClient")
+  private lazy val carteiraGlobal = new CarteiraGlobal(new HttpClient)
+
+  private lazy val FundsMetadataByShortName = FundsMetadataFileReader.read().map(fund => fund.shortName -> fund).toMap
 
   def execute(args: OperationArguments.GetPrices): Unit = {
     val filePath = FundsMonthStatementFileReader.terminalFilePath(args.month)
@@ -88,7 +91,12 @@ object GetPricesOperation {
         case Failure(exception) => Future.successful(FundResult.Failure(fund, operation, exception, dates))
       }
 
-    handleFailure(carteiraGlobal.getFundId(fund), "getFundId") { fundId =>
+    val cnpj = FundsMetadataByShortName.get(fund) match {
+      case Some(metadata) => metadata.cnpj
+      case None => throw new Exception(s"""Não encontrado fundo com o nome curto "$fund"""")
+    }
+
+    handleFailure(carteiraGlobal.getFundIdByCnpj(cnpj), "getFundId") { fundId =>
       handleFailure(carteiraGlobal.getFundSharePrices(fundId), "getFundSharePrices") { obtainedPrices =>
         Future.successful(
           FundResult.Success(
