@@ -22,4 +22,6 @@ object OperationArguments {
   ) extends OperationArguments
 
   case class GetPrices(month: YearMonth) extends OperationArguments
+
+  case class Rewrite(month: YearMonth) extends OperationArguments
 }

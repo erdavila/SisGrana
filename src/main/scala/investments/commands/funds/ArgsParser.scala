@@ -11,6 +11,7 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
   private val InitOperation = "init"
   private val EvolutionOfOperation = "evolution-of"
   private val GetPricesOperation = "get-prices"
+  private val RewriteOperation = "rewrite"
 
   private val TotalsOnlyOption = "--totals-only"
   private val NoTotalsOption = "--no-totals"
@@ -28,6 +29,7 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
     InitOperation -> takeInitOpArgs,
     EvolutionOfOperation -> takeEvolutionOfOpArgs,
     GetPricesOperation -> takeGetPricesOpArgs,
+    RewriteOperation -> takeRewriteOpArgs,
   )
 
   private case class DetailsAndAggregationOptions(details: Boolean, aggregation: Boolean)
@@ -75,6 +77,10 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
   private def takeGetPricesOpArgs: Parser[OperationArguments] =
     for (month <- takeMonth)
       yield OperationArguments.GetPrices(month)
+
+  private def takeRewriteOpArgs: Parser[OperationArguments] =
+    for (month <- takeMonth)
+      yield OperationArguments.Rewrite(month)
 
   private def takeFundsAndTotalsOptions: Parser[DetailsAndAggregationOptions] =
     takeDetailsAndAggregationOptions(Seq(TotalsOnlyOption), Seq(NoTotalsOption))
@@ -137,6 +143,7 @@ object ArgsParser extends ArgumentsParser[OperationArguments] {
     printStream.println(s"  $InitOperation ANO-MÊS")
     printStream.println(s"  $EvolutionOfOperation NOME MESES")
     printStream.println(s"  $GetPricesOperation ANO-MÊS")
+    printStream.println(s"  $RewriteOperation ANO-MÊS")
     printStream.println()
     printStream.println(s"  OPÇÕES podem ser:")
     printStream.println(s"    $TotalsOnlyOption|$NoTotalsOption")

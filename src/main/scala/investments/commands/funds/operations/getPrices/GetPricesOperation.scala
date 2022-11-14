@@ -4,36 +4,25 @@ package investments.commands.funds.operations.getPrices
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.Behaviors
 import com.softwaremill.quicklens._
-import investments.commands.funds.{Missing, MonthStatementChunkMaker, OperationArguments, RecordSet, StatementProcessor}
+import investments.commands.funds.{Missing, OperationArguments, RecordSet, StatementProcessor, StatementRewriter}
 import investments.fileTypes.fundsMetadata.FundsMetadataFileReader
-import investments.fileTypes.fundsMonthStatement.{FundsMonthStatementFileReader, FundsStatement}
-import java.io.{File, FileOutputStream, PrintWriter}
-import java.time.format.DateTimeFormatter
-import java.time.{LocalDate, LocalDateTime}
+import investments.fileTypes.fundsMonthStatement.FundsStatement
+import java.time.LocalDate
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 import utils.AnsiString.{Format, StringOps}
-import utils.{AnsiString, BrWord, Exit, HttpClient, TextAligner}
+import utils.{AnsiString, BrWord, Exit, HttpClient}
 
 object GetPricesOperation {
-  private val SuffixTimestampFormat = DateTimeFormatter.ofPattern("YYYY-MM-dd_HH-mm-ss")
-
   private implicit lazy val system: ActorSystem[_] = ActorSystem(Behaviors.empty, "HttpClient")
   private lazy val carteiraGlobal = new CarteiraGlobal(new HttpClient)
 
   private lazy val FundsMetadataByShortName = FundsMetadataFileReader.read().map(fund => fund.shortName -> fund).toMap
 
   def execute(args: OperationArguments.GetPrices): Unit = {
-    val filePath = FundsMonthStatementFileReader.terminalFilePath(args.month)
-    val file = new File(filePath)
-    if (!file.exists()) {
-      Exit.withErrorMessage { stream =>
-        stream.println(s"O arquivo não existe: $filePath")
-      }
-    }
-
-    val statement = FundsMonthStatementFileReader.read(args.month)
+    val rewriter = new StatementRewriter(args.month)
+    val statement = rewriter.read()
     val (_, recordSets) = StatementProcessor.process(args.month, statement, ensureLastDayOfMonth = true)
 
     val pricesToGet = getPricesToGet(recordSets)
@@ -57,10 +46,7 @@ object GetPricesOperation {
           val updatedStatement = mergeFundsResults(statement, fundsResults)
 
           updatedStatement match {
-            case Some(updatedStatement) =>
-              val rowsChunks = MonthStatementChunkMaker.makeChunks(updatedStatement)
-              renameExistingFile(file)
-              writeFile(file, rowsChunks)
+            case Some(updatedStatement) => rewriter.rewrite(updatedStatement)
             case None => println("Nenhum preço obtido")
           }
         }
@@ -168,24 +154,6 @@ object GetPricesOperation {
         println(statusPrefix ++ highlighted(Format.Yellow, "preço não disponível"))
         state
     }
-  }
-
-  private def renameExistingFile(file: File): Unit = {
-    val now = LocalDateTime.now()
-    val newFilePath = s"${file.getPath}.${SuffixTimestampFormat.format(now)}"
-    file.renameTo(new File(newFilePath))
-
-    println(s"Arquivo existente foi renomeado para $newFilePath")
-  }
-
-  private def writeFile(file: File, rowsChunks: Seq[Seq[TextAligner.Chunk]]): Unit = {
-    val writer = new PrintWriter(new FileOutputStream(file))
-    for (row <- TextAligner.alignAndRender(rowsChunks)) {
-      writer.println(row)
-    }
-    writer.close()
-
-    println(s"Arquivo regravado: ${file.getPath}")
   }
 
   private def highlighted(colorFormat: AnsiString.ColorFormat, text: AnsiString): AnsiString =
